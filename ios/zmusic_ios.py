@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""Leaves FluidSynth out of a ZMusic source tree (argument: its path).
+"""Prepares a ZMusic source tree (argument: its path) for an iOS build.
 
-ZMusic's copy of FluidSynth needs glib, which iOS doesn't have. Without it,
-MIDI music falls back to ZMusic's other synths (TiMidity, OPL, ...): a stub
-CreateFluidSynthMIDIDevice throws, and ZMusic's own fallback picks the next.
+- FluidSynth is left out: ZMusic's copy needs glib, which iOS doesn't have.
+  MIDI music falls back to ZMusic's other synths (TiMidity, OPL, ...): a
+  stub CreateFluidSynthMIDIDevice throws, and ZMusic's own fallback picks
+  the next.
+- No CoreMIDI device (macOS only: it uses CoreAudio/HostTime.h).
 Run it once on a fresh checkout; it stops if the source has moved on.
 """
 import os, sys
@@ -24,6 +26,9 @@ patch("source/CMakeLists.txt", "timidity timidityplus wildmidi fluidsynth)", "ti
 patch("source/CMakeLists.txt", "target_link_libraries_hidden(zmusiclite zmusic-obj fluidsynth)",
       "target_link_libraries_hidden(zmusiclite zmusic-obj)")
 
+patch("source/CMakeLists.txt", "elseif(APPLE)\n\ttarget_compile_definitions(zmusic-obj INTERFACE HAVE_SYSTEM_MIDI)",
+      "elseif(APPLE AND NOT CMAKE_SYSTEM_NAME STREQUAL \"iOS\")\n\ttarget_compile_definitions(zmusic-obj INTERFACE HAVE_SYSTEM_MIDI)")
+
 with open(os.path.join(root, "source/mididevices/music_nofluidsynth_mididevice.cpp"), "w") as f:
     f.write('''// FluidSynth is left out of this build (it needs glib): opening it fails,
 // so ZMusic falls back to its next MIDI synth.
@@ -35,4 +40,4 @@ MIDIDevice *CreateFluidSynthMIDIDevice(int samplerate, const char *Args)
 	throw std::runtime_error("FluidSynth is not available in this build");
 }
 ''')
-print("ZMusic: FluidSynth left out")
+print("ZMusic: prepared for iOS (no FluidSynth, no CoreMIDI)")
