@@ -43,7 +43,21 @@ static int RunAlert(UIAlertController* alert, NSArray<NSString*>* titles, int ca
 	}
 
 	UIViewController* vc = TopViewController();
-	if (vc == nil) return cancelIndex;
+	static UIWindow* ownWindow = nil;
+	if (vc == nil)
+	{
+		// Nothing on screen yet (the game window comes later): put up a
+		// plain black window of our own to show the alert on
+		UIWindowScene* windowScene = nil;
+		for (UIScene* scene in UIApplication.sharedApplication.connectedScenes)
+			if ([scene isKindOfClass:UIWindowScene.class]) { windowScene = (UIWindowScene*)scene; break; }
+		ownWindow = windowScene ? [[UIWindow alloc] initWithWindowScene:windowScene]
+		                        : [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
+		ownWindow.rootViewController = [UIViewController new];
+		ownWindow.rootViewController.view.backgroundColor = UIColor.blackColor;
+		[ownWindow makeKeyAndVisible];
+		vc = ownWindow.rootViewController;
+	}
 	if (alert.popoverPresentationController)
 	{
 		// iPad: an action sheet needs an anchor
@@ -59,6 +73,12 @@ static int RunAlert(UIAlertController* alert, NSArray<NSString*>* titles, int ca
 		{
 			[[NSRunLoop mainRunLoop] runMode:NSDefaultRunLoopMode beforeDate:[NSDate dateWithTimeIntervalSinceNow:0.05]];
 		}
+	}
+	if (ownWindow)
+	{
+		// Out of the way again before the game makes its own window
+		ownWindow.hidden = YES;
+		ownWindow = nil;
 	}
 	return chosen;
 }
