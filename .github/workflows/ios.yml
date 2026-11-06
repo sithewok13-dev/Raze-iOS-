@@ -69,7 +69,14 @@ jobs:
     - name: Build host tools
       run: |
         set -e
-        cmake -S . -B host -G Ninja -DCMAKE_BUILD_TYPE=Release -DFORCE_INTERNAL_BZIP2=ON > host-configure.log 2>&1 || { tail -40 host-configure.log; exit 1; }
+        DEPS=$PWD/deps
+        # Only the tools are built here; the game's libraries just have to be
+        # found for the configure step (the iOS ones do).
+        cmake -S . -B host -G Ninja -DCMAKE_BUILD_TYPE=Release -DFORCE_INTERNAL_BZIP2=ON \
+          -DZMUSIC_INCLUDE_DIR=$DEPS/include -DZMUSIC_LIBRARIES=$DEPS/lib/libzmusic.a \
+          -DSDL2_INCLUDE_DIR=$DEPS/include/SDL2 -DSDL2_LIBRARY=$DEPS/lib/libSDL2.a \
+          -DNO_GTK=ON -DHAVE_VULKAN=OFF \
+          > host-configure.log 2>&1 || { tail -40 host-configure.log; exit 1; }
         cmake --build host --target zipdir lemon re2c
         test -f host/ImportExecutables.cmake
 
