@@ -187,6 +187,14 @@ void CollectSubdirectories(TArray<FString> &searchpath, const char *dirmatch)
 {
 	FString dirpath = MakeUTF8(dirmatch);	// convert into clean UTF-8
 	dirpath.Truncate(dirpath.Len() - 2);	// remove the '/*'
+	if (dirpath.Len() >= 2 && dirpath[dirpath.Len() - 2] == '/' && dirpath.Back() == '*')
+	{
+		// "dir/*/*": the subdirectories of each subdirectory
+		TArray<FString> parents;
+		CollectSubdirectories(parents, dirpath.GetChars());
+		for (auto& parent : parents) CollectSubdirectories(searchpath, (parent + "/*").GetChars());
+		return;
+	}
 	FString AbsPath = M_GetNormalizedPath(dirpath.GetChars());
 	if (DirExists(AbsPath.GetChars()))
 	{

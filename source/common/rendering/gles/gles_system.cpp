@@ -50,6 +50,13 @@ static void* LoadGLES2Proc(const char* name)
 
 #include <dlfcn.h>
 
+#ifdef RAZE_IOS
+// The OpenGLES framework is linked into the app: look the functions up in it
+static void* LoadGLES2Proc(const char* name)
+{
+	return dlsym(RTLD_DEFAULT, name);
+}
+#else
 static void* LoadGLES2Proc(const char* name)
 {
 	static void* glesLib = NULL;
@@ -74,6 +81,7 @@ static void* LoadGLES2Proc(const char* name)
 
 	return ret;
 }
+#endif // RAZE_IOS
 
 #endif
 

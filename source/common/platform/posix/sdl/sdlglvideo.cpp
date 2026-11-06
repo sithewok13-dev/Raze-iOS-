@@ -90,7 +90,11 @@ CUSTOM_CVAR(Bool, gl_debug, false, CVAR_ARCHIVE | CVAR_GLOBALCONFIG | CVAR_NOINI
 {
 	Printf("This won't take effect until " GAMENAME " is restarted.\n");
 }
+#ifdef RAZE_IOS
+CUSTOM_CVAR(Bool, gl_es, true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG | CVAR_NOINITCALL)
+#else
 CUSTOM_CVAR(Bool, gl_es, false, CVAR_ARCHIVE | CVAR_GLOBALCONFIG | CVAR_NOINITCALL)
+#endif
 {
 	Printf("This won't take effect until " GAMENAME " is restarted.\n");
 }
@@ -171,7 +175,12 @@ namespace Priv
 		FString caption;
 		caption.Format(GAMENAME " %s (%s)", GetVersionString(), GetGitTime());
 
+#ifdef RAZE_IOS
+		// iOS: always the whole screen, at the screen's full resolution
+		const uint32_t windowFlags = SDL_WINDOW_FULLSCREEN | SDL_WINDOW_BORDERLESS | SDL_WINDOW_ALLOW_HIGHDPI | (extraFlags & ~SDL_WINDOW_FULLSCREEN_DESKTOP);
+#else
 		const uint32_t windowFlags = (win_maximized ? SDL_WINDOW_MAXIMIZED : 0) | SDL_WINDOW_RESIZABLE | extraFlags;
+#endif
 		Priv::window = SDL_CreateWindow(caption.GetChars(), xWindowPos, yWindowPos, win_w, win_h, windowFlags);
 
 		if (Priv::window != nullptr)
@@ -211,7 +220,13 @@ namespace Priv
 		if (gl_es)
 		{
 			SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+#ifdef RAZE_IOS
+			// iOS: an ES 3.0 context, so the mapped buffers, fences and integer
+			// attributes the renderer looks up really work
+			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+#else
 			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+#endif
 			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
 		}
 		else if (glver[0] > 2)
@@ -617,7 +632,7 @@ int SystemGLFrameBuffer::GetClientHeight()
 
 void SystemGLFrameBuffer::SetVSync( bool vsync )
 {
-#if defined (__APPLE__)
+#if defined (__APPLE__) && !defined (RAZE_IOS)
 	const GLint value = vsync ? 1 : 0;
 	CGLSetParameter( CGLGetCurrentContext(), kCGLCPSwapInterval, &value );
 #else

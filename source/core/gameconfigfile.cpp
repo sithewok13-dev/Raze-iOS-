@@ -76,8 +76,21 @@ FGameConfigFile::FGameConfigFile ()
 	if (!SetSection ("GameSearch.Directories"))
 	{
 		SetSection ("GameSearch.Directories", true);
+#ifdef RAZE_IOS
+		// iOS: the games are folders in Files > On My iPhone > Raze (the app's
+		// Documents). Two levels, so GOG's Redneck Rampage folder, which holds
+		// Rides Again in a folder of its own, gives both games.
+		{
+			FString docs = user_docs;
+			docs.Truncate(docs.Len() - strlen("/" GAME_DIR));
+			SetValueForKey ("Path", docs, true);
+			SetValueForKey ("Path", docs + "/*", true);
+			SetValueForKey ("Path", docs + "/*/*", true);
+		}
+#else
 		SetValueForKey ("Path", ".", true);
 		SetValueForKey ("Path", "./*", true);
+#endif
 #ifdef __APPLE__
 		SetValueForKey ("Path", user_docs + "/*", true);
 		SetValueForKey ("Path", user_app_support + "/EDuke32", true);

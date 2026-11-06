@@ -38,6 +38,12 @@ endif()
 
 project(Raze)
 
+# iOS (iPhone/iPad) build: SDL2 backend, OpenGL ES renderer, no Vulkan.
+if( CMAKE_SYSTEM_NAME STREQUAL "iOS" )
+	set( RAZE_IOS ON )
+	add_definitions( -DRAZE_IOS=1 )
+endif()
+
 if (WIN32 AND VCPKG_TOOLCHAIN)
 	option(LIBVPX_VCPKG "Use libvpx from vcpkg" OFF)
 endif()
@@ -241,7 +247,11 @@ if( ${TARGET_ARCHITECTURE} MATCHES "x86_64" )
 	set( HAVE_VM_JIT ON )
 endif()
 
-option (HAVE_VULKAN "Enable Vulkan support" ON)
+if( RAZE_IOS )
+	option (HAVE_VULKAN "Enable Vulkan support" OFF)
+else()
+	option (HAVE_VULKAN "Enable Vulkan support" ON)
+endif()
 option (HAVE_GLES2 "Enable GLES2 support" ON)
 
 # no, we're not using external asmjit for now, we made too many modifications to our's.
@@ -344,7 +354,7 @@ else()
 	set( DEB_C_FLAGS "" )
 
 
-	if( APPLE )
+	if( APPLE AND NOT RAZE_IOS )
 		set(CMAKE_OSX_DEPLOYMENT_TARGET "10.13")
 		if( CMAKE_CXX_COMPILER_ID STREQUAL "GNU" )
 			# If we're compiling with a custom GCC on the Mac (which we know since g++-4.2 doesn't support C++11) statically link libgcc.
@@ -354,7 +364,7 @@ else()
 		# Generic GCC/Clang requires position independent executable to be enabled explicitly
 		set( ALL_C_FLAGS "${ALL_C_FLAGS} -fPIE" )
 		set( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pie" )
-	endif( APPLE )
+	endif( APPLE AND NOT RAZE_IOS )
 endif()
 
 set( CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} ${REL_LINKER_FLAGS}" )

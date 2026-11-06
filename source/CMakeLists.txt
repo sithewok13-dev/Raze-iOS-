@@ -28,9 +28,15 @@ else()
 	set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -funsigned-char -Wno-missing-braces -Wno-char-subscripts -Wno-unused-variable" )
 endif()
 
-option( DYN_OPENAL "Dynamically load OpenAL" ON )
+if( RAZE_IOS )
+	# iOS: OpenAL Soft is linked statically and the SDL backend is used
+	set( DYN_OPENAL OFF )
+	set( OSX_COCOA_BACKEND OFF )
+else()
+	option( DYN_OPENAL "Dynamically load OpenAL" ON )
+endif()
 
-if( APPLE )
+if( APPLE AND NOT RAZE_IOS )
     option( OSX_COCOA_BACKEND "Use native Cocoa backend instead of SDL" ON )
 endif()
 
@@ -147,7 +153,7 @@ if( NOT NO_OPENAL )
 			mark_as_advanced(CLEAR OPENAL_LIBRARY)
 			if( OPENAL_LIBRARY )
 				set( PROJECT_LIBRARIES ${OPENAL_LIBRARY} ${PROJECT_LIBRARIES} )
-				if( APPLE )
+				if( APPLE AND NOT RAZE_IOS )
 					set( PROJECT_LIBRARIES ${PROJECT_LIBRARIES} "-framework AudioUnit -framework CoreAudio -framework ApplicationServices -framework AudioToolbox -framework CoreFoundation" )
 				endif()
 			else()
@@ -473,14 +479,25 @@ elseif( APPLE )
 	else()
 		set( SYSTEM_SOURCES_DIR common/platform/posix common/platform/posix/sdl )
 		set( SYSTEM_SOURCES ${PLAT_SDL_SOURCES} )
-		set( PLAT_OSX_SOURCES ${PLAT_OSX_SOURCES} common/platform/posix/sdl/i_system.mm )
+		if( RAZE_IOS )
+			# No crash catcher (no fork on iOS), no AppKit: the iOS file has
+			# the game picker and the fatal error alert
+			list( REMOVE_ITEM SYSTEM_SOURCES common/platform/posix/sdl/crashcatcher.c )
+			set( PLAT_OSX_SOURCES
+				common/platform/posix/osx/i_specialpaths.mm
+				../ios/i_ios.mm )
+		else()
+			set( PLAT_OSX_SOURCES ${PLAT_OSX_SOURCES} common/platform/posix/sdl/i_system.mm )
+		endif()
 		set( OTHER_SYSTEM_SOURCES ${PLAT_WIN32_SOURCES} ${PLAT_COCOA_SOURCES} ${PLAT_UNIX_SOURCES} )
 	endif()
 
 	set( SYSTEM_SOURCES ${SYSTEM_SOURCES} ${PLAT_POSIX_SOURCES} ${PLAT_OSX_SOURCES} )
 
-	set_source_files_properties( platform/posix/osx/${PROJECT_NAME}.icns PROPERTIES MACOSX_PACKAGE_LOCATION Resources )
-	set_source_files_properties( common/platform/posix/osx/iwadpicker_cocoa.mm PROPERTIES COMPILE_FLAGS -fobjc-exceptions )
+	if( NOT RAZE_IOS )
+		set_source_files_properties( platform/posix/osx/${PROJECT_NAME}.icns PROPERTIES MACOSX_PACKAGE_LOCATION Resources )
+		set_source_files_properties( common/platform/posix/osx/iwadpicker_cocoa.mm PROPERTIES COMPILE_FLAGS -fobjc-exceptions )
+	endif()
 else()
 	option (SYSTEMINSTALL "Set global progdir based on CMake Install Dir" OFF)
 
@@ -1468,7 +1485,23 @@ if( DEM_CMAKE_COMPILER_IS_GNUCXX_COMPATIBLE )
 		APPEND_STRING PROPERTY COMPILE_FLAGS " ${SSE2_ENABLE}" )
 endif()
 
-if( APPLE )
+if( RAZE_IOS )
+	# What SDL2, OpenAL Soft and the GLES renderer need on iOS
+	set( IOS_FRAMEWORKS UIKit Foundation OpenGLES QuartzCore CoreGraphics CoreFoundation
+		AVFoundation AudioToolbox CoreAudio CoreMotion GameController Metal CoreHaptics CoreBluetooth )
+	foreach( fw ${IOS_FRAMEWORKS} )
+		target_link_libraries( ${PROJECT_NAME} "-framework ${fw}" )
+	endforeach()
+	target_link_libraries( ${PROJECT_NAME} iconv )
+	set_target_properties(${PROJECT_NAME} PROPERTIES
+		OUTPUT_NAME Raze
+		MACOSX_BUNDLE_INFO_PLIST "${CMAKE_SOURCE_DIR}/ios/Info.plist.in"
+		MACOSX_BUNDLE_GUI_IDENTIFIER "io.github.sithewok13.raze"
+		MACOSX_BUNDLE_BUNDLE_NAME "Raze"
+		MACOSX_BUNDLE_SHORT_VERSION_STRING "${RAZE_IOS_VERSION}"
+		MACOSX_BUNDLE_BUNDLE_VERSION "${RAZE_IOS_VERSION}"
+		XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "" )
+elseif( APPLE )
 	set( LINK_FRAMEWORKS "-framework Cocoa -framework IOKit -framework OpenGL")
 
 	if( HAVE_VULKAN )

@@ -1,0 +1,120 @@
+name: iOS
+
+# Builds an unsigned Raze.ipa (Duke Nukem 3D, Blood, Shadow Warrior, Redneck
+# Rampage and PowerSlave on the Build engine) for iPhone and iPad. Sideload
+# it, then copy your own game folders into Files > On My iPhone > Raze.
+# No game data is in the app.
+#
+# For now every run only keeps the .ipa as a workflow artifact: nothing is
+# published.
+
+on:
+  push:
+    branches: [ "ios" ]
+  workflow_dispatch:
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IOS_MIN: "15.0"
+  SDL_TAG: release-2.32.8
+  OPENAL_TAG: 1.24.3
+  ZMUSIC_SHA: d3b730795784bff3f97571446101c57c1c6ac9bc
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        persist-credentials: false
+
+    - name: Select newest Xcode
+      run: |
+        set -e
+        XCODE=$(ls -d /Applications/Xcode_*.app | grep -iv beta | sort -V | tail -1)
+        echo "Using $XCODE"
+        sudo xcode-select -s "$XCODE/Contents/Developer"
+        xcodebuild -version
+        xcrun --sdk iphoneos --show-sdk-version
+
+    - name: Host tools
+      run: brew install ninja
+
+    - name: Restore iOS dependencies
+      id: deps
+      uses: actions/cache/restore@v4
+      with:
+        path: deps
+        key: ios-deps-${{ env.SDL_TAG }}-${{ env.OPENAL_TAG }}-${{ env.ZMUSIC_SHA }}-${{ env.IOS_MIN }}-${{ hashFiles('ios/build_deps.sh') }}
+
+    - name: Build SDL2, OpenAL Soft and ZMusic for iOS
+      if: steps.deps.outputs.cache-hit != 'true'
+      run: ios/build_deps.sh "$PWD/deps"
+
+    - name: Save iOS dependencies
+      if: steps.deps.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: deps
+        key: ${{ steps.deps.outputs.cache-primary-key }}
+
+    # The build makes raze.pk3 with tools that run on the Mac (zipdir, lemon,
+    # re2c): build those natively first and hand them to the iOS build.
+    - name: Build host tools
+      run: |
+        set -e
+        cmake -S . -B host -G Ninja -DCMAKE_BUILD_TYPE=Release -DFORCE_INTERNAL_BZIP2=ON > host-configure.log 2>&1 || { tail -40 host-configure.log; exit 1; }
+        cmake --build host --target zipdir lemon re2c
+        test -f host/ImportExecutables.cmake
+
+    - name: Configure
+      run: |
+        set -e
+        DEPS=$PWD/deps
+        cmake -S . -B build -G Ninja \
+          -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_ARCHITECTURES=arm64 \
+          -DCMAKE_OSX_DEPLOYMENT_TARGET=$IOS_MIN -DCMAKE_BUILD_TYPE=Release \
+          -DIMPORT_EXECUTABLES=$PWD/host/ImportExecutables.cmake \
+          -DSDL2_INCLUDE_DIR=$DEPS/include/SDL2 \
+          "-DSDL2_LIBRARY=$DEPS/lib/libSDL2main.a;$DEPS/lib/libSDL2.a" \
+          -DOPENAL_INCLUDE_DIR=$DEPS/include/AL \
+          -DOPENAL_LIBRARY=$DEPS/lib/libopenal.a \
+          -DZMUSIC_INCLUDE_DIR=$DEPS/include \
+          -DZMUSIC_LIBRARIES=$DEPS/lib/libzmusiclite.a \
+          -DNO_GTK=ON \
+          -DRAZE_IOS_VERSION=0.1.${{ github.run_number }}
+
+    - name: Build
+      run: |
+        cmake --build build -- -k 0 > build.log 2>&1 || {
+          grep -E "error:|FAILED:|undefined symbol|ld: " build.log | head -120
+          echo "::error::Build failed"
+          exit 1
+        }
+        tail -3 build.log
+
+    - name: Package .ipa
+      run: |
+        set -e
+        APP=$(find build -maxdepth 3 -name "*.app" -type d | head -1)
+        echo "App bundle: $APP"
+        ls -la "$APP"
+        test -f "$APP/raze.pk3"
+        plutil -lint "$APP/Info.plist"
+        codesign --force --sign - --timestamp=none "$APP"
+        mkdir -p ipa/Payload
+        cp -R "$APP" ipa/Payload/
+        (cd ipa && zip -qry ../Raze.ipa Payload)
+        ls -la Raze.ipa
+
+    - name: Upload
+      uses: actions/upload-artifact@v4
+      with:
+        name: Raze-ios
+        path: Raze.ipa
