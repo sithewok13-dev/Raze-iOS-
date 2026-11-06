@@ -1,12 +1,13 @@
 #!/bin/bash
 # Builds the static iOS (arm64) libraries Raze needs into $1:
-# SDL2 (+ SDL2main), OpenAL Soft and ZMusic.
+# SDL2 (+ SDL2main), OpenAL Soft, ZMusic and libvpx.
 set -ex
 DEPS="$1"
 : "${IOS_MIN:=15.0}"
 : "${SDL_TAG:=release-2.32.8}"
 : "${OPENAL_TAG:=1.24.3}"
 : "${ZMUSIC_SHA:=d3b730795784bff3f97571446101c57c1c6ac9bc}"
+: "${VPX_TAG:=v1.15.2}"
 WORK="${RUNNER_TEMP:-/tmp}/ios-deps-src"
 rm -rf "$WORK"; mkdir -p "$WORK" "$DEPS"
 IOSFLAGS=(-G Ninja -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_ARCHITECTURES=arm64
@@ -41,8 +42,17 @@ PKG_CONFIG_LIBDIR=/nonexistent PKG_CONFIG_PATH= \
 cmake --build "$WORK/zmusic/build"
 cmake --install "$WORK/zmusic/build"
 
+# --- libvpx (VP8 decoder for cutscene videos; its own configure, iOS = arm64-darwin-gcc)
+git clone -q --depth 1 -b "$VPX_TAG" https://github.com/webmproject/libvpx.git "$WORK/libvpx"
+(cd "$WORK/libvpx" && ./configure --target=arm64-darwin-gcc --prefix="$DEPS" \
+  --extra-cflags="-miphoneos-version-min=$IOS_MIN" --extra-cxxflags="-miphoneos-version-min=$IOS_MIN" \
+  --disable-examples --disable-tools --disable-docs --disable-unit-tests \
+  --disable-vp8-encoder --disable-vp9-encoder --disable-shared --enable-static \
+  && make -j"$(sysctl -n hw.ncpu)" && make install)
+
 test -f "$DEPS/lib/libSDL2.a"
 test -f "$DEPS/lib/libSDL2main.a"
 test -f "$DEPS/lib/libopenal.a"
 test -f "$DEPS/lib/libzmusic.a"
+test -f "$DEPS/lib/libvpx.a"
 ls -la "$DEPS/lib"

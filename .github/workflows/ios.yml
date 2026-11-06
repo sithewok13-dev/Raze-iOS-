@@ -22,6 +22,7 @@ env:
   SDL_TAG: release-2.32.8
   OPENAL_TAG: 1.24.3
   ZMUSIC_SHA: d3b730795784bff3f97571446101c57c1c6ac9bc
+  VPX_TAG: v1.15.2
 
 permissions:
   contents: read
@@ -44,16 +45,16 @@ jobs:
         xcrun --sdk iphoneos --show-sdk-version
 
     - name: Host tools
-      run: brew install ninja
+      run: brew install ninja libvpx
 
     - name: Restore iOS dependencies
       id: deps
       uses: actions/cache/restore@v4
       with:
         path: deps
-        key: ios-deps-${{ env.SDL_TAG }}-${{ env.OPENAL_TAG }}-${{ env.ZMUSIC_SHA }}-${{ env.IOS_MIN }}-${{ hashFiles('ios/build_deps.sh', 'ios/zmusic_ios.py') }}
+        key: ios-deps-${{ env.SDL_TAG }}-${{ env.OPENAL_TAG }}-${{ env.ZMUSIC_SHA }}-${{ env.VPX_TAG }}-${{ env.IOS_MIN }}-${{ hashFiles('ios/build_deps.sh', 'ios/zmusic_ios.py') }}
 
-    - name: Build SDL2, OpenAL Soft and ZMusic for iOS
+    - name: Build SDL2, OpenAL Soft, ZMusic and libvpx for iOS
       if: steps.deps.outputs.cache-hit != 'true'
       run: ios/build_deps.sh "$PWD/deps"
 
@@ -76,6 +77,7 @@ jobs:
           -DZMUSIC_INCLUDE_DIR=$DEPS/include -DZMUSIC_LIBRARIES=$DEPS/lib/libzmusic.a \
           -DSDL2_INCLUDE_DIR=$DEPS/include/SDL2 -DSDL2_LIBRARY=$DEPS/lib/libSDL2.a \
           -DNO_GTK=ON -DHAVE_VULKAN=OFF \
+          -DVPX_INCLUDE_DIR=$(brew --prefix libvpx)/include -DVPX_LIBRARIES=$(brew --prefix libvpx)/lib/libvpx.dylib \
           > host-configure.log 2>&1 || { tail -40 host-configure.log; exit 1; }
         cmake --build host --target zipdir lemon re2c
         test -f host/ImportExecutables.cmake
@@ -94,6 +96,7 @@ jobs:
           -DOPENAL_LIBRARY=$DEPS/lib/libopenal.a \
           -DZMUSIC_INCLUDE_DIR=$DEPS/include \
           -DZMUSIC_LIBRARIES=$DEPS/lib/libzmusic.a \
+          -DVPX_INCLUDE_DIR=$DEPS/include -DVPX_LIBRARIES=$DEPS/lib/libvpx.a \
           -DNO_GTK=ON \
           -DRAZE_IOS_VERSION=0.1.${{ github.run_number }}
 
