@@ -50,8 +50,8 @@ static void* LoadGLES2Proc(const char* name)
 
 #include <dlfcn.h>
 
-#ifdef RAZE_IOS
-// The OpenGLES framework is linked into the app: look the functions up in it
+#if defined(RAZE_IOS) || defined(RAZE_GLES_RIG)
+// The OpenGLES framework (the rig: libGLESv2) is linked into the app: look the functions up in it
 static void* LoadGLES2Proc(const char* name)
 {
 	return dlsym(RTLD_DEFAULT, name);

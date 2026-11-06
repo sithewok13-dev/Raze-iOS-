@@ -220,7 +220,7 @@ namespace Priv
 		if (gl_es)
 		{
 			SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
-#ifdef RAZE_IOS
+#if defined(RAZE_IOS) || defined(RAZE_GLES_RIG)
 			// iOS: an ES 3.0 context, so the mapped buffers, fences and integer
 			// attributes the renderer looks up really work
 			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);

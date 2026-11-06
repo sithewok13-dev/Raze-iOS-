@@ -32,7 +32,12 @@ cmake --install "$WORK/openal/build"
 # --- ZMusic (MIDI and tracker music; sndfile/mpg123 are loaded at run time, so absent on iOS)
 git clone -q https://github.com/ZDoom/ZMusic.git "$WORK/zmusic"
 git -C "$WORK/zmusic" checkout -q "$ZMUSIC_SHA"
-cmake -S "$WORK/zmusic" -B "$WORK/zmusic/build" "${IOSFLAGS[@]}"
+# Its FluidSynth needs glib (not on iOS): leave it out, MIDI uses the other synths
+python3 "$(dirname "$0")/zmusic_no_fluidsynth.py" "$WORK/zmusic"
+# Homebrew's pkg-config would hand it Mac libraries (glib): hide them
+PKG_CONFIG_LIBDIR=/nonexistent PKG_CONFIG_PATH= \
+  cmake -S "$WORK/zmusic" -B "$WORK/zmusic/build" "${IOSFLAGS[@]}" \
+  -DCMAKE_DISABLE_FIND_PACKAGE_PkgConfig=ON
 cmake --build "$WORK/zmusic/build"
 cmake --install "$WORK/zmusic/build"
 

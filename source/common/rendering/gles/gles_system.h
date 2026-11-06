@@ -23,8 +23,10 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-#ifdef RAZE_IOS
-#define USE_GLAD_LOADER 1 // iOS: real OpenGL ES, functions from the linked OpenGLES framework
+#if defined(RAZE_IOS) || defined(RAZE_GLES_RIG)
+// iOS (and the Linux test rig built with -DRAZE_GLES_RIG): real OpenGL ES,
+// functions looked up in the linked GLES library
+#define USE_GLAD_LOADER 1
 #else
 #define USE_GLAD_LOADER 0 // Set to 1 to use the GLAD loader, otherwise use noramal GZDoom loader for PC
 #endif

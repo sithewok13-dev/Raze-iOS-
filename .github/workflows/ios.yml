@@ -51,7 +51,7 @@ jobs:
       uses: actions/cache/restore@v4
       with:
         path: deps
-        key: ios-deps-${{ env.SDL_TAG }}-${{ env.OPENAL_TAG }}-${{ env.ZMUSIC_SHA }}-${{ env.IOS_MIN }}-${{ hashFiles('ios/build_deps.sh') }}
+        key: ios-deps-${{ env.SDL_TAG }}-${{ env.OPENAL_TAG }}-${{ env.ZMUSIC_SHA }}-${{ env.IOS_MIN }}-${{ hashFiles('ios/build_deps.sh', 'ios/zmusic_no_fluidsynth.py') }}
 
     - name: Build SDL2, OpenAL Soft and ZMusic for iOS
       if: steps.deps.outputs.cache-hit != 'true'
@@ -86,7 +86,7 @@ jobs:
           -DOPENAL_INCLUDE_DIR=$DEPS/include/AL \
           -DOPENAL_LIBRARY=$DEPS/lib/libopenal.a \
           -DZMUSIC_INCLUDE_DIR=$DEPS/include \
-          -DZMUSIC_LIBRARIES=$DEPS/lib/libzmusiclite.a \
+          -DZMUSIC_LIBRARIES=$DEPS/lib/libzmusic.a \
           -DNO_GTK=ON \
           -DRAZE_IOS_VERSION=0.1.${{ github.run_number }}
 
