@@ -33,7 +33,10 @@ with open(os.path.join(root, "source/mididevices/music_nofluidsynth_mididevice.c
     f.write('''// FluidSynth is left out of this build (it needs glib): opening it fails,
 // so ZMusic falls back to its next MIDI synth.
 #include <stdexcept>
+#include "zmusic/zmusic_internal.h"
 #include "mididevice.h"
+
+FluidConfig fluidConfig;	// the settings still exist, nothing reads them
 
 MIDIDevice *CreateFluidSynthMIDIDevice(int samplerate, const char *Args)
 {
