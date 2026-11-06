@@ -104,7 +104,8 @@ jobs:
       run: |
         cmake --build build -- -k 0 > build.log 2>&1 || {
           grep -E "error:|FAILED:|undefined symbol|ld: " build.log | head -120
-          grep -A60 "Undefined symbols" build.log | grep -vE "^\s+(\S+\.o|in )" | head -150 || true
+          echo "----- end of the build log -----"
+          tail -80 build.log | cut -c1-400
           echo "::error::Build failed"
           exit 1
         }
