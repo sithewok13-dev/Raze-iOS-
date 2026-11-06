@@ -1318,6 +1318,11 @@ set( GAME_SOURCES
 
 )
 
+if( RAZE_IOS )
+	# The static ZMusic carries the same FModule code: use its copy
+	list( REMOVE_ITEM GAME_SOURCES common/utility/i_module.cpp )
+endif()
+
 set( GAME_NONPCH_SOURCES ${GAME_SOURCES} )
 list( REMOVE_ITEM GAME_NONPCH_SOURCES ${PCH_SOURCES} )
 
