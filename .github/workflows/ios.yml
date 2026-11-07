@@ -120,6 +120,14 @@ jobs:
         ls -la "$APP"
         test -f "$APP/raze.pk3"
         plutil -lint "$APP/Info.plist"
+        # The home-screen icon: the PNGs Info.plist names, at their sizes
+        plutil -extract CFBundleIcons.CFBundlePrimaryIcon.CFBundleIconFiles json -o - "$APP/Info.plist"
+        plutil -extract 'CFBundleIcons~ipad.CFBundlePrimaryIcon.CFBundleIconFiles' json -o - "$APP/Info.plist"
+        for f in AppIcon60x60@2x.png:120 AppIcon60x60@3x.png:180 AppIcon76x76@2x~ipad.png:152 AppIcon83.5x83.5@2x~ipad.png:167; do
+          px=$(sips -g pixelWidth "$APP/${f%%:*}" | awk '/pixelWidth/ {print $2}')
+          echo "${f%%:*}: ${px} px"
+          test "$px" = "${f##*:}" || { echo "::error::App icon ${f%%:*} missing or wrong size"; exit 1; }
+        done
         codesign --force --sign - --timestamp=none "$APP"
         mkdir -p ipa/Payload
         cp -R "$APP" ipa/Payload/

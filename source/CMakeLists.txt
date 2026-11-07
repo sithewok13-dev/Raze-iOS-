@@ -1506,6 +1506,16 @@ if( RAZE_IOS )
 		MACOSX_BUNDLE_SHORT_VERSION_STRING "${RAZE_IOS_VERSION}"
 		MACOSX_BUNDLE_BUNDLE_VERSION "${RAZE_IOS_VERSION}"
 		XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "" )
+	# The home-screen icon (ios/AppIcon-1024.png, drawn by ios/make_icon.py),
+	# scaled to the sizes Info.plist's CFBundleIcons names: iPhone 60 pt at
+	# 2x and 3x, iPad 76 and 83.5 pt at 2x
+	set( IOS_ICON "${CMAKE_SOURCE_DIR}/ios/AppIcon-1024.png" )
+	add_custom_command( TARGET ${PROJECT_NAME} POST_BUILD
+		COMMAND sips -z 120 120 ${IOS_ICON} --out $<TARGET_BUNDLE_DIR:${PROJECT_NAME}>/AppIcon60x60@2x.png
+		COMMAND sips -z 180 180 ${IOS_ICON} --out $<TARGET_BUNDLE_DIR:${PROJECT_NAME}>/AppIcon60x60@3x.png
+		COMMAND sips -z 152 152 ${IOS_ICON} --out $<TARGET_BUNDLE_DIR:${PROJECT_NAME}>/AppIcon76x76@2x~ipad.png
+		COMMAND sips -z 167 167 ${IOS_ICON} --out $<TARGET_BUNDLE_DIR:${PROJECT_NAME}>/AppIcon83.5x83.5@2x~ipad.png
+		VERBATIM )
 elseif( APPLE )
 	set( LINK_FRAMEWORKS "-framework Cocoa -framework IOKit -framework OpenGL")
 
