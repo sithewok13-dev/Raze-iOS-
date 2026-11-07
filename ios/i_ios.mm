@@ -137,6 +137,7 @@ __attribute__((constructor)) static void IOS_LogToFile()
 // the GL frame buffer holds and which windows UIKit shows, into the log.
 #define GLES_SILENCE_DEPRECATION 1
 #include <OpenGLES/ES3/gl.h>
+#include <vector>
 extern "C" void IOS_FrameReport(int frame, int w, int h)
 {
 	GLint fb = 0, vp[4] = {0, 0, 0, 0};
@@ -145,6 +146,23 @@ extern "C" void IOS_FrameReport(int frame, int w, int h)
 	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 	unsigned char px[4] = {0, 0, 0, 0};
 	if (w > 0 && h > 0) glReadPixels(w / 2, h / 2, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, px);
+	if (frame == 600 && w > 0 && h > 0)
+	{
+		// What the game drew, as frame600.ppm in the app's folder, to compare
+		// with what the screen shows
+		std::vector<unsigned char> buf((size_t)w * h * 4);
+		glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, buf.data());
+		NSString* docs = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
+		FILE* f = fopen([[docs stringByAppendingPathComponent:@"frame600.ppm"] fileSystemRepresentation], "wb");
+		if (f)
+		{
+			fprintf(f, "P6\n%d %d\n255\n", w, h);
+			for (int y = h - 1; y >= 0; y--)
+				for (int x = 0; x < w; x++) fwrite(&buf[((size_t)y * w + x) * 4], 1, 3, f);
+			fclose(f);
+			printf("Saved frame600.ppm (%dx%d), alpha at centre %d\n", w, h, buf[((size_t)(h / 2) * w + w / 2) * 4 + 3]);
+		}
+	}
 	GLenum err = glGetError();
 	printf("Frame %d: drawable %dx%d, fb %d (status 0x%x), viewport %d,%d %dx%d, centre pixel %d,%d,%d, GL error 0x%x\n",
 		frame, w, h, (int)fb, status, vp[0], vp[1], vp[2], vp[3], px[0], px[1], px[2], err);
