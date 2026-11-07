@@ -5,8 +5,9 @@ name: iOS
 # it, then copy your own game folders into Files > On My iPhone > Raze.
 # No game data is in the app.
 #
-# For now every run only keeps the .ipa as a workflow artifact: nothing is
-# published.
+# Every run keeps the .ipa as a workflow artifact. Builds of the ios branch
+# also update the public "ios-latest" prerelease (Raze.ipa, no game data);
+# runs on other branches (work in progress) publish nothing.
 
 on:
   push:
@@ -130,3 +131,29 @@ jobs:
       with:
         name: Raze-ios
         path: Raze.ipa
+
+  release:
+    name: Publish to "iOS latest" prerelease
+    needs: build
+    if: github.ref == 'refs/heads/ios'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+    - uses: actions/download-artifact@v4
+      with:
+        name: Raze-ios
+        path: out
+
+    - name: Publish to "ios-latest" prerelease
+      uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
+      with:
+        tag_name: ios-latest
+        target_commitish: ${{ github.sha }}
+        name: iOS latest build
+        prerelease: true
+        make_latest: false
+        body: |
+          Development build of Raze for iPhone and iPad, rebuilt after every push to the `ios` branch (run ${{ github.run_number }}, commit ${{ github.sha }}). It may not have been tried yet.
+          Raze.ipa is unsigned: sideload it, then copy your own game folders (Duke Nukem 3D, Blood, Shadow Warrior, Redneck Rampage) into Files > On My iPhone > Raze. No game data is included.
+        files: out/Raze.ipa
