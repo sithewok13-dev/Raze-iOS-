@@ -179,6 +179,8 @@ namespace OpenGLESRenderer
 		}
 		const char* glVersionStr = (const char*)glGetString(GL_VERSION);
 		double glVersion = strtod(glVersionStr, NULL);
+		// GLES reports "OpenGL ES 3.0 ...": read the number after the prefix
+		if (!strncmp(glVersionStr, "OpenGL ES ", 10)) glVersion = strtod(glVersionStr + 10, NULL);
 
 		Printf("GL Version parsed = %f\n", glVersion);
 
@@ -225,6 +227,13 @@ namespace OpenGLESRenderer
 			gles.npotAvailable = CheckExtension("GL_OES_texture_npot");
 			gles.depthClampAvailable = CheckExtension("GL_EXT_depth_clamp");
 			gles.anistropicFilterAvailable = CheckExtension("GL_EXT_texture_filter_anisotropic");
+			if (glVersion >= 3.0)
+			{
+				// Core in OpenGL ES 3, so not listed as extensions (iOS lists
+				// neither, and only accepts a packed depth/stencil buffer)
+				gles.depthStencilAvailable = true;
+				gles.npotAvailable = true;
+			}
 		}
 		else if (gles.glesMode == GLES_MODE_OGL2)
 		{
