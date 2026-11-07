@@ -21,6 +21,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 //-------------------------------------------------------------------------
 
 #include <stdexcept>
+#include "ioscamera.h"
 #include "gamecontrol.h"
 #include "tarray.h"
 #include "zstring.h"
@@ -1245,6 +1246,11 @@ void updatePauseStatus()
 		}
 	}
 
+#ifdef RAZE_IOSCAMERA
+	// Added: a selfie, Action Freeze or the cinematic burst holds the game
+	// still (as the menu does; the music plays on)
+	if (iosCam_HoldsGame()) paused = 1;
+#endif
 	if (paused)
 		S_PauseSound(!pausedWithKey, !paused);
 	else 

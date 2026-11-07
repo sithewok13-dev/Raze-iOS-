@@ -485,7 +485,8 @@ elseif( APPLE )
 			list( REMOVE_ITEM SYSTEM_SOURCES common/platform/posix/sdl/crashcatcher.c )
 			set( PLAT_OSX_SOURCES
 				common/platform/posix/osx/i_specialpaths.mm
-				../ios/i_ios.mm )
+				../ios/i_ios.mm
+				../ios/iosPhotos.mm )
 		else()
 			set( PLAT_OSX_SOURCES ${PLAT_OSX_SOURCES} common/platform/posix/sdl/i_system.mm )
 		endif()
@@ -494,6 +495,9 @@ elseif( APPLE )
 
 	set( SYSTEM_SOURCES ${SYSTEM_SOURCES} ${PLAT_POSIX_SOURCES} ${PLAT_OSX_SOURCES} )
 
+	if( RAZE_IOS )
+		set_source_files_properties( ../ios/iosPhotos.mm PROPERTIES COMPILE_FLAGS -fobjc-arc )
+	endif()
 	if( NOT RAZE_IOS )
 		set_source_files_properties( platform/posix/osx/${PROJECT_NAME}.icns PROPERTIES MACOSX_PACKAGE_LOCATION Resources )
 		set_source_files_properties( common/platform/posix/osx/iwadpicker_cocoa.mm PROPERTIES COMPILE_FLAGS -fobjc-exceptions )
@@ -976,6 +980,8 @@ set (PCH_SOURCES
 	core/gamecontrol.cpp
 	core/gamehud.cpp
 	core/gamefuncs.cpp
+	core/ioscamera.cpp
+	../ios/iosCapture.cpp
 	core/gameinput.cpp
 	core/g_mapinfo.cpp
 	core/interpolate.cpp
@@ -1321,6 +1327,10 @@ set( GAME_SOURCES
 if( RAZE_IOS )
 	# The static ZMusic carries the same FModule code: use its copy
 	list( REMOVE_ITEM GAME_SOURCES common/utility/i_module.cpp )
+	# The CAMERA's photos go to Photos (iosPhotos.mm, in PLAT_OSX_SOURCES)
+else()
+	# The CAMERA's photos on the Linux test rig (-DRAZE_GLES_RIG): PNG files
+	list( APPEND GAME_SOURCES ../ios/iosPhotos_rig.cpp )
 endif()
 
 set( GAME_NONPCH_SOURCES ${GAME_SOURCES} )
@@ -1492,12 +1502,11 @@ endif()
 
 if( RAZE_TOUCH )
 	# The touch controls: the overlay (on iOS, Objective-C with ARC; in the
-	# Linux rig, its plain C core through the rig's file), the game side and
-	# the camera system's stand-in. Each game's part (games/*/src/ios_*.cpp)
+	# Linux rig, its plain C core through the rig's file) and the game side
+	# (the CAMERA calls go to the camera system). Each game's part (games/*/src/ios_*.cpp)
 	# is built in its game's all.cpp, as the rest of the game is.
 	set( TOUCH_SOURCES
-		../ios/IOSGame.cpp
-		../ios/iosCamera_stub.c )
+		../ios/IOSGame.cpp )
 	if( RAZE_IOS )
 		list( APPEND TOUCH_SOURCES ../ios/IOSTouch.m )
 		# (built as Objective-C by the C compiler, clang)
@@ -1513,7 +1522,8 @@ endif()
 if( RAZE_IOS )
 	# What SDL2, OpenAL Soft and the GLES renderer need on iOS
 	set( IOS_FRAMEWORKS UIKit Foundation OpenGLES QuartzCore CoreGraphics CoreFoundation
-		AVFoundation AudioToolbox CoreAudio CoreMotion GameController Metal CoreHaptics CoreBluetooth )
+		AVFoundation AudioToolbox CoreAudio CoreMotion GameController Metal CoreHaptics CoreBluetooth
+		Photos ImageIO )
 	foreach( fw ${IOS_FRAMEWORKS} )
 		target_link_libraries( ${PROJECT_NAME} "-framework ${fw}" )
 	endforeach()
