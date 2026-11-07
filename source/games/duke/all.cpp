@@ -21,3 +21,6 @@
 #include "src/sectors.cpp"
 #include "src/spawn.cpp"
 #include "src/vmexports.cpp"
+#ifdef RAZE_TOUCH
+#include "src/ios_duke.cpp" // Added: the iOS touch controls' part for this game
+#endif

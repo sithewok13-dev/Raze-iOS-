@@ -43,6 +43,14 @@ if( CMAKE_SYSTEM_NAME STREQUAL "iOS" )
 	set( RAZE_IOS ON )
 	add_definitions( -DRAZE_IOS=1 )
 endif()
+# The iOS touch controls (ios/IOSTouch.m, ios/IOSGame.cpp): on iOS, and in
+# the Linux test rig, which gives its own stand-in for the UIKit overlay
+# (RAZE_TOUCH_RIG_SOURCE: a C file that includes ios/IOSTouch.m)
+set( RAZE_TOUCH_RIG_SOURCE "" CACHE FILEPATH "Linux test rig for the iOS touch controls (a C file)" )
+if( RAZE_IOS OR RAZE_TOUCH_RIG_SOURCE )
+	set( RAZE_TOUCH ON )
+	add_definitions( -DRAZE_TOUCH=1 )
+endif()
 
 if (WIN32 AND VCPKG_TOOLCHAIN)
 	option(LIBVPX_VCPKG "Use libvpx from vcpkg" OFF)

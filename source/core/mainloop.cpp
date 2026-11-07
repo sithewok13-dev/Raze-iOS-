@@ -92,6 +92,10 @@
 #include "texturemanager.h"
 #include "gameinput.h"
 
+#ifdef RAZE_TOUCH
+#include "../../ios/IOSGame.h" // Added: the iOS touch controls
+#endif
+
 CVAR(Bool, vid_activeinbackground, false, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Bool, r_ticstability, true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Bool, vid_dontdowait, false, CVAR_ARCHIVE|CVAR_GLOBALCONFIG)
@@ -274,6 +278,9 @@ static void GameTicker()
 			break;
 
 		case ga_level:
+#ifdef RAZE_TOUCH
+			IOSGame_LevelStarted(); // Added: (new level, restart, load) for the iOS touch controls
+#endif
 			Net_ClearFifo();
 			inputState.ClearAllInput();
 			gameInput.Clear();
@@ -764,6 +771,9 @@ void MainLoop ()
 			// Update display, next frame, with current state.
 			I_StartTic();
 
+#ifdef RAZE_TOUCH
+			IOSGame_Frame(); // Added: the iOS touch controls (after the frame's touches came in)
+#endif
 			Display();
 			Mus_UpdateMusic();		// must be at the end.
 		}

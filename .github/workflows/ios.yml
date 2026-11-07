@@ -110,6 +110,8 @@ jobs:
           echo "::error::Build failed"
           exit 1
         }
+        # (the touch controls' files must build without warnings)
+        grep -E "(ios/|ios_[a-z]+\.cpp).*warning:" build.log | sort -u | head -60 || true
         tail -3 build.log
 
     - name: Package .ipa
