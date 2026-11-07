@@ -1204,6 +1204,10 @@ int RunGame()
 //
 //---------------------------------------------------------------------------
 
+#ifdef RAZE_TOUCH
+#include "../../ios/IOSGame.h" // Added: the iOS touch controls
+#endif
+
 void updatePauseStatus()
 {
 	// This must go through the network in multiplayer games.
@@ -1211,6 +1215,14 @@ void updatePauseStatus()
 	{
 		paused = 1;
 	}
+#ifdef RAZE_TOUCH
+	// Added: the game holds still while the touch controls' weapon wheel or
+	// level list is open (as under the menu: no "Paused", the music plays on)
+	else if (!netgame && IOSGame_HoldsGame())
+	{
+		paused = 1;
+	}
+#endif
 	else if (!AppActive)
 	{
 		if (i_pauseinbackground)

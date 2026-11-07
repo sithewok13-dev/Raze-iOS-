@@ -59,3 +59,6 @@
 #include "src/zombie.cpp"
 #include "src/break.cpp" // must be last because it needs definitions from the other files
 #include "src/d_menu.cpp"
+#ifdef RAZE_TOUCH
+#include "src/ios_sw.cpp" // Added: the iOS touch controls' part for this game
+#endif

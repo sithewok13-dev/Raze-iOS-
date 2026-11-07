@@ -49,6 +49,28 @@
 #include "i_interface.h"
 #include "r_videoscale.h"
 
+// Added: the HUD's screen edges. On iOS (the touch controls, ios/IOSGame.h)
+// the HUD keeps clear of the screen's rounded corners, the notch or Dynamic
+// Island and the home indicator; elsewhere they are the screen's own.
+#ifdef RAZE_TOUCH
+#include "../../../ios/IOSGame.h"
+static double HudEdge(int i)
+{
+	double f[4];
+	IOSGame_HudFrame(twod->GetWidth(), twod->GetHeight(), f);
+	return f[i];
+}
+static double HudEdgeLeft() { return HudEdge(0); }
+static double HudEdgeTop() { return HudEdge(1); }
+static double HudEdgeRight() { return HudEdge(2); }
+static double HudEdgeBottom() { return HudEdge(3); }
+#else
+static double HudEdgeLeft() { return 0; }
+static double HudEdgeTop() { return 0; }
+static double HudEdgeRight() { return twod->GetWidth(); }
+static double HudEdgeBottom() { return twod->GetHeight(); }
+#endif
+
 FGameTexture* CrosshairImage;
 static int CrosshairNum;
 
@@ -393,7 +415,7 @@ void DStatusBarCore::SetScale()
 	// Use full pixels for destination size.
 
 	ST_X = xs_CRoundToInt((w - refw) / 2);
-	ST_Y = xs_CRoundToInt(h - refh);
+	ST_Y = xs_CRoundToInt(HudEdgeBottom() - refh); // Added: (iOS) above the home indicator
 	SBarTop = Scale(sby, h, vert);
 	SBarScale.X = refw / horz;
 	SBarScale.Y = refh / vert;
@@ -570,16 +592,16 @@ void DStatusBarCore::DrawGraphic(FGameTexture* tex, double x, double y, int flag
 
 		switch (flags & DI_SCREEN_HMASK)
 		{
-		default: orgx = 0; break;
+		default: orgx = HudEdgeLeft(); break;
 		case DI_SCREEN_HCENTER: orgx = twod->GetWidth() / 2; break;
-		case DI_SCREEN_RIGHT:   orgx = twod->GetWidth(); break;
+		case DI_SCREEN_RIGHT:   orgx = HudEdgeRight(); break;
 		}
 
 		switch (flags & DI_SCREEN_VMASK)
 		{
-		default: orgy = 0; break;
+		default: orgy = HudEdgeTop(); break;
 		case DI_SCREEN_VCENTER: orgy = twod->GetHeight() / 2; break;
-		case DI_SCREEN_BOTTOM: orgy = twod->GetHeight(); break;
+		case DI_SCREEN_BOTTOM: orgy = HudEdgeBottom(); break;
 		}
 
 		DVector2 Scale = GetHUDScale();
@@ -661,16 +683,16 @@ void DStatusBarCore::DrawRotated(FGameTexture* tex, double x, double y, int flag
 
 		switch (flags & DI_SCREEN_HMASK)
 		{
-		default: orgx = 0; break;
+		default: orgx = HudEdgeLeft(); break;
 		case DI_SCREEN_HCENTER: orgx = twod->GetWidth() / 2; break;
-		case DI_SCREEN_RIGHT:   orgx = twod->GetWidth(); break;
+		case DI_SCREEN_RIGHT:   orgx = HudEdgeRight(); break;
 		}
 
 		switch (flags & DI_SCREEN_VMASK)
 		{
-		default: orgy = 0; break;
+		default: orgy = HudEdgeTop(); break;
 		case DI_SCREEN_VCENTER: orgy = twod->GetHeight() / 2; break;
-		case DI_SCREEN_BOTTOM: orgy = twod->GetHeight(); break;
+		case DI_SCREEN_BOTTOM: orgy = HudEdgeBottom(); break;
 		}
 
 		x *= Scale.X;
@@ -739,16 +761,16 @@ void DStatusBarCore::DrawString(FFont* font, const FString& cstring, double x, d
 
 		switch (flags & DI_SCREEN_HMASK)
 		{
-		default: orgx = 0; break;
+		default: orgx = HudEdgeLeft(); break;
 		case DI_SCREEN_HCENTER: orgx = twod->GetWidth() / 2; break;
-		case DI_SCREEN_RIGHT:   orgx = twod->GetWidth(); break;
+		case DI_SCREEN_RIGHT:   orgx = HudEdgeRight(); break;
 		}
 
 		switch (flags & DI_SCREEN_VMASK)
 		{
-		default: orgy = 0; break;
+		default: orgy = HudEdgeTop(); break;
 		case DI_SCREEN_VCENTER: orgy = twod->GetHeight() / 2; break;
-		case DI_SCREEN_BOTTOM: orgy = twod->GetHeight(); break;
+		case DI_SCREEN_BOTTOM: orgy = HudEdgeBottom(); break;
 		}
 	}
 	else
@@ -901,16 +923,16 @@ void DStatusBarCore::TransformRect(double& x, double& y, double& w, double& h, i
 
 		switch (flags & DI_SCREEN_HMASK)
 		{
-		default: orgx = 0; break;
+		default: orgx = HudEdgeLeft(); break;
 		case DI_SCREEN_HCENTER: orgx = twod->GetWidth() / 2; break;
-		case DI_SCREEN_RIGHT:   orgx = twod->GetWidth(); break;
+		case DI_SCREEN_RIGHT:   orgx = HudEdgeRight(); break;
 		}
 
 		switch (flags & DI_SCREEN_VMASK)
 		{
-		default: orgy = 0; break;
+		default: orgy = HudEdgeTop(); break;
 		case DI_SCREEN_VCENTER: orgy = twod->GetHeight() / 2; break;
-		case DI_SCREEN_BOTTOM: orgy = twod->GetHeight(); break;
+		case DI_SCREEN_BOTTOM: orgy = HudEdgeBottom(); break;
 		}
 
 		DVector2 Scale = GetHUDScale();

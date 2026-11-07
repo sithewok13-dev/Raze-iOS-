@@ -1490,6 +1490,25 @@ if( DEM_CMAKE_COMPILER_IS_GNUCXX_COMPATIBLE )
 		APPEND_STRING PROPERTY COMPILE_FLAGS " ${SSE2_ENABLE}" )
 endif()
 
+if( RAZE_TOUCH )
+	# The touch controls: the overlay (on iOS, Objective-C with ARC; in the
+	# Linux rig, its plain C core through the rig's file), the game side and
+	# the camera system's stand-in. Each game's part (games/*/src/ios_*.cpp)
+	# is built in its game's all.cpp, as the rest of the game is.
+	set( TOUCH_SOURCES
+		../ios/IOSGame.cpp
+		../ios/iosCamera_stub.c )
+	if( RAZE_IOS )
+		list( APPEND TOUCH_SOURCES ../ios/IOSTouch.m )
+		set_source_files_properties( ../ios/IOSTouch.m PROPERTIES COMPILE_FLAGS "-fobjc-arc" )
+	else()
+		list( APPEND TOUCH_SOURCES ${RAZE_TOUCH_RIG_SOURCE} )
+		set_source_files_properties( ${RAZE_TOUCH_RIG_SOURCE} PROPERTIES COMPILE_FLAGS "-DIOSTOUCH_RIG -I${CMAKE_SOURCE_DIR}/ios" )
+	endif()
+	target_sources( ${PROJECT_NAME} PRIVATE ${TOUCH_SOURCES} )
+	set_source_files_properties( ${TOUCH_SOURCES} PROPERTIES SKIP_PRECOMPILE_HEADERS TRUE )
+endif()
+
 if( RAZE_IOS )
 	# What SDL2, OpenAL Soft and the GLES renderer need on iOS
 	set( IOS_FRAMEWORKS UIKit Foundation OpenGLES QuartzCore CoreGraphics CoreFoundation

@@ -31,6 +31,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 //
 //---------------------------------------------------------------------------
 
+#ifdef RAZE_TOUCH
+#include "../../ios/IOSGame.h" // Added: the iOS touch controls
+#endif
+
 CVAR(Bool, cl_noturnscaling, false, CVAR_GLOBALCONFIG | CVAR_ARCHIVE);
 CVAR(Float, m_pitch, 1.f, CVAR_GLOBALCONFIG | CVAR_ARCHIVE)
 CVAR(Float, m_yaw, 1.f, CVAR_GLOBALCONFIG | CVAR_ARCHIVE)
@@ -171,6 +175,16 @@ void GameInput::processMovement(const double turnscale, const bool allowstrafe, 
 		thisInput.vel.X += mouseInput.Y * MOUSE_SCALE.Degrees() * m_forward;
 		thisInput.vel.X += joyAxes[JOYAXIS_Pitch] * keymove * scaleAdjust;
 	}
+
+#ifdef RAZE_TOUCH
+	// Added: the iOS touch controls' tilt aiming, straight into the view's angles
+	{
+		double yaw, pitch;
+		IOSGame_TakeGyro(&yaw, &pitch);
+		thisInput.ang.Yaw += DAngle::fromDeg(yaw);
+		thisInput.ang.Pitch += DAngle::fromDeg(pitch);
+	}
+#endif
 
 	// process movement input.
 	thisInput.vel.X += moving * keymove;
@@ -375,6 +389,9 @@ void GameInput::getInput(InputPacket* packet)
 	}
 
 	I_GetAxes(joyAxes);
+#ifdef RAZE_TOUCH
+	IOSGame_Input(joyAxes, packet != nullptr); // Added: the iOS touch controls' stick, buttons and look
+#endif
 	processInputBits();
 	if (!paused) gi->doPlayerMovement();
 	mouseInput.Zero();
