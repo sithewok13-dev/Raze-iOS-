@@ -164,6 +164,7 @@ namespace OpenGLESRenderer
 			GLint fb = 0;
 			glGetIntegerv(GL_FRAMEBUFFER_BINDING, &fb);
 			gles.defaultFramebuffer = (unsigned int)fb;
+			Printf("GLES screen frame buffer: %u\n", gles.defaultFramebuffer);
 		}
 		CollectExtensions();
 

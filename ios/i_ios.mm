@@ -102,6 +102,7 @@ int I_PickIWad_Cocoa(WadStuff* wads, int numwads, bool showwin, int defaultiwad)
 	[titles addObject:@"Quit"];
 
 	const int chosen = RunAlert(alert, titles, numwads);
+	printf("Game picker: chose %d of %d\n", chosen, numwads);
 	return chosen < numwads ? chosen : -1;
 }
 
@@ -114,4 +115,19 @@ void Mac_I_FatalError(const char* errortext)
 		message:text
 		preferredStyle:UIAlertControllerStyleAlert];
 	RunAlert(alert, @[ @"Exit" ], 0);
+}
+
+// Everything the engine prints goes to Files > On My iPhone > Raze >
+// raze-log.txt (replaced at each launch), so a problem on the phone can be
+// read and sent. Runs before main().
+#include <stdio.h>
+#include <unistd.h>
+__attribute__((constructor)) static void IOS_LogToFile()
+{
+	NSString* docs = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
+	if (docs == nil) return;
+	const char* path = [[docs stringByAppendingPathComponent:@"raze-log.txt"] fileSystemRepresentation];
+	if (freopen(path, "w", stdout)) setvbuf(stdout, NULL, _IOLBF, 0);
+	dup2(fileno(stdout), fileno(stderr));
+	setvbuf(stderr, NULL, _IONBF, 0);
 }
