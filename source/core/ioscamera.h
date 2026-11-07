@@ -32,6 +32,9 @@ bool iosCam_View(DCoreActor *viewer, DVector3 &pos, sectortype *&sect, DRotator 
 bool iosCam_ShowsPlayer();
 // (updatePauseStatus) whether the game is held still
 bool iosCam_HoldsGame();
+// (GameTicker) a save, a load or a level change is about to run: whatever
+// the camera is doing ends now, everything put back
+void iosCam_Abort();
 // (Display) whether the HUD is left out of this frame: the photo camera's
 bool iosCam_HidesHud();
 

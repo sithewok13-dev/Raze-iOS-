@@ -122,7 +122,11 @@ void animatesprites_d(tspriteArray& tsprites, const DVector2& viewVec, DAngle vi
 		{
 			if (t->pal == 1) t->pos.Z -= 18;
 
-			if (p->over_shoulder_on > 0 && p->newOwner == nullptr)
+			if (p->over_shoulder_on > 0 && p->newOwner == nullptr
+#ifdef RAZE_IOSCAMERA
+				&& !iosCam_ShowsPlayer() // Added: the CAMERA shows the player solid
+#endif
+				)
 			{
 				t->cstat |= CSTAT_SPRITE_TRANSLUCENT;
 #if 0 // multiplayer only

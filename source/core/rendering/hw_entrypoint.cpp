@@ -350,7 +350,8 @@ void render_drawrooms(DCoreActor* playersprite, const DVector3& position, sector
 	{
 		// (all of the sprite put back: drawing it, a game may set some of it)
 		const auto spr = player->spr;
-		if (iosCam_ShowsPlayer()) player->spr.cstat &= ~CSTAT_SPRITE_INVISIBLE;
+		// (seen as anyone else is: Blood's third person draws it see-through)
+		if (iosCam_ShowsPlayer()) player->spr.cstat &= ~(CSTAT_SPRITE_INVISIBLE | CSTAT_SPRITE_TRANSLUCENT | CSTAT_SPRITE_TRANS_FLIP);
 		else player->spr.cstat |= CSTAT_SPRITE_INVISIBLE;
 		render_drawrooms_(nullptr, pos, sect, ang, 1., fov);
 		player->spr = spr;

@@ -182,6 +182,11 @@ static void GameTicker()
 {
 	handleevents();
 
+#ifdef RAZE_IOSCAMERA
+	// Added: a save, a load or a level change (the touch buttons can ask for
+	// them during a selfie): the CAMERA puts everything back first
+	if (gameaction != ga_nothing) iosCam_Abort();
+#endif
 	// Todo: Migrate state changes to here instead of doing them ad-hoc
 	while (gameaction != ga_nothing)
 	{

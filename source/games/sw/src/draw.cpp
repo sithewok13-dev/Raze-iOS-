@@ -787,7 +787,11 @@ static void analyzesprites(tspriteArray& tsprites, const DVector3& viewpos, doub
 #endif
                     )
                 {
-                    if (pp->Flags & (PF_VIEW_FROM_OUTSIDE))
+                    if ((pp->Flags & (PF_VIEW_FROM_OUTSIDE))
+#ifdef RAZE_IOSCAMERA
+                        && !iosCam_ShowsPlayer() // Added: the CAMERA shows the player solid
+#endif
+                        )
                         tsp->cstat |= (CSTAT_SPRITE_TRANSLUCENT);
 
                     auto pos = pp->CameraPos.plusZ(tsp->pos.Z);

@@ -20,6 +20,7 @@
 #include "texturemanager.h"
 #include "buildtiles.h"
 #include "inputstate.h"
+#include "automap.h"
 #include "gameinput.h"
 #include "../../ios/iosCamera.h"
 #include "../../ios/iosCapture.h"
@@ -124,6 +125,9 @@ static IOSCamView _cam;
 static bool _bShowPlayer = false; // the player's body in the photo camera's view
 static int _iStage = STAGE_NONE;
 static double _fUnit = 24;        // map units per metre
+static DVector3 _vEye;            // the player's eyes (PlayerEye)
+static sectortype *_pEyeSect;
+static double _fFloor;            // the floor under them
 
 bool iosCam_View(DCoreActor *viewer, DVector3 &pos, sectortype *&sect, DRotator &angles, float &fov)
 {
@@ -161,13 +165,16 @@ static DCoreActor *PlayerActor()
 }
 
 // Whether a selfie or a freeze can be had now: 0 if so, else why not
-static const char *CantHere()
+static const char *CantHere(bool bPeople)
 {
 	if (netgame || numplayers > 1) return "single";
 	if (gamestate != GS_LEVEL || M_Active() || ConsoleState == c_down || ConsoleState == c_falling) return "here";
+	// (the full map: no view is drawn)
+	if (automapMode == am_full) return "here";
 	auto pp = People();
 	auto pa = PlayerActor();
-	if (!_bGameValid || !pa || !pp || !pp->playerAlive(pa)) return "here";
+	// (a game without people here, Exhumed: freezes and cinematic bursts only)
+	if (!_bGameValid || !pa || (bPeople && !pp) || (pp && !pp->playerAlive(pa))) return "here";
 	if (_game.viewer != pa) return "here"; // (a security camera's view, a cutscene's)
 	return nullptr;
 }
@@ -237,7 +244,7 @@ static void CamOn(const DVector3 &pos, sectortype *sect, const DRotator &ang)
 	_cam.fov = _game.fov;
 	_bCamOn = true;
 	// (from inside the player's head, the body would fill the view)
-	_bShowPlayer = (pos.XY() - _game.pos.XY()).Length() > 0.6 * _fUnit || fabs(pos.Z - _game.pos.Z) > 0.6 * _fUnit;
+	_bShowPlayer = (pos.XY() - _vEye.XY()).Length() > 0.6 * _fUnit || fabs(pos.Z - _vEye.Z) > 0.6 * _fUnit;
 }
 
 // The player's body's height (map units), as drawn
@@ -251,11 +258,31 @@ static double PlayerHeight()
 
 // Metres: from the eyes' height over the floor, or the body's height
 // where that is drawn bigger (Blood's Caleb)
+// The player's eyes: the view's, seen from them; else (a third-person or
+// chase view) over the player's body
+static void PlayerEye()
+{
+	auto pa = PlayerActor();
+	_vEye = _game.pos;
+	_pEyeSect = _game.sect;
+	if (pa && pa->sector() && (pa->spr.pos.XY() - _game.pos.XY()).Length() > 4)
+	{
+		double cz, fz;
+		calcSlope(pa->sector(), pa->spr.pos.X, pa->spr.pos.Y, &cz, &fz);
+		double h = PlayerHeight();
+		if (h < 16) h = 40;
+		_vEye = DVector3(pa->spr.pos.XY(), fz - h * 0.9);
+		_pEyeSect = pa->sector();
+	}
+	double cz, fz;
+	calcSlope(_pEyeSect, _vEye.X, _vEye.Y, &cz, &fz);
+	_fFloor = fz;
+}
+
 static void SetUnit()
 {
-	double cz, fz;
-	calcSlope(_game.sect, _game.pos.X, _game.pos.Y, &cz, &fz);
-	double h = fz - _game.pos.Z;
+	PlayerEye();
+	double h = _fFloor - _vEye.Z;
 	_fUnit = clamp(max(h / IOSCAM_EYE_HEIGHT, PlayerHeight() / 1.8), 12.0, 64.0);
 }
 
@@ -316,7 +343,7 @@ static void Measure(DCoreActor *act, IOSCamPerson &p)
 	p.height = h;
 	p.head = DVector3(act->spr.pos.XY(), feet - h * 0.85);
 	p.mid = DVector3(act->spr.pos.XY(), feet - h * 0.5);
-	p.dist = (p.mid - _game.pos).Length();
+	p.dist = (p.mid - _vEye).Length();
 	p.inPhoto = false;
 }
 
@@ -334,7 +361,7 @@ static void FindPeople(double range, unsigned max)
 		IOSCamPerson p;
 		Measure(act, p);
 		if (p.dist > range * _fUnit) continue;
-		if (!cansee(_game.pos, _game.sect, p.head, act->sector())) continue;
+		if (!cansee(_vEye, _pEyeSect, p.head, act->sector())) continue;
 		_people.Push(p);
 	}
 	std::sort(_people.begin(), _people.end(), [](const IOSCamPerson &a, const IOSCamPerson &b) { return a.dist < b.dist; });
@@ -399,8 +426,8 @@ static bool PlaceSelfieCamera()
 			{
 				if (l && Rand01() < 0.5) continue; // (now and then held higher or lower)
 				DVector3 cam = _vPlayerHead + DVector3(head.ToVector() * dist * _fUnit, -aLift[l] * _fUnit);
-				if (!RoomAt(_game.pos, _game.sect, cam, IOSCAM_CAM_CLEARANCE * _fUnit)) continue;
-				sectortype *s = SectorAt(cam, _game.sect);
+				if (!RoomAt(_vEye, _pEyeSect, cam, IOSCAM_CAM_CLEARANCE * _fUnit)) continue;
+				sectortype *s = SectorAt(cam, _pEyeSect);
 				DRotator ang;
 				double score = SelfieScore(cam, s, ang);
 				if (score < 0) continue;
@@ -461,12 +488,11 @@ static void Pose()
 static bool SelfieBegin()
 {
 	SetUnit();
-	double cz, fz;
-	calcSlope(_game.sect, _game.pos.X, _game.pos.Y, &cz, &fz);
+	const double fz = _fFloor;
 	// the head: the eyes, or higher where the body is drawn taller
-	const double top = fz - max(PlayerHeight(), fz - _game.pos.Z);
-	_vPlayerHead = DVector3(_game.pos.XY(), min(_game.pos.Z, fz - (fz - top) * 0.88));
-	_vPlayerMid = DVector3(_game.pos.XY(), (top + fz) * 0.5);
+	const double top = fz - max(PlayerHeight(), fz - _vEye.Z);
+	_vPlayerHead = DVector3(_vEye.XY(), min(_vEye.Z, fz - (fz - top) * 0.88));
+	_vPlayerMid = DVector3(_vEye.XY(), (top + fz) * 0.5);
 	FindPeople(IOSCAM_SELFIE_RANGE, IOSCAM_SELFIE_PEOPLE);
 	if (!PlaceSelfieCamera()) return false;
 	Pose();
@@ -585,9 +611,7 @@ static double _aCineYaw[IOSCAM_CINEMA_SHOTS];
 static bool CinemaBegin()
 {
 	SetUnit();
-	double cz, fz;
-	calcSlope(_game.sect, _game.pos.X, _game.pos.Y, &cz, &fz);
-	DVector3 playerMid(_game.pos.XY(), (_game.pos.Z + fz) * 0.5);
+	DVector3 playerMid(_vEye.XY(), (_vEye.Z + _fFloor) * 0.5);
 	FindPeople(25.0, 64);
 	const IOSCamPerson *target = nullptr;
 	for (auto &p : _people)
@@ -731,6 +755,19 @@ extern "C" void iosCam_FreezeEnd(void)
 
 extern "C" int iosCam_NumTaken(void) { return _ctTaken; }
 
+// A save, a load, a new level or game, back to the title: everything put
+// back at once, while the level's actors are still there (and before a
+// save writes them)
+void iosCam_Abort()
+{
+	EndBurst();
+	iosCapture_Cancel();
+	EndStage();
+	_bCamOn = false;
+	_bGameValid = false; // (the view kept may be of a level about to go)
+	_tPhotoAsked = 0;
+}
+
 static void Say(const char *why, const char *what)
 {
 	if (why && !strcmp(why, "single")) iosCamera_Message(!strcmp(what, "selfie") ? "Selfies are for single player" : "Action Freeze is for single player");
@@ -760,7 +797,7 @@ static bool StartHeld(int stage)
 	EndBurst();
 	if (_iStage != STAGE_NONE) return false;
 	const char *what = stage == STAGE_SELFIE ? "selfie" : "freeze";
-	if (const char *why = CantHere())
+	if (const char *why = CantHere(stage == STAGE_SELFIE))
 	{
 		Say(why, what);
 		return false;
@@ -912,7 +949,9 @@ extern "C" void iosCamera_FrameBegin(int w, int h)
 	iosCapture_FrameBegin(w, h);
 	_bViewSeen = false;
 	const double now = Now();
-	if (_iStage != STAGE_NONE && (gamestate != GS_LEVEL || M_Active() || ConsoleState == c_down || ConsoleState == c_falling))
+	const bool bModeChange = gamestate != GS_LEVEL || M_Active() || ConsoleState == c_down || ConsoleState == c_falling;
+	if (bModeChange) EndBurst();
+	if (_iStage != STAGE_NONE && (bModeChange || automapMode == am_full))
 	{
 		// a mode change: everything put back at once
 		iosCapture_Cancel();
