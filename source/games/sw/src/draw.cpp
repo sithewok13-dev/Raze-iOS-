@@ -23,6 +23,7 @@ Original Source: 1997 - Frank Maddin and Jim Norwood
 Prepared for public release: 03/28/2005 - Charlie Wiederhold, 3D Realms
 */
 //-------------------------------------------------------------------------
+#include "ioscamera.h"
 #include "ns.h"
 
 #define QUIET
@@ -780,9 +781,17 @@ static void analyzesprites(tspriteArray& tsprites, const DVector3& viewpos, doub
             if (getPlayer(screenpeek)->GetActor() == tActor)
             {
                 pp = getPlayer(screenpeek);
-                if (display_mirror || (pp->Flags & (PF_VIEW_FROM_OUTSIDE|PF_VIEW_FROM_CAMERA)))
+                if (display_mirror || (pp->Flags & (PF_VIEW_FROM_OUTSIDE|PF_VIEW_FROM_CAMERA))
+#ifdef RAZE_IOSCAMERA
+                    || iosCam_ShowsPlayer() // Added: the CAMERA's photo camera shows the player
+#endif
+                    )
                 {
-                    if (pp->Flags & (PF_VIEW_FROM_OUTSIDE))
+                    if ((pp->Flags & (PF_VIEW_FROM_OUTSIDE))
+#ifdef RAZE_IOSCAMERA
+                        && !iosCam_ShowsPlayer() // Added: the CAMERA shows the player solid
+#endif
+                        )
                         tsp->cstat |= (CSTAT_SPRITE_TRANSLUCENT);
 
                     auto pos = pp->CameraPos.plusZ(tsp->pos.Z);
@@ -804,6 +813,9 @@ static void analyzesprites(tspriteArray& tsprites, const DVector3& viewpos, doub
                     }
 
 					tsp->pos = pos;
+#ifdef RAZE_IOSCAMERA
+                    if (!iosCam_ShowsPlayer()) // Added: posed for the CAMERA's selfie, the body keeps its own heading
+#endif
                     tsp->Angles.Yaw = pp->CameraAngles.Yaw;
                     //continue;
                 }

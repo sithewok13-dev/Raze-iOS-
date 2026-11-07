@@ -51,6 +51,10 @@
 #include "render.h"
 #include "gamestruct.h"
 #include "gamehud.h"
+#include "ioscamera.h"
+#include "automap.h"
+#include "coreplayer.h"
+#include "d_net.h"
 
 EXTERN_CVAR(Bool, cl_capfps)
 
@@ -311,7 +315,56 @@ static void CheckTimer(FRenderState &state, uint64_t ShaderStartTime)
 void animatecamsprite(double s);
 
 
+#ifdef RAZE_IOSCAMERA
+static void render_drawrooms_(DCoreActor* playersprite, const DVector3& position, sectortype* sect, const DRotator& angles, double interpfrac, float fov);
+
+// Added: the CAMERA (core/ioscamera.h) keeps the game's view and, while its
+// photo camera is on, draws from there instead: no first-person weapon, the
+// player's own body shown
 void render_drawrooms(DCoreActor* playersprite, const DVector3& position, sectortype* sect, const DRotator& angles, double interpfrac, float fov)
+{
+	if (writingsavepic)
+	{
+		render_drawrooms_(playersprite, position, sect, angles, interpfrac, fov);
+		return;
+	}
+	DVector3 pos = position;
+	DRotator ang = angles;
+	if (!iosCam_View(playersprite, pos, sect, ang, fov))
+	{
+		render_drawrooms_(playersprite, position, sect, angles, interpfrac, fov);
+		return;
+	}
+	twodpsp.Clear();
+	// (what it sees isn't marked seen on the map)
+	const BitArray sectorsSeen = show2dsector, wallsSeen = show2dwall;
+	// (the whole screen: no room kept for the status bar)
+	const IntRect view = viewport3d;
+	viewport3d = { 0, 0, screen->GetWidth(), screen->GetHeight() };
+	auto player = PlayerArray[myconnectindex] ? PlayerArray[myconnectindex]->actor : nullptr;
+	if (!player)
+	{
+		render_drawrooms_(nullptr, pos, sect, ang, 1., fov);
+	}
+	else
+	{
+		// (all of the sprite put back: drawing it, a game may set some of it)
+		const auto spr = player->spr;
+		// (seen as anyone else is: Blood's third person draws it see-through)
+		if (iosCam_ShowsPlayer()) player->spr.cstat &= ~(CSTAT_SPRITE_INVISIBLE | CSTAT_SPRITE_TRANSLUCENT | CSTAT_SPRITE_TRANS_FLIP);
+		else player->spr.cstat |= CSTAT_SPRITE_INVISIBLE;
+		render_drawrooms_(nullptr, pos, sect, ang, 1., fov);
+		player->spr = spr;
+	}
+	viewport3d = view;
+	show2dsector = sectorsSeen;
+	show2dwall = wallsSeen;
+}
+
+static void render_drawrooms_(DCoreActor* playersprite, const DVector3& position, sectortype* sect, const DRotator& angles, double interpfrac, float fov)
+#else
+void render_drawrooms(DCoreActor* playersprite, const DVector3& position, sectortype* sect, const DRotator& angles, double interpfrac, float fov)
+#endif
 {
 	updatesector(position.XY(), &sect);
 	if (sect == nullptr) return;

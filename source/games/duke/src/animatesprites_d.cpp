@@ -33,6 +33,7 @@ source as it is released.
 //-------------------------------------------------------------------------
 
 
+#include "ioscamera.h"
 #include "ns.h"
 #include "global.h"
 #include "prediction.h"
@@ -121,7 +122,11 @@ void animatesprites_d(tspriteArray& tsprites, const DVector2& viewVec, DAngle vi
 		{
 			if (t->pal == 1) t->pos.Z -= 18;
 
-			if (p->over_shoulder_on > 0 && p->newOwner == nullptr)
+			if (p->over_shoulder_on > 0 && p->newOwner == nullptr
+#ifdef RAZE_IOSCAMERA
+				&& !iosCam_ShowsPlayer() // Added: the CAMERA shows the player solid
+#endif
+				)
 			{
 				t->cstat |= CSTAT_SPRITE_TRANSLUCENT;
 #if 0 // multiplayer only
@@ -199,7 +204,11 @@ void animatesprites_d(tspriteArray& tsprites, const DVector2& viewVec, DAngle vi
 			}
 
 			if (ud.cameraactor == nullptr && p->newOwner == nullptr)
-				if (h->GetOwner() && display_mirror == 0 && p->over_shoulder_on == 0)
+				if (h->GetOwner() && display_mirror == 0 && p->over_shoulder_on == 0
+#ifdef RAZE_IOSCAMERA
+					&& !iosCam_ShowsPlayer() // Added: the CAMERA's photo camera shows the player
+#endif
+					)
 					if (ud.multimode < 2 || (ud.multimode > 1 && p == spp))
 					{
 						t->ownerActor = nullptr;

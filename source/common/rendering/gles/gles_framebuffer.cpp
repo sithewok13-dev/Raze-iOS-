@@ -168,11 +168,38 @@ void OpenGLFrameBuffer::InitializeState()
 //
 //==========================================================================
 
+#if defined(RAZE_IOS) || defined(RAZE_GLES_RIG)
+// Added: the CAMERA (core/ioscamera.h) reads the frame drawn so far from
+// the scene buffer, before it is presented (so before any gamma)
+extern "C" void iosCamera_AfterHud(void);
+extern "C" int iosCapture_ReadFrame(int w, int h, unsigned char* p)
+{
+	if (!GLRenderer || !GLRenderer->mBuffers) return 0;
+	const auto& vp = screen->mScreenViewport;
+	if (w > vp.width || h > vp.height) return 0;
+	GLRenderer->mBuffers->BindCurrentFB();
+	while (glGetError() != GL_NO_ERROR) {}
+	glPixelStorei(GL_PACK_ALIGNMENT, 1);
+	glReadPixels(vp.left, vp.top, w, h, GL_RGBA, GL_UNSIGNED_BYTE, p);
+	glPixelStorei(GL_PACK_ALIGNMENT, 4);
+	return glGetError() == GL_NO_ERROR;
+}
+#endif
+
 void OpenGLFrameBuffer::Update()
 {
 	twoD.Reset();
 	Flush3D.Reset();
 
+#if defined(RAZE_IOS) || defined(RAZE_GLES_RIG)
+	// Added: the HUD and the menus drawn, then the CAMERA's HUD photo taken
+	if (GLRenderer != nullptr)
+	{
+		Draw2D();
+		twod->Clear();
+		iosCamera_AfterHud();
+	}
+#endif
 	Flush3D.Clock();
 	GLRenderer->Flush();
 	Flush3D.Unclock();
