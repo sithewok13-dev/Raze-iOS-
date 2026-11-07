@@ -68,3 +68,6 @@
 #include "src/vmexports.cpp"
 #include "src/d_menu.cpp"
 
+#ifdef RAZE_TOUCH
+#include "src/ios_blood.cpp" // Added: the iOS touch controls' part for this game
+#endif

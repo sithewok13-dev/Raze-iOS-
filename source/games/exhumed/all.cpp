@@ -46,3 +46,6 @@
 // This includes the VM so it is last
 #include "src/d_menu.cpp"
 
+#ifdef RAZE_TOUCH
+#include "src/ios_exhumed.cpp" // Added: the iOS touch controls' part for this game
+#endif
