@@ -39,6 +39,7 @@ EXTERN_CVAR(Bool, invertmouse)
 EXTERN_CVAR(Bool, invertmousex)
 EXTERN_CVAR(Int, quicksavenum)
 EXTERN_CVAR(Bool, cl_noexitscreens)
+EXTERN_CVAR(Bool, cl_nostartscreens)
 
 extern TArray<TPointer<MapRecord>> mapList;
 extern bool pausedWithKey;
@@ -211,7 +212,7 @@ static void PostKey(int key)
 
 // The level picked from the cheat's list: the exit screens are skipped
 // (cl_noexitscreens) until it is there, then set back
-static bool levelScreensSkipped = false, levelScreensWere = false;
+static bool levelScreensSkipped = false, levelScreensWere = false, levelStartWere = false;
 static unsigned int worldCount = 0;
 static MapRecord* worldLevel = nullptr;
 static int worldTic = -1;
@@ -233,6 +234,7 @@ void IOSGame_Frame()
 		{
 			levelScreensSkipped = false;
 			cl_noexitscreens = levelScreensWere;
+			cl_nostartscreens = levelStartWere;
 		}
 		if (cheatLevels.Size() == 0) FindLevels();
 		cheatLevel = nullptr; // (the cheat gives again)
@@ -298,8 +300,10 @@ void IOSGame_Frame()
 				{
 					levelScreensSkipped = true;
 					levelScreensWere = cl_noexitscreens;
+					levelStartWere = cl_nostartscreens;
 				}
 				cl_noexitscreens = true;
+				cl_nostartscreens = true;
 				ChangeLevel(cheatLevels[i - 1], g_nextskill);
 			}
 			else IOSTouch_CheatLevelFailed();
