@@ -25,6 +25,7 @@
 The first numbered release. Everything here is new:
 
 - **Five games in one app:** *Duke Nukem 3D* (the Atomic Edition with its add-ons *Duke It Out in D.C.*, *Nuclear Winter*, *Duke Caribbean: Life's a Beach* and *Duke!Zone II*, or the *20th Anniversary World Tour*), *Blood* (with *Cryptic Passage*), *Shadow Warrior* (with *Twin Dragon* and *Wanton Destruction*), *Redneck Rampage* (with *Rides Again*) and *PowerSlave* (*Exhumed*). A picker shows a card for each game you have; hold a card for its add-ons.
+- **An app icon of its own:** an orange "R" on a floor grid, drawn for the port.
 - **Touch controls made for these games:** a move stick under your left thumb, drag to look, FIRE with CROUCH, USE and JUMP round it, KICK in *Duke Nukem 3D* and ALT FIRE in *Blood*.
 - **A weapon wheel** on NEXT WPN and PREV WPN, with each weapon's own picture from your game and its ammo.
 - **A button for every item you carry:** Duke's medkit, steroids, HoloDuke, jetpack and night vision, Blood's doctor's bag and crystal ball, Lo Wang's smoke bombs and caltrops, and so on, each with the item's own picture and a ring that shows how much is left.
@@ -145,7 +146,6 @@ In the menus, tap as you'd click. **Leaving the app doesn't save your game**: qu
 - **Multiplayer is the weakest part, sorry.** LAN games have only been tried between copies of the game on one computer, never between two iPhones or iPads on real Wi-Fi. Expect it not to find the other phone, to drop out, or for the games to drift out of step. *PowerSlave* has no multiplayer. It's being worked on.
 - **Not tried yet:** iPads (the app is marked for them); keyboards and mice; *NAM* and *WWII GI*, which Raze also plays; user maps and mods.
 - **Music:** MIDI music plays through the app's own synthesizers (like an old sound card), so it may sound different from a PC.
-- **The app has no icon of its own yet** on the home screen.
 
 ### Requirements
 
