@@ -38,6 +38,7 @@ EXTERN_CVAR(Float, m_sensitivity_y)
 EXTERN_CVAR(Bool, invertmouse)
 EXTERN_CVAR(Bool, invertmousex)
 EXTERN_CVAR(Int, quicksavenum)
+EXTERN_CVAR(Bool, cl_noexitscreens)
 
 extern TArray<TPointer<MapRecord>> mapList;
 extern bool pausedWithKey;
@@ -208,6 +209,9 @@ static void PostKey(int key)
 	D_PostEvent(&ev);
 }
 
+// The level picked from the cheat's list: the exit screens are skipped
+// (cl_noexitscreens) until it is there, then set back
+static bool levelScreensSkipped = false, levelScreensWere = false;
 static unsigned int worldCount = 0;
 static MapRecord* worldLevel = nullptr;
 static int worldTic = -1;
@@ -225,6 +229,11 @@ void IOSGame_Frame()
 	{
 		worldLevel = currentLevel;
 		worldCount++;
+		if (levelScreensSkipped && gamestate == GS_LEVEL)
+		{
+			levelScreensSkipped = false;
+			cl_noexitscreens = levelScreensWere;
+		}
 		if (cheatLevels.Size() == 0) FindLevels();
 		cheatLevel = nullptr; // (the cheat gives again)
 	}
@@ -259,6 +268,12 @@ void IOSGame_Frame()
 	if ((req & IOSTOUCH_REQ_RESUME) && pausedWithKey) C_DoCommand("pause");
 	if (req & IOSTOUCH_REQ_INVPREV) gameInput.SendAction(SB_INVPREV);
 	if (req & IOSTOUCH_REQ_INVNEXT) gameInput.SendAction(SB_INVNEXT);
+	// (flying and noclip before the cheat goes off: Shadow Warrior flies only in god mode)
+	if (CheatAllowed())
+	{
+		if (req & IOSTOUCH_REQ_NOCLIP) C_DoCommand("noclip");
+		if (req & IOSTOUCH_REQ_FLY) C_DoCommand("fly");
+	}
 	if (req & IOSTOUCH_REQ_CHEATON)
 	{
 		cheatOn = true;
@@ -271,18 +286,21 @@ void IOSGame_Frame()
 	}
 	if (CheatAllowed())
 	{
-		if (req & IOSTOUCH_REQ_NOCLIP) C_DoCommand("noclip");
-		if (req & IOSTOUCH_REQ_FLY) C_DoCommand("fly");
 		if (req & IOSTOUCH_REQ_LEVEL)
 		{
 			const int i = IOSTouch_TakeLevelPick();
 			if (i >= 1 && i <= (int)cheatLevels.Size() && gameaction == ga_nothing)
 			{
-				// straight there, as the game's own next level (no summary
-				// screen, no cutscene; what the player has is kept)
-				g_nextmap = cheatLevels[i - 1];
-				g_nextskill = -1;
-				gameaction = ga_nextlevel;
+				// as if the level were finished, to the one picked (so each
+				// game carries the player over as it does), with the exit
+				// screens skipped until the new level is there
+				if (!levelScreensSkipped)
+				{
+					levelScreensSkipped = true;
+					levelScreensWere = cl_noexitscreens;
+				}
+				cl_noexitscreens = true;
+				ChangeLevel(cheatLevels[i - 1], g_nextskill);
 			}
 			else IOSTouch_CheatLevelFailed();
 		}

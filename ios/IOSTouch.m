@@ -878,6 +878,7 @@ static float _fCheatRing = 0.0f;
 static float _afCheatActRing[2] = { 0.0f, 0.0f }; // JUMP, USE
 static int _bLevelListOpen = 0, _iLevelPicked = 0;
 static double _tJumpTapLift = -1.0;
+static double _tFlyAsked = -1.0e9; // when flying was last asked for or against
 static int _ctCheatTicks = 0;
 static unsigned int _uWorldSeen = 0;
 // The message line, what it says and when it came
@@ -1326,6 +1327,7 @@ static void IOSTouch_SetCheat(int bOn)
   _iRequests |= bOn ? IOSTOUCH_REQ_CHEATON : IOSTOUCH_REQ_CHEATOFF;
   if (!bOn) {
     // (what it gave is kept: the game does that) flying and noclip end
+    // (asked in the same frame as god mode goes off: the game flies only in god mode)
     if (_hud.bFlying) _iRequests |= IOSTOUCH_REQ_FLY;
     if (_hud.bNoclip) _iRequests |= IOSTOUCH_REQ_NOCLIP;
     _bFlying = 0;
@@ -1461,8 +1463,7 @@ static void IOSTouch_CheatLifted(IOSTouchSlot *s, double x, double y, int bCance
       && hypot(x - s->xDown, y - s->yDown) < IOSTOUCH_CHEAT_STILL) {
     const double dt = s->tDownTouch - _tJumpTapLift;
     if (_tJumpTapLift >= 0.0 && dt >= 0.0 && dt < IOSTOUCH_CHEAT_DOUBLE) {
-      _bFlying = 0;
-      if (_hud.bFlying) _iRequests |= IOSTOUCH_REQ_FLY;
+      _bFlying = 0; // (the game lands: IOSTouch_TickCheat)
       _tJumpTapLift = -1.0;
       _ctCheatTicks++;
       IOS_ShowCameraMessage("Landed");
@@ -1486,13 +1487,23 @@ static void IOSTouch_TickCheat(double now, double known)
   // a new level (started or loaded): no flying or noclip in it to begin with
   if (_hud.uWorld != _uWorldSeen) {
     _uWorldSeen = _hud.uWorld;
-    if (_hud.bFlying) _iRequests |= IOSTOUCH_REQ_FLY;
     if (_hud.bNoclip) _iRequests |= IOSTOUCH_REQ_NOCLIP;
     _bFlying = 0;
     _tJumpTapLift = -1.0;
   }
-  // (flying ended in the game: landed on its own, or a level reloaded)
-  if (_bFlying && _hud.bValid && !_hud.bFlying && !(_iRequests & IOSTOUCH_REQ_FLY)) _bFlying = 0;
+  // Flying as the overlay wants it, once the game has had a moment to take
+  // the last ask (the game toggles it, and takes it only in god mode, which
+  // the cheat gives a moment into a level): still flying when it shouldn't
+  // be, asked again; stopped flying on its own, so be it
+  if (_hud.bValid && _hud.bFlying != _bFlying && now - _tFlyAsked > 1.0) {
+    if (_bFlying) {
+      _bFlying = 0;
+    }
+    else if (_hud.bCheatAllowed && _bCheatOn) {
+      _iRequests |= IOSTOUCH_REQ_FLY;
+      _tFlyAsked = now;
+    }
+  }
   float fCheatRing = 0.0f;
   float afAct[2] = { 0.0f, 0.0f };
   for (int i = 0; i < IOSTOUCH_MAX_TOUCHES; i++) {
@@ -1529,7 +1540,10 @@ static void IOSTouch_TickCheat(double now, double known)
     _ctCheatTicks++;
     if (k == 0) {
       _bFlying = 1;
-      if (!_hud.bFlying) _iRequests |= IOSTOUCH_REQ_FLY;
+      if (!_hud.bFlying) {
+        _iRequests |= IOSTOUCH_REQ_FLY;
+        _tFlyAsked = now;
+      }
       _tJumpTapLift = -1.0;
       IOS_ShowCameraMessage("Flying: JUMP rises, CROUCH sinks; tap JUMP twice to land");
     }
@@ -3557,8 +3571,6 @@ static CAShapeLayer *IOSTouch_MakeHoldRing(CGFloat r)
       aWheelRings[k] = IOSTouch_MakeHoldRing(_aButtons[k ? BTN_PREVWPN : BTN_NEXTWPN].radius);
       [aButtonViews[k ? BTN_PREVWPN : BTN_NEXTWPN].layer addSublayer:aWheelRings[k]];
     }
-
-@@@END
 
     // MENU's tray: its buttons on a dark backing, hidden until a hold on
     // MENU opens it. The keyboard button shows the keyboard symbol.
