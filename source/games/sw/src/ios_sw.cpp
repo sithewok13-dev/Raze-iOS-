@@ -69,7 +69,7 @@ static void Pick(int w)
 		// it switches to the other)
 		const int cur = act->user.WeaponNum;
 		if (cur == w) return;
-		if (!IsMelee(cur)) pp->WpnFirstType = (uint8_t)w;
+		if (!IsMelee(cur) && !netgame) pp->WpnFirstType = (uint8_t)w; // (single player: this isn't sent over the network)
 		gameInput.SendWeapon(1);
 		return;
 	}
@@ -99,6 +99,19 @@ static void FillAmmo()
 	}
 }
 
+static bool Alive()
+{
+	auto pp = getPlayer(myconnectindex);
+	auto act = pp ? pp->GetActor() : nullptr;
+	return act && act->hasU() && !(pp->Flags & PF_DEAD) && act->user.Health > 0;
+}
+
+static bool GodOn()
+{
+	return GodMode != 0;
+}
+
 END_SW_NS
 
-const IOSGamePart iosSWPart = { SW_NS::Weapons, SW_NS::Pick, nullptr, SW_NS::State, SW_NS::FillAmmo, false };
+const IOSGamePart iosSWPart = { SW_NS::Weapons, SW_NS::Pick, nullptr, SW_NS::State, SW_NS::FillAmmo, false,
+                                SW_NS::Alive, SW_NS::GodOn, nullptr };

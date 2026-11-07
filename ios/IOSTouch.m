@@ -1316,7 +1316,7 @@ static int _ctWheelTicks = 0;
 
 static void IOSTouch_CheatNotAllowed(void)
 {
-  IOS_ShowCameraMessage("The cheat works in a level being played");
+  IOS_ShowCameraMessage(_hud.strCheatRefusal ? _hud.strCheatRefusal : "The cheat works in a level being played");
 }
 
 static void IOSTouch_SetCheat(int bOn)

@@ -278,6 +278,9 @@ static void GameTicker()
 			break;
 
 		case ga_level:
+#ifdef RAZE_TOUCH
+			IOSGame_LevelStarted(); // Added: (new level, restart, load) for the iOS touch controls
+#endif
 			Net_ClearFifo();
 			inputState.ClearAllInput();
 			gameInput.Clear();

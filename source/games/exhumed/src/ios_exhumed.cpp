@@ -52,6 +52,30 @@ static void State(IOSTouchHud* pHud)
 	pHud->bNoclip = bSlipMode;
 }
 
+// The cheat's ammo kept full: as the game's own weapons cheat fills it (300)
+static void FillAmmo()
+{
+	auto pPlayer = getPlayer(myconnectindex);
+	if (!pPlayer || !pPlayer->GetActor() || pPlayer->nHealth <= 0) return;
+	for (int w = 0; w < kMaxWeapons; w++)
+	{
+		if ((pPlayer->nPlayerWeapons & (1 << w)) && WeaponInfo[w].d && pPlayer->nAmmo[w] < 300) pPlayer->nAmmo[w] = 300;
+	}
+}
+
+static bool Alive()
+{
+	auto pPlayer = getPlayer(myconnectindex);
+	return pPlayer && pPlayer->GetActor() && pPlayer->nHealth > 0;
+}
+
+static bool GodOn()
+{
+	auto pPlayer = getPlayer(myconnectindex);
+	return pPlayer && pPlayer->invincibility < 0;
+}
+
 END_PS_NS
 
-const IOSGamePart iosExhumedPart = { PS_NS::Weapons, PS_NS::Pick, nullptr, PS_NS::State, nullptr, true };
+const IOSGamePart iosExhumedPart = { PS_NS::Weapons, PS_NS::Pick, nullptr, PS_NS::State, PS_NS::FillAmmo, true,
+                                     PS_NS::Alive, PS_NS::GodOn, nullptr };

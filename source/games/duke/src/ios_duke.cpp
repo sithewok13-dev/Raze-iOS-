@@ -134,7 +134,7 @@ static void State(IOSTouchHud* pHud)
 	// cheat gave them all) one is chosen, as the game does when one runs out.
 	const bool bAny = p->firstaid_amount > 0 || p->steroids_amount > 0 || p->holoduke_amount > 0 || p->jetpack_amount > 0
 	                  || p->heat_amount > 0 || p->scuba_amount > 0 || p->boot_amount > 0;
-	if (bAny && p->inven_icon == ICON_NONE && !paused) checkavailinven(p);
+	if (bAny && p->inven_icon == ICON_NONE && !paused && !netgame) checkavailinven(p);
 	pHud->bItem = p->inven_icon > ICON_NONE;
 	pHud->bNoclip = ud.clipping != 0;
 	pHud->bCanFly = 0;
@@ -153,6 +153,23 @@ static void FillAmmo()
 	}
 }
 
+static void Reset()
+{
+	pending = -1;
+}
+
+static bool Alive()
+{
+	auto p = getPlayer(myconnectindex);
+	return p && p->GetActor() && p->GetActor()->spr.extra > 0;
+}
+
+static bool GodOn()
+{
+	return ud.god != 0;
+}
+
 END_DUKE_NS
 
-const IOSGamePart iosDukePart = { DUKE_NS::Weapons, DUKE_NS::Pick, DUKE_NS::PickTick, DUKE_NS::State, DUKE_NS::FillAmmo, false };
+const IOSGamePart iosDukePart = { DUKE_NS::Weapons, DUKE_NS::Pick, DUKE_NS::PickTick, DUKE_NS::State, DUKE_NS::FillAmmo, false,
+                                  DUKE_NS::Alive, DUKE_NS::GodOn, DUKE_NS::Reset };

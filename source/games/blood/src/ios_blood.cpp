@@ -51,10 +51,62 @@ static void Weapons(IOSTouchWeapons* pw)
 	}
 }
 
+// A TNT pick from the proximity or remote TNT in hand: Blood's TNT slot steps
+// through the three kinds from the one in hand (weapon.cpp), so it is pressed
+// again (PickTick) until the TNT bundle is in hand
+static int pending = -1, pendingFrames = 0, pendingWait = 0;
+
 static void Pick(int w)
 {
+	pending = -1;
 	// Blood's weapon slots are its weapon numbers
-	if (w >= kWeapPitchFork && w <= kWeapRemote) gameInput.SendWeapon(w);
+	if (w < kWeapPitchFork || w > kWeapRemote) return;
+	gameInput.SendWeapon(w);
+	if (w == kWeapDynamite)
+	{
+		pending = w;
+		pendingFrames = 0;
+		pendingWait = 20;
+	}
+}
+
+static void PickTick()
+{
+	if (pending < 0) return;
+	auto pPlayer = getPlayer(myconnectindex);
+	if (!pPlayer || !pPlayer->GetActor() || ++pendingFrames > 240 || pPlayer->curWeapon == pending)
+	{
+		pending = -1;
+		return;
+	}
+	if (pendingWait > 0)
+	{
+		pendingWait--;
+		return;
+	}
+	// another kind of TNT came up, and nothing else is on its way: the slot again
+	if ((pPlayer->curWeapon == kWeapProximity || pPlayer->curWeapon == kWeapRemote) && pPlayer->newWeapon == kWeapNone && pPlayer->nextWeapon == kWeapNone)
+	{
+		gameInput.SendWeapon(kWeapDynamite);
+		pendingWait = 20;
+	}
+}
+
+static void Reset()
+{
+	pending = -1;
+}
+
+static bool Alive()
+{
+	auto pPlayer = getPlayer(myconnectindex);
+	return pPlayer && pPlayer->GetActor() && pPlayer->GetActor()->xspr.health > 0;
+}
+
+static bool GodOn()
+{
+	auto pPlayer = getPlayer(myconnectindex);
+	return pPlayer && pPlayer->godMode;
 }
 
 static void State(IOSTouchHud* pHud)
@@ -80,4 +132,5 @@ static void FillAmmo()
 
 END_BLD_NS
 
-const IOSGamePart iosBloodPart = { BLD_NS::Weapons, BLD_NS::Pick, nullptr, BLD_NS::State, BLD_NS::FillAmmo, true };
+const IOSGamePart iosBloodPart = { BLD_NS::Weapons, BLD_NS::Pick, BLD_NS::PickTick, BLD_NS::State, BLD_NS::FillAmmo, true,
+                                   BLD_NS::Alive, BLD_NS::GodOn, BLD_NS::Reset };

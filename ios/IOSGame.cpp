@@ -10,6 +10,9 @@
 */
 
 #include "IOSGame.h"
+#include "iosCamera.h"
+
+#include <sys/stat.h>
 
 #include <SDL.h>
 
@@ -37,7 +40,7 @@ EXTERN_CVAR(Float, m_sensitivity_x)
 EXTERN_CVAR(Float, m_sensitivity_y)
 EXTERN_CVAR(Bool, invertmouse)
 EXTERN_CVAR(Bool, invertmousex)
-EXTERN_CVAR(Int, quicksavenum)
+EXTERN_CVAR(Int, quicksavecount)
 EXTERN_CVAR(Bool, cl_noexitscreens)
 EXTERN_CVAR(Bool, cl_nostartscreens)
 
@@ -45,6 +48,7 @@ extern TArray<TPointer<MapRecord>> mapList;
 extern bool pausedWithKey;
 extern int chatmodeon;
 extern int gametic;
+bool CheckCheatmode(bool printmsg, bool sponly);
 
 static const IOSGamePart* Part()
 {
@@ -115,13 +119,26 @@ int IOSGame_CurrentLevel()
 //---------------------------------------------------------------------------
 
 static bool cheatOn = false;
+static bool godOffLevel = false; // a level came: god mode off once it is going, unless the cheat is on
 static MapRecord* cheatLevel = nullptr;
 static int cheatLevelCount = 0; // frames into the level (it gives once the level is going)
 static int ammoTimer = 0;
 
+// The cheat works in a single-player level being played -- and only where
+// the game's own cheats do (Raze's CheckCheatmode: cl_blockcheats, Shadow
+// Warrior's top skill, Redneck Rampage Rides Again's no-cheat levels...)
 static bool CheatAllowed()
 {
-	return !netgame && gamestate == GS_LEVEL && currentLevel != nullptr && Part() != nullptr;
+	return !netgame && gamestate == GS_LEVEL && currentLevel != nullptr && Part() != nullptr && !CheckCheatmode(false, true);
+}
+
+// Why not, for the message (nullptr: it is allowed)
+static const char* CheatRefusal()
+{
+	if (netgame) return "No cheat in a network game";
+	if (gamestate != GS_LEVEL || currentLevel == nullptr || Part() == nullptr) return "The cheat works in a level being played";
+	if (CheckCheatmode(false, true)) return "The game doesn't allow cheats here";
+	return nullptr;
 }
 
 static void CheatGive()
@@ -170,9 +187,21 @@ CCMD(sithewok)
 //
 //---------------------------------------------------------------------------
 
+// (never while the camera is at work: a selfie or Action Freeze holds the
+// game's actors posed, which a load or a level change would free and a save
+// would keep)
+static bool CameraBusy()
+{
+	if (!iosCamera_IsBusy()) return false;
+	IOSTouch_ShowMessage("Camera busy", 1.5);
+	return true;
+}
+
 static void QuickSave()
 {
-	if (!gi->CanSave())
+	if (netgame || CameraBusy()) return;
+	auto part = Part();
+	if (!gi->CanSave() || (part && part->Alive && !part->Alive()))
 	{
 		IOSTouch_ShowMessage("Can't save now", 2.0);
 		return;
@@ -181,11 +210,32 @@ static void QuickSave()
 	IOSTouch_ShowMessage("Quick save", 1.5);
 }
 
+// The newest of the quick saves in this game's own save folder (the
+// rotation's number, quicksavenum, is shared by every game)
+static FString NewestQuickSave()
+{
+	FString best;
+	time_t tBest = 0;
+	const int count = max((int)quicksavecount, 1);
+	for (int n = 0; n < count && n < 100; n++)
+	{
+		auto name = G_BuildSaveName(FStringf("quick%04d", n).GetChars());
+		struct stat st;
+		if (stat(name.GetChars(), &st) != 0) continue;
+		if (best.IsEmpty() || st.st_mtime > tBest)
+		{
+			best = name;
+			tBest = st.st_mtime;
+		}
+	}
+	return best;
+}
+
 static void QuickLoad()
 {
-	if (netgame) return;
-	auto name = G_BuildSaveName(FStringf("quick%04d", (int)quicksavenum).GetChars());
-	if (!FileExists(name))
+	if (netgame || CameraBusy()) return;
+	auto name = NewestQuickSave();
+	if (name.IsEmpty())
 	{
 		IOSTouch_ShowMessage("No quick save yet (hold QUICK SAVE)", 3.0);
 		return;
@@ -210,13 +260,47 @@ static void PostKey(int key)
 	D_PostEvent(&ev);
 }
 
-// The level picked from the cheat's list: the exit screens are skipped
-// (cl_noexitscreens) until it is there, then set back
-static bool levelScreensSkipped = false, levelScreensWere = false, levelStartWere = false;
-static unsigned int worldCount = 0;
-static MapRecord* worldLevel = nullptr;
-static int worldTic = -1;
+// The level picked from the cheat's list: the exit and start screens are
+// skipped (cl_noexitscreens, cl_nostartscreens) until it is there, then set
+// back. What they were is kept in ios_levelscreens too (archived: bit 0 exit,
+// bit 1 start; -1 nothing to put back), so they are put back even if the
+// app ended in between.
+CVAR(Int, ios_levelscreens, -1, CVAR_ARCHIVE | CVAR_GLOBALCONFIG | CVAR_NOSET)
+
+static void RestoreLevelScreens()
+{
+	const int v = ios_levelscreens;
+	if (v < 0) return;
+	cl_noexitscreens = (v & 1) != 0;
+	cl_nostartscreens = (v & 2) != 0;
+	UCVarValue val;
+	val.Int = -1;
+	ios_levelscreens->ForceSet(val, CVAR_Int);
+}
+
+static void SkipLevelScreens()
+{
+	if (ios_levelscreens < 0)
+	{
+		UCVarValue val;
+		val.Int = (cl_noexitscreens ? 1 : 0) | (cl_nostartscreens ? 2 : 0);
+		ios_levelscreens->ForceSet(val, CVAR_Int);
+	}
+	cl_noexitscreens = true;
+	cl_nostartscreens = true;
+}
+
+// Levels started, restarted or loaded (GameTicker's ga_level), and the
+// count the frame last saw
+static unsigned int levelStarts = 0, levelStartsSeen = 0;
 static unsigned int framesDrawn = 0;
+
+void IOSGame_LevelStarted()
+{
+	levelStarts++;
+	auto part = Part();
+	if (part && part->Reset) part->Reset();
+}
 
 void IOSGame_Frame()
 {
@@ -224,22 +308,25 @@ void IOSGame_Frame()
 	const int mode = TouchMode();
 	const IOSGamePart* part = Part();
 
-	// a new level, or one loaded: the world changed (a load can bring back
-	// the same level, so a jump back in the game's clock counts too)
-	if (currentLevel != worldLevel || gametic < worldTic)
+	// (the level screens left skipped by an earlier run)
+	if (framesDrawn == 1) RestoreLevelScreens();
+
+	// a level started, restarted or loaded: the world changed
+	if (levelStarts != levelStartsSeen)
 	{
-		worldLevel = currentLevel;
-		worldCount++;
-		if (levelScreensSkipped && gamestate == GS_LEVEL)
-		{
-			levelScreensSkipped = false;
-			cl_noexitscreens = levelScreensWere;
-			cl_nostartscreens = levelStartWere;
-		}
+		levelStartsSeen = levelStarts;
+		RestoreLevelScreens();
 		if (cheatLevels.Size() == 0) FindLevels();
 		cheatLevel = nullptr; // (the cheat gives again)
+		// god mode brought back by a save made with the cheat on, the cheat
+		// off now: off (god mode only ever comes from the cheat here)
+		if (!cheatOn) godOffLevel = true;
 	}
-	worldTic = gametic;
+	if (godOffLevel && gamestate == GS_LEVEL && gameaction == ga_nothing)
+	{
+		godOffLevel = false;
+		if (!cheatOn && part && part->GodOn && part->GodOn() && CheatAllowed()) C_DoCommand("godoff");
+	}
 
 	IOSTouchWeapons wpn = {};
 	IOSTouchHud hud = {};
@@ -249,11 +336,12 @@ void IOSGame_Frame()
 		part->State(&hud);
 		hud.bValid = 1;
 	}
-	hud.bNoSaves = !gi->CanSave();
+	hud.bNoSaves = netgame; // (QUICK SAVE says when it can't save; QUICK LOAD works dead too)
 	hud.bCheatAllowed = CheatAllowed();
+	hud.strCheatRefusal = hud.bCheatAllowed ? nullptr : CheatRefusal();
 	if (hud.bCheatAllowed && cheatLevels.Size() == 0) FindLevels();
 	hud.ctLevels = hud.bCheatAllowed ? cheatLevels.Size() : 0;
-	hud.uWorld = worldCount;
+	hud.uWorld = levelStarts;
 	if (part && part->PickTick) part->PickTick();
 	IOSTouch_SetWeapons(&wpn);
 
@@ -280,6 +368,7 @@ void IOSGame_Frame()
 	{
 		cheatOn = true;
 		cheatLevel = nullptr;
+		godOffLevel = false;
 	}
 	if (req & IOSTOUCH_REQ_CHEATOFF)
 	{
@@ -291,22 +380,15 @@ void IOSGame_Frame()
 		if (req & IOSTOUCH_REQ_LEVEL)
 		{
 			const int i = IOSTouch_TakeLevelPick();
-			if (i >= 1 && i <= (int)cheatLevels.Size() && gameaction == ga_nothing)
+			if (i >= 1 && i <= (int)cheatLevels.Size() && gameaction == ga_nothing && !CameraBusy())
 			{
 				// as if the level were finished, to the one picked (so each
 				// game carries the player over as it does), with the exit
-				// screens skipped until the new level is there
-				if (!levelScreensSkipped)
-				{
-					levelScreensSkipped = true;
-					levelScreensWere = cl_noexitscreens;
-					levelStartWere = cl_nostartscreens;
-				}
-				cl_noexitscreens = true;
-				cl_nostartscreens = true;
+				// and start screens skipped until the new level is there
+				SkipLevelScreens();
 				ChangeLevel(cheatLevels[i - 1], g_nextskill);
 			}
-			else IOSTouch_CheatLevelFailed();
+			else if (!iosCamera_IsBusy()) IOSTouch_CheatLevelFailed();
 		}
 	}
 	CheatFrame();
@@ -319,10 +401,23 @@ void IOSGame_Frame()
 //---------------------------------------------------------------------------
 
 static bool useWasDown = false;
+// Tilt aiming taken this read, for processMovement (degrees, the game's way round)
+static double gyroYaw = 0, gyroPitch = 0;
 
 void IOSGame_Input(float* joyAxes, bool bTic)
 {
 	const IOSGamePart* part = Part();
+
+	// tilt aiming: taken every read, so what processMovement doesn't use
+	// (paused, driving: RRRA's vehicles turn in processVehicle) is dropped
+	// instead of piling up to spin the view later
+	{
+		float yaw, pitch;
+		IOSTouch_TakeGyro(&yaw, &pitch);
+		// (the overlay's + left and + up; the game's + right and + down)
+		gyroYaw = paused ? 0.0 : -yaw;
+		gyroPitch = paused ? 0.0 : -pitch;
+	}
 
 	// the stick, as a gamepad's left stick (forward +, the side axis - to the right)
 	float mx, my;
@@ -368,11 +463,9 @@ void IOSGame_Input(float* joyAxes, bool bTic)
 
 void IOSGame_TakeGyro(double* pYaw, double* pPitch)
 {
-	float yaw, pitch;
-	IOSTouch_TakeGyro(&yaw, &pitch);
-	// (the overlay's + left and + up; the game's + right and + down)
-	*pYaw = -yaw;
-	*pPitch = -pitch;
+	*pYaw = gyroYaw;
+	*pPitch = gyroPitch;
+	gyroYaw = gyroPitch = 0.0;
 }
 
 bool IOSGame_HoldsGame()

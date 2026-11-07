@@ -19,18 +19,24 @@ struct IOSGamePart
 	void (*State)(IOSTouchHud* pHud);
 	void (*FillAmmo)();
 	bool bUseOnce;   // the game takes USE as one press (Blood, Exhumed: it clears the open key)
+	bool (*Alive)();     // the player is there and alive (a quick save needs that)
+	bool (*GodOn)();     // the game's god mode is on
+	void (*Reset)();     // a level was started, restarted or loaded: drop what was waiting (a two-step pick)
 };
 extern const IOSGamePart iosDukePart, iosBloodPart, iosSWPart, iosExhumedPart;
 
 // The main loop, once a frame before it draws
 void IOSGame_Frame();
+// GameTicker's ga_level: a level was started, restarted or loaded
+void IOSGame_LevelStarted();
 // GameInput::getInput: the stick into joyAxes, and the buttons and the
 // wheel's pick into the input bits (bTic: the read for a game tick; the
 // others, made every frame for smooth turning, only take the stick and the
 // look)
 void IOSGame_Input(float* joyAxes, bool bTic);
 // GameInput::processMovement: tilt aiming, in degrees (+ right, + down: the
-// game's own way round)
+// game's own way round): what IOSGame_Input took this read (taken every
+// read, so what isn't used -- paused, a vehicle -- is dropped, not kept)
 void IOSGame_TakeGyro(double* pYaw, double* pPitch);
 // updatePauseStatus: the game holds still (the weapon wheel or the cheat's
 // list of levels is open)

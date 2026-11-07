@@ -54,7 +54,8 @@ typedef struct IOSTouchHud {
   int iSecondary;      /* the secondary button: IOSTOUCH_SEC_* */
   int bItem;           /* the game has an inventory item to use (ITEM shows) */
   int bNoSaves;        /* no QUICK SAVE / QUICK LOAD (the game can't save now) */
-  int bCheatAllowed;   /* the cheat works here (single player, a level being played) */
+  int bCheatAllowed;   /* the cheat works here (single player, a level being played, the game's cheats allowed) */
+  const char *strCheatRefusal; /* ...and if not, why (a static string, or NULL) */
   int bCanFly;         /* the cheat's fly (Shadow Warrior's) */
   int bNoclip;         /* the game's noclip is on now */
   int bFlying;         /* the game's flying is on now (Shadow Warrior) */
