@@ -166,6 +166,23 @@ namespace OpenGLESRenderer
 			gles.defaultFramebuffer = (unsigned int)fb;
 			Printf("GLES screen frame buffer: %u\n", gles.defaultFramebuffer);
 		}
+#ifdef RAZE_GLES_RIG
+		// Rig only: report every GL error with the call that caused it
+		{
+			typedef void (APIENTRYP DEBUGPROC)(GLenum, GLenum, GLuint, GLenum, GLsizei, const GLchar*, const void*);
+			typedef void (APIENTRYP CBPROC)(DEBUGPROC, const void*);
+			auto cb = (CBPROC)LoadGLES2Proc("glDebugMessageCallback");
+			if (cb)
+			{
+				glEnable(0x92E0 /* GL_DEBUG_OUTPUT */);
+				glEnable(0x8242 /* GL_DEBUG_OUTPUT_SYNCHRONOUS */);
+				cb([](GLenum, GLenum type, GLuint, GLenum, GLsizei, const GLchar* msg, const void*) {
+					if (type == 0x824C /* GL_DEBUG_TYPE_ERROR */) fprintf(stderr, "GLERROR: %s\n", msg);
+				}, nullptr);
+			}
+			else fprintf(stderr, "GLERROR channel: no glDebugMessageCallback\n");
+		}
+#endif
 		CollectExtensions();
 
 		Printf("GL_VENDOR: %s\n", glGetString(GL_VENDOR));
@@ -227,6 +244,9 @@ namespace OpenGLESRenderer
 			gles.npotAvailable = CheckExtension("GL_OES_texture_npot");
 			gles.depthClampAvailable = CheckExtension("GL_EXT_depth_clamp");
 			gles.anistropicFilterAvailable = CheckExtension("GL_EXT_texture_filter_anisotropic");
+			// Apple's BGRA extension (iOS) takes BGRA data only into an RGBA
+			// texture; the EXT one (Android, Mesa) wants BGRA for both
+			gles.bgraInternalRGBA = !CheckExtension("GL_EXT_texture_format_BGRA8888") && CheckExtension("GL_APPLE_texture_format_BGRA8888");
 			if (glVersion >= 3.0)
 			{
 				// Core in OpenGL ES 3, so not listed as extensions (iOS lists
