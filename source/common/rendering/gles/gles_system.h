@@ -96,6 +96,7 @@ namespace OpenGLESRenderer
 
 	struct RenderContextGLES
 	{
+		unsigned int defaultFramebuffer; // the screen's frame buffer: 0 on desktops, SDL's own on iOS
 		unsigned int flags;
 		unsigned int maxlights;
 		unsigned int numlightvectors;

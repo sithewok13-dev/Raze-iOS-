@@ -157,6 +157,14 @@ namespace OpenGLESRenderer
 		glGenVertexArrays(1, &vao);
 		glBindVertexArray(vao);
 #endif
+		// On iOS there is no frame buffer 0: SDL draws to the screen through
+		// a frame buffer of its own, bound when the context is made current.
+		// Remember it, so "the screen" is that one.
+		{
+			GLint fb = 0;
+			glGetIntegerv(GL_FRAMEBUFFER_BINDING, &fb);
+			gles.defaultFramebuffer = (unsigned int)fb;
+		}
 		CollectExtensions();
 
 		Printf("GL_VENDOR: %s\n", glGetString(GL_VENDOR));
