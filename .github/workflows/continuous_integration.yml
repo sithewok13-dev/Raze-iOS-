@@ -2,7 +2,7 @@ name: Continuous Integration
 
 on:
   push:
-    branches-ignore: [ "ios" ]   # the iOS branch has its own workflow (ios.yml)
+    branches-ignore: [ "ios", "ios-*" ]   # the iOS branches have their own workflow (ios.yml)
   pull_request:
 
 jobs:
