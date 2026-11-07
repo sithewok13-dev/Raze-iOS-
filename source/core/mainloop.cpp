@@ -430,6 +430,10 @@ void Display()
 {
 	if (screen == nullptr || (!AppActive && (screen->IsFullscreen() || !vid_activeinbackground)))
 	{
+#ifdef RAZE_IOS
+		static int skipped = 0;
+		if (skipped++ % 300 == 0) Printf("Display: not drawing (%s)\n", screen == nullptr ? "no screen" : "app not active");
+#endif
 		return;
 	}
 	

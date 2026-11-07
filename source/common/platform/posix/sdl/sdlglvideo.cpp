@@ -183,6 +183,10 @@ namespace Priv
 #endif
 		Priv::window = SDL_CreateWindow(caption.GetChars(), xWindowPos, yWindowPos, win_w, win_h, windowFlags);
 
+#ifdef RAZE_IOS
+		// iOS: the game picker had a window of its own up: bring the game's to the front
+		if (Priv::window != nullptr) SDL_RaiseWindow(Priv::window);
+#endif
 		if (Priv::window != nullptr)
 		{
 			// Enforce minimum size limit
@@ -648,8 +652,22 @@ void SystemGLFrameBuffer::SetVSync( bool vsync )
 #endif
 }
 
+#ifdef RAZE_IOS
+extern "C" void IOS_FrameReport(int frame, int w, int h); // ios/i_ios.mm: start-up diagnostics in the log
+#endif
+
 void SystemGLFrameBuffer::SwapBuffers()
 {
+#ifdef RAZE_IOS
+	static int frame = 0;
+	if (frame < 5 || (frame < 900 && frame % 120 == 0))
+	{
+		int w = 0, h = 0;
+		SDL_GL_GetDrawableSize(Priv::window, &w, &h);
+		IOS_FrameReport(frame, w, h);
+	}
+	frame++;
+#endif
 	SDL_GL_SwapWindow(Priv::window);
 }
 
@@ -661,11 +679,17 @@ void ProcessSDLWindowEvent(const SDL_WindowEvent &event)
 	extern bool AppActive;
 
 	case SDL_WINDOWEVENT_FOCUS_GAINED:
+#ifdef RAZE_IOS
+		Printf("Window: focus gained\n");
+#endif
 		S_SetSoundPaused(1);
 		AppActive = true;
 		break;
 
 	case SDL_WINDOWEVENT_FOCUS_LOST:
+#ifdef RAZE_IOS
+		Printf("Window: focus lost\n");
+#endif
 		S_SetSoundPaused(0);
 		AppActive = false;
 		break;

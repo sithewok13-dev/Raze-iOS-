@@ -9,6 +9,7 @@
 */
 
 #import <UIKit/UIKit.h>
+#import <objc/runtime.h>
 
 #include "cmdlib.h"
 #include "i_interface.h"
@@ -130,4 +131,29 @@ __attribute__((constructor)) static void IOS_LogToFile()
 	if (freopen(path, "w", stdout)) setvbuf(stdout, NULL, _IOLBF, 0);
 	dup2(fileno(stdout), fileno(stderr));
 	setvbuf(stderr, NULL, _IONBF, 0);
+}
+
+// Start-up diagnostics (called from SwapBuffers for the first frames): what
+// the GL frame buffer holds and which windows UIKit shows, into the log.
+#define GLES_SILENCE_DEPRECATION 1
+#include <OpenGLES/ES3/gl.h>
+extern "C" void IOS_FrameReport(int frame, int w, int h)
+{
+	GLint fb = 0, vp[4] = {0, 0, 0, 0};
+	glGetIntegerv(GL_FRAMEBUFFER_BINDING, &fb);
+	glGetIntegerv(GL_VIEWPORT, vp);
+	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+	unsigned char px[4] = {0, 0, 0, 0};
+	if (w > 0 && h > 0) glReadPixels(w / 2, h / 2, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, px);
+	GLenum err = glGetError();
+	printf("Frame %d: drawable %dx%d, fb %d (status 0x%x), viewport %d,%d %dx%d, centre pixel %d,%d,%d, GL error 0x%x\n",
+		frame, w, h, (int)fb, status, vp[0], vp[1], vp[2], vp[3], px[0], px[1], px[2], err);
+	for (UIWindow* win in UIApplication.sharedApplication.windows)
+	{
+		printf("  window %s: %s%s level %.0f, %.0fx%.0f, root %s\n", class_getName(win.class),
+			win.isKeyWindow ? "key, " : "", win.hidden ? "hidden" : "shown", win.windowLevel,
+			win.bounds.size.width, win.bounds.size.height,
+			win.rootViewController ? class_getName(win.rootViewController.class) : "none");
+	}
+	fflush(stdout);
 }
