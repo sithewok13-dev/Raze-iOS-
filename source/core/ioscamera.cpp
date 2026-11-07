@@ -820,7 +820,8 @@ extern "C" void iosCamera_Freeze(void)
 
 extern "C" int iosCamera_IsBusy(void)
 {
-	return _iStage == STAGE_SELFIE || _iStage == STAGE_CINEMA || _bBurst || iosCapture_IsPending();
+	// (Action Freeze too: its own controls are on screen then)
+	return _iStage != STAGE_NONE || _bBurst || iosCapture_IsPending();
 }
 
 // A selfie's or the cinematic burst's photos, one a frame as they are taken
