@@ -68,3 +68,4 @@
 #include "src/vmexports.cpp"
 #include "src/d_menu.cpp"
 
+#include "src/ios_pose_b.cpp"

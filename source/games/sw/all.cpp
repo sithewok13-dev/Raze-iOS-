@@ -59,3 +59,4 @@
 #include "src/zombie.cpp"
 #include "src/break.cpp" // must be last because it needs definitions from the other files
 #include "src/d_menu.cpp"
+#include "src/ios_pose_sw.cpp"

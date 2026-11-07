@@ -21,3 +21,4 @@
 #include "src/sectors.cpp"
 #include "src/spawn.cpp"
 #include "src/vmexports.cpp"
+#include "src/ios_pose_d.cpp"

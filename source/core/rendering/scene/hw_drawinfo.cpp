@@ -25,6 +25,7 @@
 **
 */
 
+#include "ioscamera.h"
 #include "hw_portal.h"
 #include "build.h"
 #include "hw_renderstate.h"
@@ -284,6 +285,9 @@ void HWDrawInfo::DispatchSprites()
 
 		if (actor == nullptr || tspr->scale.X == 0 || tspr->scale.Y == 0 || !texid.isValid()) continue;
 
+#ifdef RAZE_IOSCAMERA
+		if (!iosCam_HidesHud()) // Added: what the CAMERA's photo camera sees isn't marked seen on the map
+#endif
 		actor->spr.cstat2 |= CSTAT2_SPRITE_MAPPED;
 
 		if (!(tspr->cstat2 & CSTAT2_SPRITE_NOANIMATE))

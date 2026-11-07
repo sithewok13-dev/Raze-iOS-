@@ -27,6 +27,7 @@ Prepared for public release: 03/21/2003 - Charlie Wiederhold, 3D Realms
 //-------------------------------------------------------------------------
 
 
+#include "ioscamera.h"
 #include "ns.h"
 #include "global.h"
 #include "prediction.h"
@@ -190,7 +191,11 @@ void animatesprites_r(tspriteArray& tsprites, const DVector2& viewVec, DAngle vi
 			}
 
 			if (ud.cameraactor == nullptr && p->newOwner == nullptr)
-				if (h->GetOwner() && display_mirror == 0 && p->over_shoulder_on == 0)
+				if (h->GetOwner() && display_mirror == 0 && p->over_shoulder_on == 0
+#ifdef RAZE_IOSCAMERA
+					&& !iosCam_ShowsPlayer() // Added: the CAMERA's photo camera shows the player
+#endif
+					)
 					if (ud.multimode < 2 || (ud.multimode > 1 && p == spp))
 					{
 						t->ownerActor = nullptr;

@@ -62,6 +62,8 @@
 
 #include <chrono>
 #include <thread>
+#include "ioscamera.h"
+#include "../../ios/iosCamera.h"
 #include "c_cvars.h"
 #include "i_time.h"
 #include "d_net.h"
@@ -435,6 +437,10 @@ void Display()
 	//twod->SetSize(screen->GetWidth(), screen->GetHeight());
 	twod->Begin(screen->GetWidth(), screen->GetHeight());
 	twod->ClearClipRect();
+#ifdef RAZE_IOSCAMERA
+	// Added: the CAMERA's frame grabs and its selfie, freeze and burst ticks
+	iosCamera_FrameBegin(screen->mScreenViewport.width, screen->mScreenViewport.height);
+#endif
 	switch (gamestate)
 	{
 	case GS_MENUSCREEN:
@@ -455,6 +461,16 @@ void Display()
 			screen->SetSceneRenderTarget(gl_ssao != 0);
 			//updateModelInterpolation();
 			gi->Render();
+#ifdef RAZE_IOSCAMERA
+			// Added: the 3D view and the weapon are drawn (the 2D is drawn
+			// at the end of the frame); the photo camera's frame has no HUD
+			iosCamera_AfterScene();
+			if (iosCam_HidesHud())
+			{
+				twod->Clear();
+				break;
+			}
+#endif
 			DrawFullscreenBlends();
 			drawMapTitle();
 			break;
