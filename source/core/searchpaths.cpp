@@ -273,6 +273,11 @@ TArray<FString> CollectSearchPaths()
 			str = (FString)"/" + str;
 #endif
 	}
+#ifdef RAZE_IOS
+	// iOS: where the games are looked for, into the log
+	for (auto& str : searchpaths) Printf("Game search path: %s\n", str.GetChars());
+	if (searchpaths.Size() == 0) Printf("Game search path: none\n");
+#endif
 	return searchpaths;
 }
 

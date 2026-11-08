@@ -125,7 +125,7 @@ void Mac_I_FatalError(const char* errortext)
 // read and sent. Runs before main().
 #include <stdio.h>
 #include <unistd.h>
-__attribute__((constructor)) static void IOS_LogToFile()
+__attribute__((constructor(101))) static void IOS_LogToFile()
 {
 	NSString* docs = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
 	if (docs == nil) return;
@@ -284,4 +284,15 @@ extern "C" void IOS_Present(SDL_Window* window, int frame)
 		fflush(stdout);
 	}
 	lastOk = ok;
+}
+
+// At start-up: the app's Documents folder (Files > On My iPhone > Raze) and
+// what is in it, into the log
+__attribute__((constructor(102))) static void IOS_LogDocuments()
+{
+	NSString* docs = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
+	NSArray* items = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:docs error:nil];
+	printf("Documents: %s, %d items\n", docs.UTF8String, (int)items.count);
+	for (NSString* name in items) printf("  %s\n", name.UTF8String);
+	fflush(stdout);
 }
