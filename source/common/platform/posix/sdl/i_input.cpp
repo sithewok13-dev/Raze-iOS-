@@ -44,6 +44,7 @@
 #include "keydef.h"
 #include "i_interface.h"
 #include "engineerrors.h"
+#include "printf.h"
 #include "i_interface.h"
 
 
@@ -259,11 +260,19 @@ static void IOS_PointsToPixels(int16_t& x, int16_t& y)
 static bool guiFingerDown = false;
 static SDL_FingerID guiFinger = 0;
 
-static void IOS_FingerToScreen(float fx, float fy, int& x, int& y)
+static void IOS_FingerToScreen(Uint32 windowID, float fx, float fy, int& x, int& y)
 {
+	// (0..1 of SDL's view: in the window's drawable pixels, which the
+	// screen's coordinates are scaled from, as the mouse's are)
 	int pw = 0, ph = 0;
-	SDL_Window* w = SDL_GL_GetCurrentWindow();
-	if (w) SDL_GL_GetDrawableSize(w, &pw, &ph);
+	SDL_Window* w = windowID ? SDL_GetWindowFromID(windowID) : nullptr;
+	if (!w) w = SDL_GL_GetCurrentWindow();
+	if (!w) w = SDL_GetKeyboardFocus();
+	if (w)
+	{
+		SDL_GL_GetDrawableSize(w, &pw, &ph);
+		if (pw <= 0 || ph <= 0) SDL_GetWindowSize(w, &pw, &ph);
+	}
 	if (pw <= 0 || ph <= 0) { pw = screen->GetClientWidth(); ph = screen->GetClientHeight(); }
 	fx = fx < 0.f ? 0.f : (fx > 1.f ? 1.f : fx);
 	fy = fy < 0.f ? 0.f : (fy > 1.f ? 1.f : fy);
@@ -273,13 +282,13 @@ static void IOS_FingerToScreen(float fx, float fy, int& x, int& y)
 	y = sy;
 }
 
-static void IOS_PostGuiFinger(int subtype, float fx, float fy)
+static void IOS_PostGuiFinger(int subtype, const SDL_TouchFingerEvent& f)
 {
 	event_t event = { 0,0,0,0,0,0,0 };
 	event.type = EV_GUI_Event;
 	event.subtype = subtype;
 	int x, y;
-	IOS_FingerToScreen(fx, fy, x, y);
+	IOS_FingerToScreen(f.windowID, f.x, f.y, x, y);
 	event.data1 = x;
 	event.data2 = y;
 	D_PostEvent(&event);
@@ -295,19 +304,19 @@ static bool IOS_FingerEvent(const SDL_Event& sev)
 		{
 			guiFingerDown = true;
 			guiFinger = f.fingerId;
-			IOS_PostGuiFinger(EV_GUI_MouseMove, f.x, f.y);
-			IOS_PostGuiFinger(EV_GUI_LButtonDown, f.x, f.y);
+			IOS_PostGuiFinger(EV_GUI_MouseMove, f);
+			IOS_PostGuiFinger(EV_GUI_LButtonDown, f);
 		}
 		return true;
 	case SDL_FINGERMOTION:
-		if (guiFingerDown && f.fingerId == guiFinger && GUICapture) IOS_PostGuiFinger(EV_GUI_MouseMove, f.x, f.y);
+		if (guiFingerDown && f.fingerId == guiFinger && GUICapture) IOS_PostGuiFinger(EV_GUI_MouseMove, f);
 		return true;
 	case SDL_FINGERUP:
 		// (always, even if the menu went in between: a press never stays down)
 		if (guiFingerDown && f.fingerId == guiFinger)
 		{
 			guiFingerDown = false;
-			IOS_PostGuiFinger(EV_GUI_LButtonUp, f.x, f.y);
+			IOS_PostGuiFinger(EV_GUI_LButtonUp, f);
 		}
 		return true;
 	}
