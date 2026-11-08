@@ -255,11 +255,20 @@ void MessagePump (const SDL_Event &sev)
 	// iOS: the app is "active" while it is in front, by the app's own state
 	// (home screen, app switcher, lock); the window focus events also come
 	// when nothing left the app and froze the menus (sdlglvideo.cpp)
+	// Only a real trip to the background stops the drawing: iOS also sends
+	// "will resign active" / "did become active" (SDL's WILLENTERBACKGROUND and
+	// DIDENTERFOREGROUND) while the app stays in front, e.g. on the owner's
+	// phone after taps in the menus, which froze them
 	case SDL_APP_WILLENTERBACKGROUND:
+	case SDL_APP_DIDENTERBACKGROUND:
+	case SDL_APP_WILLENTERFOREGROUND:
 	case SDL_APP_DIDENTERFOREGROUND:
 		{
 			extern void IOS_SetAppActive(bool active);
-			IOS_SetAppActive(sev.type == SDL_APP_DIDENTERFOREGROUND);
+			static const char* const names[] = { "will resign active", "entered the background", "coming back", "active again" };
+			Printf("iOS: %s\n", names[sev.type - SDL_APP_WILLENTERBACKGROUND]);
+			if (sev.type == SDL_APP_DIDENTERBACKGROUND) IOS_SetAppActive(false);
+			else if (sev.type == SDL_APP_WILLENTERFOREGROUND) IOS_SetAppActive(true);
 		}
 		break;
 #endif
