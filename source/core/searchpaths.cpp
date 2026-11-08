@@ -678,12 +678,24 @@ TArray<GrpInfo> ParseAllGrpInfos(TArray<FileEntry>& filelist)
 //
 //==========================================================================
 
+#ifdef RAZE_IOS
+// iOS moves the app's data folder to a new address at updates: compare the
+// cached names from the Documents folder on, so the cache still holds
+static const char* CRCName(const FString& name)
+{
+	const char* p = strstr(name.GetChars(), "/Documents/");
+	return p ? p : name.GetChars();
+}
+#else
+static const char* CRCName(const FString& name) { return name.GetChars(); }
+#endif
+
 void GetCRC(FileEntry *entry, TArray<FileEntry> &CRCCache)
 {
 	for (auto &ce : CRCCache)
 	{
 		// File size, modification date snd name all must match exactly to pick an entry.
-		if (entry->FileLength == ce.FileLength && entry->FileTime == ce.FileTime && entry->FileName.Compare(ce.FileName) == 0)
+		if (entry->FileLength == ce.FileLength && entry->FileTime == ce.FileTime && strcmp(CRCName(entry->FileName), CRCName(ce.FileName)) == 0)
 		{
 			entry->CRCValue = ce.CRCValue;
 			return;
