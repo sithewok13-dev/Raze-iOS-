@@ -93,6 +93,7 @@
 #include "texinfo.h"
 #include "texturemanager.h"
 #include "gameinput.h"
+#include "netgame.h"
 
 #ifdef RAZE_TOUCH
 #include "../../ios/IOSGame.h" // Added: the iOS touch controls
@@ -152,6 +153,7 @@ void G_BuildTiccmd(ticcmd_t* cmd)
 		Net_WriteString(savedescription.GetChars());
 		savegamefile = "";
 	}
+	Net_WritePending();	// Added: a LAN game's start (netgame.cpp)
 	cmd->ucmd = {};
 	gameInput.getInput(&cmd->ucmd);
 	cmd->consistency = consistency[myconnectindex][(maketic / ticdup) % BACKUPTICS];
@@ -169,6 +171,7 @@ void NewGame(MapRecord* map, int skill, bool ns = false)
 	gi->FreeLevelData();
 	newGameStarted = true;
 	ShowIntermission(nullptr, map, nullptr, [=](bool) { 
+		Net_ResetRandom();	// Added: LAN games
 		gi->NewGame(map, skill, ns); 
 		gameaction = ga_level;
 		ResetStatusBar();
@@ -223,6 +226,7 @@ static void GameTicker()
 		case ga_nextlevel:
 			gi->FreeLevelData();
 			gameaction = ga_level;
+			Net_ResetRandom();	// Added: LAN games
 			gi->NextLevel(g_nextmap, g_nextskill);
 			ResetStatusBar();
 			if (!isBlood()) M_Autosave();
@@ -383,6 +387,7 @@ static void GameTicker()
 		gameupdatetime.Clock();
 		gameInput.ResetInputSync();
 		gi->Ticker();
+		Net_LogChecksum();	// Added: LAN games (the rig's check)
 		TickStatusBar();
 		levelTextTime--;
 		gameupdatetime.Unclock();
@@ -771,7 +776,7 @@ void MainLoop ()
 			maprecord = SetupUserMap(userConfig.CommandMap.GetChars(), g_gameType & GAMEFLAG_DUKE? "dethtoll.mid" : nullptr);
 		}
 		userConfig.CommandMap = "";
-		if (maprecord)
+		if (maprecord && !Net_StartGame(maprecord, g_nextskill))	// Added: a network game starts from the host
 		{
 			DeferredStartGame(maprecord, g_nextskill);
 		}

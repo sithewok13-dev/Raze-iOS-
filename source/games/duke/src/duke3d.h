@@ -31,6 +31,8 @@ struct GameInterface : public ::GameInterface
 	void MenuOpened() override;
 	void MenuSound(EMenuSounds snd) override;
 	bool CanSave() override;
+	void SetupNetGame(int mode, bool connected) override;
+	FString NetModeName(int mode) override;
 	bool StartGame(FNewGameStartup& gs) override;
 	FSavegameInfo GetSaveSig() override;
 	double SmallFontScale() override { return isRR() ? 0.5 : 1.; }

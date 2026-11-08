@@ -167,6 +167,7 @@ struct Duke native
 	native static bool CheckSoundPlaying(Sound num);
 	native static DukePlayer GetViewPlayer();
 	native static DukePlayer GetLocalPlayer();
+	native static DukePlayer GetPlayer(int n);	// (Added: null when there is none)
 	native static int MaxAmmoAmount(int weap);
 	native static DukePlayer checkcursectnums(sectortype sect);
 	native static int global_random();

@@ -20,6 +20,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 //-------------------------------------------------------------------------
 
+#include "netgame.h"
+#include "i_net.h"
 #include <stdexcept>
 #include "ioscamera.h"
 #include "gamecontrol.h"
@@ -233,7 +235,7 @@ bool System_WantLeftButton()
 
 bool System_NetGame()
 {
-	return false;	// fixme later. For now there is no netgame support.
+	return netgame;	// Added: LAN games (netgame.cpp)
 }
 
 bool System_WantNativeMouse()
@@ -1191,7 +1193,17 @@ int RunGame()
 	screen->SetTextureFilterMode();
 	setViewport(hud_size);
 
-	D_CheckNetGame();
+	if (!D_CheckNetGame())
+	{
+		// Added: the network game was cancelled while waiting: one player
+		CloseNetwork();
+		netgame = multiplayer = false;
+		doomcom.numplayers = doomcom.numnodes = 1;
+		consoleplayer = myconnectindex = 0;
+		for (int i = 1; i < MAXPLAYERS; i++) playeringame[i] = false;
+		Printf("Network game cancelled: single player\n");
+	}
+	Net_SetupPlayers();	// Added: LAN games (netgame.cpp)
 	UpdateGenericUI(ui_generic);
 	PClassActor::StaticInit();
 	gi->FinalizeSetup();
@@ -1212,7 +1224,9 @@ int RunGame()
 void updatePauseStatus()
 {
 	// This must go through the network in multiplayer games.
-	if (M_Active() || System_WantGuiCapture())
+	// (Added: so in a network game the menu and the console don't hold the
+	// game still: only the same on every machine can)
+	if (!netgame && (M_Active() || System_WantGuiCapture()))
 	{
 		paused = 1;
 	}

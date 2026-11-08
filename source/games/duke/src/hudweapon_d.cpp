@@ -1047,8 +1047,8 @@ void displayweapon_d(DDukePlayer* const p, double interpfrac)
 
 				if (pact->spr.pal != 1)
 				{
-					offsets.X += krand() & 1;
-					offsets.Y += krand() & 1;
+					offsets.X += krand_draw() & 1;
+					offsets.Y += krand_draw() & 1;
 				}
 
 				offsets.Y += 16;

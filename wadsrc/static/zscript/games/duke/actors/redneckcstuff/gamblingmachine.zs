@@ -25,7 +25,10 @@ class RedneckGamblingMachine : DukeActor
 		int spriteindex;
 		if (self.extra && self.spritesetindex < 7)
 		{
-			let pl = Duke.GetViewPlayer();
+			// (Added: the nearest player, was the shown one: the same on every machine of a network game)
+			DukePlayer pl;
+			double pdist;
+			[pl, pdist] = self.findplayer();
 			
 			if (self.spritesetindex != 0)
 				spriteindex = 0;

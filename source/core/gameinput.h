@@ -94,7 +94,10 @@ public:
 	// Handling of whether to allow unsynchronised input.
 	bool SyncInput()
 	{
-		return syncinput || cl_syncinput || cl_capfps;
+		// (Added: always in a network game: unsynchronised turning only
+		// turns the player on this machine, and the others' never turn)
+		extern bool netgame;
+		return syncinput || cl_syncinput || cl_capfps || netgame;
 	}
 	void ForceInputSync(const int pnum)
 	{

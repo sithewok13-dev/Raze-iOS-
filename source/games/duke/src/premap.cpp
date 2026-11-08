@@ -27,6 +27,7 @@ Prepared for public release: 03/21/2003 - Charlie Wiederhold, 3D Realms
 //-------------------------------------------------------------------------
 
 #include "ns.h"
+#include "netgame.h"
 #include "global.h"
 #include "mapinfo.h"
 #include "secrets.h"
@@ -1215,6 +1216,7 @@ void GameInterface::NewGame(MapRecord* map, int skill, bool)
 	ud.m_respawn_items = 0;
 	ud.m_respawn_inventory = 0;
 	ud.multimode = 1;
+	if (netgame) gi->SetupNetGame(netGameMode, false);	// Added: LAN games (the mode the host sent)
 
 	donewgame(map, skill);
 	enterlevel(map, 0);
@@ -1228,6 +1230,36 @@ void GameInterface::NewGame(MapRecord* map, int skill, bool)
 // Ideally this will become the only place where map progression gets set up.
 //
 //---------------------------------------------------------------------------
+
+//---------------------------------------------------------------------------
+//
+// Added: LAN games (core/netgame.cpp). mode is Duke's own ud.coop:
+// 0 DukeMatch (items come back), 1 co-op, 2 DukeMatch without spawn
+// (items don't come back). No monsters in a DukeMatch; friendly fire in
+// co-op only when the host asks.
+//
+//---------------------------------------------------------------------------
+
+FString GameInterface::NetModeName(int mode)
+{
+	const char* match = isRR() ? "Deathmatch" : "DukeMatch";
+	if (mode == 1) return "Co-op";
+	if (mode == 2) return FStringf("%s (no spawn)", match);
+	return match;
+}
+
+void GameInterface::SetupNetGame(int mode, bool connected)
+{
+	if (!netgame) return;
+	mode = clamp(mode, 0, 2);
+	ud.multimode = numplayers;
+	playerswhenstarted = numplayers;
+	ud.m_coop = ud.coop = mode;
+	ud.m_ffire = ud.ffire = (mode != 1) || (netGameFlags & NETF_FRIENDLYFIRE);
+	ud.m_monsters_off = ud.monsters_off = (mode != 1);
+	ud.m_respawn_items = ud.m_respawn_inventory = (mode == 0);
+	m_coop = mode;
+}
 
 int setnextmap(bool checksecretexit)
 {
@@ -1316,7 +1348,7 @@ void exitlevel(MapRecord* nextlevel)
 
 		});
 	}
-	else if (ud.multimode <= 1)
+	else	// (Added: and co-op, which went nowhere: was "if (ud.multimode <= 1)")
 	{
 		// SP cutscene + summary
 		ShowIntermission(currentLevel, nextlevel, &info, [=](bool)

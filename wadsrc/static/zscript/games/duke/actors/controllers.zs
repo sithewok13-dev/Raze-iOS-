@@ -223,7 +223,8 @@ class RedneckSeasickEnabler : DukeActor
 	override void StaticSetup()
 	{
 		// this is so wrong... :(
-		Duke.GetViewPlayer().sea_sick_stat = true;
+		// (Added: every player, as a network game must be the same everywhere)
+		for (int i = 0; i < MAXPLAYERS; i++) { let pl = Duke.GetPlayer(i); if (pl) pl.sea_sick_stat = true; }
 		self.Destroy();
 	}
 }

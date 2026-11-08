@@ -91,6 +91,7 @@ enum EDemoCommand
 	DEM_CHANGEMAP,
 	DEM_ENDSCREENJOB,
 	DEM_SAVEGAME,
+	DEM_NETSTART,		// Added: the host starts the network game (netgame.cpp)
 
 	DEM_MAX
 };

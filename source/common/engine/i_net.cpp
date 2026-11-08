@@ -134,6 +134,12 @@ enum
 	PRE_ALLHEREACK,			// Sent from guest to host to acknowledge PRE_ALLHEREACK receipt
 	PRE_GO,					// Sent from host to guest to continue game startup
 	PRE_IN_PROGRESS,		// Sent from host to guest if the game has already started
+
+	// Added (LAN games): a guest looking for hosts on the local network asks
+	// every address; a host that is waiting for players answers with a short
+	// text (see Net_DiscoveryInfo). Unknown to other builds, which ignore it.
+	PRE_DISCOVER = 0x40,
+	PRE_DISCOVER_REPLY = 0x41,
 };
 
 // Set PreGamePacket.fake to this so that the game rejects any pregame packets
@@ -533,6 +539,25 @@ void SendConAck (int num_connected, int num_needed)
 	I_NetProgress (doomcom.numnodes);
 }
 
+// Added (LAN games): the answer to a guest's search: "RAZE1|" and the
+// game's own text (the game, the mode, players present and wanted)
+const char* Net_DiscoveryInfo(int present, int wanted);
+static FString NetWaitMessage;
+static int NetWaitPos, NetWaitMax;
+
+static void Host_AnswerDiscover(const sockaddr_in* from, int present, int wanted)
+{
+	uint8_t reply[200];
+	reply[0] = PRE_FAKE;
+	reply[1] = PRE_DISCOVER_REPLY;
+	const char* info = Net_DiscoveryInfo(present, wanted);
+	size_t len = strlen(info);
+	if (len > sizeof(reply) - 3) len = sizeof(reply) - 3;
+	memcpy(reply + 2, info, len);
+	reply[2 + len] = 0;
+	PreSend(reply, int(len + 3), from);
+}
+
 bool Host_CheckForConnects (void *userdata)
 {
 	PreGamePacket packet;
@@ -594,6 +619,10 @@ bool Host_CheckForConnects (void *userdata)
 			break;
 
 		case PRE_KEEPALIVE:
+			break;
+
+		case PRE_DISCOVER:
+			Host_AnswerDiscover(from, doomcom.numnodes, numplayers);
 			break;
 		}
 	}
@@ -1071,26 +1100,54 @@ void I_NetMessage(const char* text, ...)
 void I_NetError(const char* error)
 {
 	doomcom.numnodes = 0;
-	StartWindow->NetClose();
+	if (StartWindow) StartWindow->NetClose();
 	I_FatalError("%s", error);
 }
 
 // todo: later these must be dispatched by the main menu, not the start screen.
 void I_NetProgress(int val)
 {
-	StartWindow->NetProgress(val);
+	if (val == 0) NetWaitPos++; else if (val > 0) NetWaitPos = val;
+	if (StartWindow) StartWindow->NetProgress(val);
 }
 void I_NetInit(const char* msg, int num)
 {
-	StartWindow->NetInit(msg, num);
+	NetWaitMessage = msg;
+	NetWaitMax = num;
+	NetWaitPos = 0;
+	if (StartWindow) StartWindow->NetInit(msg, num);
 }
+// Added: Raze sets up the network game after the startup window is gone,
+// so the waiting is done here: the callback about 8 times a second, and the
+// platform's say in it (on iOS a "waiting for players" box with a Cancel
+// button; elsewhere a line on the terminal). Returns false when cancelled.
+bool I_NetWaitTick(const char* message, int pos, int max);	// false: cancel
+
 bool I_NetLoop(bool (*timer_callback)(void*), void* userdata)
 {
-	return StartWindow->NetLoop(timer_callback, userdata);
+	if (StartWindow) return StartWindow->NetLoop(timer_callback, userdata);
+	for (;;)
+	{
+		if (timer_callback(userdata)) return true;
+		if (!I_NetWaitTick(NetWaitMessage.GetChars(), NetWaitPos, NetWaitMax)) return false;
+	}
 }
+
+#ifndef RAZE_IOSNET
+bool I_NetWaitTick(const char* message, int pos, int max)
+{
+	static FString last;
+	FString now;
+	now.Format("%s: %d/%d", message, pos, max);
+	if (now.Compare(last) != 0) fprintf(stderr, "%s\n", now.GetChars());
+	last = now;
+	usleep(125000);
+	return true;
+}
+#endif
 void I_NetDone()
 {
-	StartWindow->NetDone();
+	if (StartWindow) StartWindow->NetDone();
 }
 #ifdef __WIN32__
 const char *neterror (void)

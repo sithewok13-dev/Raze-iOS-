@@ -973,6 +973,7 @@ set (PCH_SOURCES
 	core/rts.cpp
 	core/ct_chat.cpp
 	core/d_net.cpp
+	core/netgame.cpp
 	core/d_protocol.cpp
 	core/mainloop.cpp
 	core/gameconfigfile.cpp

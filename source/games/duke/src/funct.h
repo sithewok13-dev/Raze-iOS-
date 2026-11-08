@@ -256,6 +256,16 @@ inline int32_t krand(void)
 	return ((uint32_t)randomseed) >> 16;
 }
 
+// Added (LAN games): random numbers for drawing only. Drawing happens once a
+// frame, and frames differ between machines, so it must not draw from the
+// game's numbers (krand), which every machine must draw alike.
+inline int32_t krand_draw(void)
+{
+	static uint32_t seed = 17;
+	seed = (seed * 27584621) + 1;
+	return seed >> 16;
+}
+
 inline double krandf(double span)
 {
 	return (krand() & 0x7fff) * span / 32767;

@@ -21,10 +21,10 @@ extend class DukeActor
 				if (sect.lotag == ST_2_UNDERWATER)
 				{
 					Vector2 scale = (0.0625 + random(0, 3) * REPEAT_SCALE, 0.0625 + random(0, 3) * REPEAT_SCALE);
-					dlevel.SpawnActor(sect, pos, "DukeWaterBubble", -32, scale, frandom(0, 360), 0., 0., Duke.GetLocalPlayer().actor, STAT_MISC);
+					dlevel.SpawnActor(sect, pos, "DukeWaterBubble", -32, scale, frandom(0, 360), 0., 0., Duke.GetPlayer(0).actor, STAT_MISC); // (Added: player 0, not this machine's)
 				}
 				else
-					dlevel.SpawnActor(sect, pos, "DukeSmallSmoke", -32, (0.21875, 0.21875), 0, 0., 0., Duke.GetLocalPlayer().actor, STAT_MISC);
+					dlevel.SpawnActor(sect, pos, "DukeSmallSmoke", -32, (0.21875, 0.21875), 0, 0., 0., Duke.GetPlayer(0).actor, STAT_MISC); // (Added: player 0, not this machine's)
 			}
 		}
 	}

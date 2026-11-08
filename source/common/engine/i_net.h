@@ -88,5 +88,6 @@ struct doomcom_t
 extern doomcom_t doomcom;
 extern bool netgame, multiplayer;
 extern int consoleplayer;
+void CloseNetwork(void);	// Added (gamecontrol.cpp: a cancelled LAN game)
 
 #endif

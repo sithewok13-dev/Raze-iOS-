@@ -66,6 +66,7 @@
 #include "gi.h"
 #include "raze_music.h"
 #include "razefont.h"
+#include "netgame.h"
 
 EXTERN_CVAR(Int, cl_gfxlocalization)
 EXTERN_CVAR(Bool, m_quickexit)
@@ -107,6 +108,13 @@ static bool DoStartGame(FNewGameStartup& gs)
 	}
 	else
 		map = gs.Map;
+
+	// Added: a network game is started by the host, for everyone (netgame.cpp)
+	if (Net_StartGame(map, gs.Skill))
+	{
+		M_ClearMenus();
+		return true;
+	}
 
 	soundEngine->StopAllChannels();
 

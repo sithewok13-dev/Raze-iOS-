@@ -55,6 +55,22 @@ DEFINE_ACTION_FUNCTION_NATIVE(_Duke, getlocalplayer, duke_getlocalplayer)
 	ACTION_RETURN_POINTER(duke_getlocalplayer());
 }
 
+// Added (LAN games): player n, or null when there is none (the code that
+// must be the same on every machine of a network game can't use the shown
+// or the local player)
+DDukePlayer* duke_getplayer(int n)
+{
+	if (n < 0 || n >= MAXPLAYERS || !playeringame[n]) return nullptr;
+	return getPlayer(n);
+}
+
+DEFINE_ACTION_FUNCTION_NATIVE(_Duke, GetPlayer, duke_getplayer)
+{
+	PARAM_PROLOGUE;
+	PARAM_INT(n);
+	ACTION_RETURN_POINTER(duke_getplayer(n));
+}
+
 DEFINE_ACTION_FUNCTION(_Duke, MaxAmmoAmount)
 {
 	PARAM_PROLOGUE;

@@ -253,11 +253,18 @@ class DukeFirelaserTrail : DukeActor
 		{
 			self.Destroy();
 		}
+		else if (netgame)
+		{
+			// (Added: a network game: gone after two tics on every machine.
+			// Being drawn can't end it, as only some machines draw it.)
+			if (self.extra > 0) self.Destroy();
+			else self.extra = 1;
+		}
 	}
 	
 	override bool animate(tspritetype tspr)
 	{
-		self.extra = 999;
+		if (!netgame) self.extra = 999;
 		if (isRR()) tspr.setSpritePic(self, ((PlayClock >> 2) % 6));
 		return true;
 	}

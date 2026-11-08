@@ -87,14 +87,14 @@ void DrawMotorCycle(int const kb, const DVector2& offsets, DAngle angle, int sha
 			shade = 0;
 			if (kb == 1)
 			{
-				if ((krand() & 1) == 1)
+				if ((krand_draw() & 1) == 1)
 					temp_kb = "MOTOHIT1";
 				else
 					temp_kb = "MOTOHIT2";
 			}
 			else if (kb == 4)
 			{
-				if ((krand() & 1) == 1)
+				if ((krand_draw() & 1) == 1)
 					temp_kb = "MOTOHIT3";
 				else
 					temp_kb = "MOTOHIT4";
@@ -418,7 +418,7 @@ void displayweapon_r(DDukePlayer* const p, double interpfrac)
 					{
 						hud_drawpal(210 + offsets.X, 222 + offsets.Y, "CBOW2GUNATK7", shade, o |  pin, pal, angle, 36700);
 					}
-					else if ((krand() & 15) == 5)
+					else if ((krand_draw() & 15) == 5)
 					{
 						S_PlayActorSound(327, pact);
 						hud_drawpal(210 + offsets.X, 222 + offsets.Y, "CBOW2GUNATK7", shade, o |  pin, pal, angle, 36700);

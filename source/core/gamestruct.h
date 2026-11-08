@@ -72,6 +72,12 @@ struct GameInterface
 	virtual void MenuClosed() {}
 	virtual void MenuSound(EMenuSounds snd) {}
 	virtual bool CanSave() { return true; }
+	// Added (LAN games, netgame.cpp): the game's own mode variables for a
+	// network game (mode: the game's own number; connected: right after the
+	// network is up, else at the start of the game), and a mode's name
+	virtual void SetupNetGame(int mode, bool connected) {}
+	virtual FString NetModeName(int mode) { return FStringf("mode %d", mode); }
+	virtual void ResetNetRandom() {}	// the game's own random numbers, the same on every machine
 	virtual bool StartGame(FNewGameStartup& gs) { return true; }
 	virtual FSavegameInfo GetSaveSig() { return { "", 0, 0}; }
 	virtual double SmallFontScale() { return 1; }

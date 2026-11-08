@@ -50,6 +50,7 @@
 #include "i_video.h"
 #include "c_console.h"
 #include "d_net.h"
+#include "netgame.h"
 #include "d_protocol.h"
 #include "i_protocol.h"
 #include "cmdlib.h"
@@ -79,7 +80,7 @@ bool demoplayback;
 int Net_Arbitrator;
 bool playeringame[MAXPLAYERS] = { true }; // as long as network isn't working - true for the first player, false for all others.
 bool singletics;
-char* startmap;
+const char* startmap = "";	// (Added: was never set: the host wrote a null string. netgame.cpp starts the game.)
 bool autostart;
 bool usergame;
 void D_ReadUserInfoStrings(int, TArrayView<uint8_t>& stream, bool) {}
@@ -1442,8 +1443,7 @@ bool DoArbitrate (void *userdata)
 
 			auto stream = TArrayView<uint8_t>(&netbuffer[3], MAX_MSGLEN - 3);
 			s = ReadString (stream);
-			startmap = s;
-			delete[] s;
+			delete[] s;	// (Added: was kept after it was freed; unused)
 			rngseed = ReadInt32 (stream);
 			C_ReadCVars (stream);
 		}
@@ -1637,6 +1637,7 @@ bool D_CheckNetGame (void)
 	Net_SetCommandHandler(DEM_CHANGEMAP, changeMap);
 	Net_SetCommandHandler(DEM_ENDSCREENJOB, endScreenJob);
 	Net_SetCommandHandler(DEM_SAVEGAME, startSaveGame);
+	Net_InitCommands();	// Added: LAN games (netgame.cpp)
 
 	for (i = 0; i < MAXNETNODES; i++)
 	{

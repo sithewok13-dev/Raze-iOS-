@@ -16,7 +16,12 @@ class DukeWaterDrip : DukeActor
 				self.pos.Z -= 18;
 			}
 			else self.pos.Z -= 13;
-			self.angle = (Duke.GetViewPlayer().actor.pos.XY - self.pos.XY).Angle();
+			// (Added: the nearest player, not the one this machine shows:
+			// every machine of a network game must do the same)
+			DukePlayer nearest;
+			double ndist;
+			[nearest, ndist] = self.findplayer();
+			self.angle = (nearest.actor.pos.XY - self.pos.XY).Angle();
 			self.vel.X = frandom(1, 3);
 			self.DoMove(CLIPMASK0);
 		}
