@@ -186,7 +186,7 @@ CCMD(give)
 	{
 		if (!stricmp(argv[1], type[i]))
 		{
-			if (!CheckCheatmode(true, true))
+			if (!CheckCheatmode(true, false))	// (Added: a network game too, with the host's sv_cheats; it goes through the network)
 			{
 				Net_WriteByte(DEM_GIVE);
 				Net_WriteByte((uint8_t)i);
@@ -373,7 +373,7 @@ CCMD(changemap)
 		Printf(PRINT_BOLD, "changemap <mapname>: warp to the given map, identified by its name.\n");
 		return;
 	}
-	if (!gi->CanSave())
+	if (netgame ? gamestate != GS_LEVEL : !gi->CanSave())	// (Added: in a network game, SW's CanSave is always false)
 	{
 		Printf("Use the map command when not in a game.\n");
 		return;

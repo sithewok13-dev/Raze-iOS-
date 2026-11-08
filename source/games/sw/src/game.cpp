@@ -25,6 +25,7 @@ Prepared for public release: 03/28/2005 - Charlie Wiederhold, 3D Realms
 //-------------------------------------------------------------------------
 
 #include "ns.h"
+#include "netgame.h"
 
 #define MAIN
 #define QUIET
@@ -717,6 +718,7 @@ void GameInterface::NextLevel(MapRecord *map, int skill)
 void GameInterface::NewGame(MapRecord *map, int skill, bool)
 {
 	if (skill != -1) Skill = skill;
+	if (netgame) SetupNetGame(netGameMode, false);	// (Added: LAN games)
 	ShadowWarrior::NewGame = true;
 	InitLevel(map);
 	InitRunLevel();
@@ -727,6 +729,37 @@ void GameInterface::NewGame(MapRecord *map, int skill, bool)
 //
 //
 //---------------------------------------------------------------------------
+
+//---------------------------------------------------------------------------
+//
+// Added: LAN games (core/netgame.cpp). mode: 1 WangBang (players come
+// back), 2 WangBang without respawn, 3 co-op (monsters; friendly fire only
+// when the host asks).
+//
+//---------------------------------------------------------------------------
+
+FString GameInterface::NetModeName(int mode)
+{
+	if (mode == 2) return "WangBang (no respawn)";
+	if (mode == 3) return "Co-op";
+	return "WangBang";
+}
+
+void GameInterface::SetupNetGame(int mode, bool connected)
+{
+	if (!netgame) return;
+	if (mode < 1 || mode > 3) mode = 3;
+	CommEnabled = true;
+	gNet.MultiGameType = mode == 3 ? MULTI_GAME_COOPERATIVE : MULTI_GAME_COMMBAT;
+	gNet.NoRespawn = mode == 2;
+	gNet.HurtTeammate = mode != 3 || (netGameFlags & NETF_FRIENDLYFIRE);
+	gNet.TeamPlay = false;
+	gNet.SpawnMarkers = false;
+	gNet.KillLimit = 0;
+	gNet.TimeLimit = 0;
+	gNet.Nuke = true;
+	gNet.AutoAim = true;
+}
 
 int GameInterface::GetCurrentSkill()
 {

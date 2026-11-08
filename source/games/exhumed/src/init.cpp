@@ -33,6 +33,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 BEGIN_PS_NS
 
+static DVector3 levelStartPos;	// (Added: the level's start, for a network start)
+static sectortype* levelStartSect;
+
+
 enum
 {
     kTagRamses = 61,
@@ -166,6 +170,8 @@ uint8_t LoadLevel(MapRecord* map)
     flash = 0;
     precache();
 
+    levelStartPos = initpos;	// (Added: ExamineSprites' network start)
+    levelStartSect = initsect;
     LoadObjects(actors);
 
     for (int i = 0; i < nTotalPlayers; i++)
@@ -773,9 +779,11 @@ void ExamineSprites(TArray<DExhumedActor*>& actors)
 
     if (nNetPlayerCount)
     {
-        auto pActor = insertActor(getPlayer(nLocalPlayer)->GetActor()->sector(), 0);
+        // (Added: the level's own start, as the player isn't made yet: this
+        // used the local player, null here, and the same on every machine)
+        auto pActor = insertActor(levelStartSect, 0);
 
-        pActor->spr.pos = getPlayer(nLocalPlayer)->GetActor()->spr.pos;
+        pActor->spr.pos = levelStartPos;
         pActor->spr.cstat = CSTAT_SPRITE_INVISIBLE;
         nNetStartSprite[nNetStartSprites] = pActor;
         nNetStartSprites++;

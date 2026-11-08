@@ -43,6 +43,7 @@ Prepared for public release: 03/28/2005 - Charlie Wiederhold, 3D Realms
 #include "automap.h"
 //#include "inv.h"
 
+EXTERN_CVAR(Bool, sv_cheats)
 BEGIN_SW_NS
 
 bool CheatInputMode = false;
@@ -325,7 +326,7 @@ static void cmd_Give(int player, TArrayView<uint8_t>& stream, bool skip)
     int type = ReadInt8(stream);
     if (skip) return;
 
-    if (numplayers != 1 || gamestate != GS_LEVEL || (getPlayer(player)->Flags & PF_DEAD))
+    if ((numplayers != 1 && !sv_cheats) || gamestate != GS_LEVEL || (getPlayer(player)->Flags & PF_DEAD))
     {
         Printf("give: Cannot give while dead or not in a single-player game.\n");
         return;

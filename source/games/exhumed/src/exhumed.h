@@ -237,6 +237,8 @@ struct GameInterface : public ::GameInterface
     void ToggleThirdPerson() override;
     void processSprites(tspriteArray& tsprites, const DVector3& view, DAngle viewang, double interpfrac) override;
     int GetCurrentSkill() override;
+    void SetupNetGame(int mode, bool connected) override;
+    FString NetModeName(int mode) override;
     void StartSoundEngine() override;
 };
 

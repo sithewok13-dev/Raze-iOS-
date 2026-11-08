@@ -21,7 +21,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 //-------------------------------------------------------------------------
 
-#include "ns.h"	// Must come before everything else!
+#include "ns.h"
+#include "netgame.h"	// Must come before everything else!
 
 #include "build.h"
 #include "g_input.h"
@@ -398,7 +399,44 @@ void GameInterface::NewGame(MapRecord *sng, int skill, bool)
 	cheatReset();
 	DBloodPlayer* pPlayer = getPlayer(myconnectindex);
 	packClear(pPlayer);
+	if (netgame)
+	{
+		// (Added: LAN games: every player's pack, and the mode the host sent)
+		for (int i = connecthead; i >= 0; i = connectpoint2[i]) packClear(getPlayer(i));
+		SetupNetGame(netGameMode, false);
+	}
 	NewLevel(sng, skill, true);
+}
+
+//---------------------------------------------------------------------------
+//
+// Added: LAN games (core/netgame.cpp). mode is Blood's own nGameType:
+// 1 co-op (monsters; weapons stay; friendly fire only when the host asks),
+// 2 BloodBath, 3 teams (no monsters; weapons and items come back).
+//
+//---------------------------------------------------------------------------
+
+FString GameInterface::NetModeName(int mode)
+{
+	if (mode == 2) return "BloodBath";
+	if (mode == 3) return "Teams";
+	return "Co-op";
+}
+
+void GameInterface::SetupNetGame(int mode, bool connected)
+{
+	if (!netgame) return;
+	if (mode < 1 || mode > 3) mode = 1;
+	gNetPlayers = numplayers;
+	gGameOptions.nGameType = mode;
+	const bool coop = mode == 1;
+	gGameOptions.nMonsterSettings = coop ? 1 : 0;
+	gGameOptions.nWeaponSettings = coop ? 1 : 2;
+	gGameOptions.nItemSettings = coop ? 0 : 1;
+	gGameOptions.nRespawnSettings = 0;
+	gGameOptions.bFriendlyFire = !coop || (netGameFlags & NETF_FRIENDLYFIRE);
+	gGameOptions.bKeepKeysOnRespawn = coop;
+	UpdateNetworkMenus();
 }
 
 void GameInterface::NextLevel(MapRecord *map, int skill)

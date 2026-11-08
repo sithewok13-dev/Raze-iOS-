@@ -16,6 +16,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 //-------------------------------------------------------------------------
 #include "ns.h"
+#include "netgame.h"
 #include "engine.h"
 #include "exhumed.h"
 #include "sequence.h"
@@ -141,8 +142,30 @@ void GameInterface::NextLevel(MapRecord *map, int skill)
 void GameInterface::NewGame(MapRecord *map, int skill, bool frommenu)
 {
 	// start a new game on the given level
+	if (netgame) SetupNetGame(netGameMode, false);	// (Added: LAN games)
 	InitNewGame();
     InitLevel(map);
+}
+
+//---------------------------------------------------------------------------
+//
+// Added: LAN games (core/netgame.cpp). The game's own network code is what
+// the original left in: more players, their start places (the levels' own
+// network starts), no extra lives. One mode, played together.
+//
+//---------------------------------------------------------------------------
+
+FString GameInterface::NetModeName(int mode)
+{
+	return "Co-op";
+}
+
+void GameInterface::SetupNetGame(int mode, bool connected)
+{
+	if (!netgame) return;
+	nNetPlayerCount = numplayers - 1;
+	nTotalPlayers = numplayers;
+	nLocalPlayer = myconnectindex;
 }
 
 int GameInterface::GetCurrentSkill()

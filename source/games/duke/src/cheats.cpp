@@ -479,7 +479,7 @@ static void cmd_Give(int player, TArrayView<uint8_t>& stream, bool skip)
 	const auto p = getPlayer(player);
 	const auto pact = p->GetActor();
 
-	if (numplayers != 1 || gamestate != GS_LEVEL || pact->spr.extra <= 0)
+	if ((numplayers != 1 && !sv_cheats) || gamestate != GS_LEVEL || pact->spr.extra <= 0)
 	{
 		Printf("give: Cannot give while dead or not in a single-player game.\n");
 		return;

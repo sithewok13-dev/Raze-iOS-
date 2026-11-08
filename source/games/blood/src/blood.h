@@ -131,6 +131,8 @@ struct GameInterface : public ::GameInterface
 	void LoadTextureInfo(TilesetBuildInfo& info) override;
 	void SetupSpecialTextures(TilesetBuildInfo&) override;
 	int GetCurrentSkill() override;
+	void SetupNetGame(int mode, bool connected) override;
+	FString NetModeName(int mode) override;
 	bool IsQAVInterpTypeValid(const FString& type) override;
 	void AddQAVInterpProps(const int res_id, const FString& interptype, const bool loopable, const TMap<int, TArray<int>>&& ignoredata) override;
 	void RemoveQAVInterpProps(const int res_id) override;

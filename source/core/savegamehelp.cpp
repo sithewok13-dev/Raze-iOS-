@@ -789,6 +789,11 @@ extern FString	savegamefile;
 
 void G_SaveGame(const char* filename, const char* description)
 {
+	if (netgame)
+	{
+		Printf("Saving is off in a network game\n");	// (Added: LAN games)
+		return;
+	}
 	if (sendsave || gameaction == ga_savegame)
 	{
 		Printf("%s\n", GStrings.GetString("TXT_SAVEPENDING"));
@@ -855,7 +860,7 @@ void G_DoSaveGame(bool ok4q, bool forceq, const char* fn, const char* desc)
 
 void M_Autosave()
 {
-	if (disableautosave) return;
+	if (disableautosave || netgame) return;	// (Added: not in a network game)
 	if (!gi->CanSave()) return;
 	FString description;
 	FString file;

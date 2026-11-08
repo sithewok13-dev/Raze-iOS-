@@ -1901,6 +1901,8 @@ struct GameInterface : public ::GameInterface
     void LeavePortal(DCoreActor* viewer, int type) override;
     void ExitFromMenu() override;
     int GetCurrentSkill() override;
+    void SetupNetGame(int mode, bool connected) override;
+    FString NetModeName(int mode) override;
     void StartSoundEngine() override;
     void doPlayerMovement() override
     {

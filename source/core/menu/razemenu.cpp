@@ -140,10 +140,18 @@ bool M_SetSpecialMenu(FName& menu, int param)
 	}
 #endif
 
+	// Added: no saving or loading in a network game (a save is one
+	// machine's; loading one would leave the others behind)
+	if (netgame && (menu == NAME_Savegamemenu || menu == NAME_Loadgamemenu))
+	{
+		M_StartMessage("Saving and loading are off in a network game", 1, NAME_None);
+		return true;
+	}
+
 	switch (menu.GetIndex())
 	{
 	case NAME_Mainmenu:
-		if (gi->CanSave()) menu = NAME_IngameMenu;
+		if (gi->CanSave() || (netgame && gamestate == GS_LEVEL)) menu = NAME_IngameMenu;	// (Added: the network game's)
 		break;
 
 	case NAME_Skillmenu:
@@ -295,7 +303,7 @@ CCMD(menu_endgame)
 
 CCMD(quicksave)
 {	// F6
-	if (!gi->CanSave()) return;
+	if (!gi->CanSave() || netgame) return;	// (Added: not in a network game)
 
 	if (savegameManager.quickSaveSlot == NULL || savegameManager.quickSaveSlot == (FSaveGameNode*)1)
 	{
