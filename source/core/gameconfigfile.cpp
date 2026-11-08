@@ -72,8 +72,17 @@ FGameConfigFile::FGameConfigFile ()
 	pathname = GetConfigPath (false);
 	ChangePathName (pathname.GetChars());
 
+#ifdef RAZE_IOS
+	// iOS moves the app's folders to a new address at each update or
+	// reinstall, so saved full paths go stale ("Unable to find any game
+	// data"): make the search paths afresh at every launch
+	SetSection ("GameSearch.Directories", true);
+	ClearCurrentSection();
+	if (true)
+#else
 	// Set default IWAD search paths if none present
 	if (!SetSection ("GameSearch.Directories"))
+#endif
 	{
 		SetSection ("GameSearch.Directories", true);
 #ifdef RAZE_IOS
