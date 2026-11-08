@@ -1419,6 +1419,13 @@ static int IOSTouch_CheatCanAct(void)
   return _bCheatOn && _hud.bCheatAllowed && _iMode == IOSTOUCH_GAMEPLAY && !_bWheelOpen;
 }
 
+// The tray's LEVEL list can open (with or without the cheat): in play, no
+// wheel open
+static int IOSTouch_LevelListCanAct(void)
+{
+  return _iMode == IOSTOUCH_GAMEPLAY && !_bWheelOpen;
+}
+
 // A finger moved away from where it went down on CHEAT, JUMP or USE: no
 // hold there
 static void IOSTouch_CheatMoved(IOSTouchSlot *s, double x, double y)
@@ -1436,7 +1443,7 @@ static void IOSTouch_CheatMoved(IOSTouchSlot *s, double x, double y)
 static void IOSTouch_OpenLevelList(void)
 {
   IOSTouch_SetTrayOpen(0);
-  if (!IOSTouch_CheatCanAct() || !IOSTouch_LevelPickShows()) return;
+  if (!IOSTouch_LevelListCanAct() || !IOSTouch_LevelPickShows()) return;
   IOSTouch_DropTouches(NULL);
   _bLevelListOpen = 1;
 }
@@ -1452,7 +1459,7 @@ static void IOSTouch_PickLevel(int iLevel)
 {
   const int bOpen = _bLevelListOpen;
   _bLevelListOpen = 0;
-  if (!bOpen || !IOSTouch_CheatCanAct() || !IOSTouch_LevelPickShows() || iLevel < 1 || iLevel > _hud.ctLevels) return;
+  if (!bOpen || !IOSTouch_LevelListCanAct() || !IOSTouch_LevelPickShows() || iLevel < 1 || iLevel > _hud.ctLevels) return;
   _iLevelPicked = iLevel;
   _iRequests |= IOSTOUCH_REQ_LEVEL;
   char str[64];
@@ -1486,7 +1493,7 @@ static void IOSTouch_CheatLifted(IOSTouchSlot *s, double x, double y, int bCance
 static void IOSTouch_TickCheat(double now, double known)
 {
   // (the cheat off, the console open...)
-  if (_bLevelListOpen && (!IOSTouch_LevelPickShows() || !IOSTouch_CheatCanAct())) IOSTouch_CloseLevelList();
+  if (_bLevelListOpen && (!IOSTouch_LevelPickShows() || !IOSTouch_LevelListCanAct())) IOSTouch_CloseLevelList();
   // the tray with LEVEL in it while it shows, without it otherwise (the view
   // moves its buttons along as it sees this changed)
   if (IOSTouch_LevelPickShows() != _bTrayLevelPlaced) IOSTouch_PlaceTray(IOSTouch_LevelPickShows());

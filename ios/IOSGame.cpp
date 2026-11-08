@@ -437,10 +437,26 @@ void IOSGame_LevelStarted()
 	if (part && part->Reset) part->Reset();
 }
 
+// For the log (Documents/raze-log.txt): the game's state each time it
+// changes, so a report of the game stuck says where it was
+static void LogStateChanges(int mode)
+{
+	static FString last;
+	FString now;
+	now.Format("gs %d ga %d menu %d paused %d/%d held %d touch %d level %s", (int)gamestate, (int)gameaction, (int)M_Active(),
+		paused, (int)pauseext, (int)IOSTouch_HoldsGame(), mode, currentLevel ? currentLevel->labelName.GetChars() : "-");
+	if (now.Compare(last) != 0)
+	{
+		Printf(PRINT_NONOTIFY, "iOS: state %s\n", now.GetChars());
+		last = now;
+	}
+}
+
 void IOSGame_Frame()
 {
 	framesDrawn++;
 	const int mode = TouchMode();
+	LogStateChanges(mode);
 	const IOSGamePart* part = Part();
 
 	// (the level screens left skipped by an earlier run)
@@ -526,10 +542,15 @@ void IOSGame_Frame()
 				// as if the level were finished, to the one picked (so each
 				// game carries the player over as it does), with the exit
 				// and start screens skipped until the new level is there
+				Printf(PRINT_NONOTIFY, "iOS: level %d picked: %s\n", i, cheatLevels[i - 1]->labelName.GetChars());
 				SkipLevelScreens();
 				ChangeLevel(cheatLevels[i - 1], g_nextskill);
 			}
-			else if (!iosCamera_IsBusy()) IOSTouch_CheatLevelFailed();
+			else
+			{
+				Printf(PRINT_NONOTIFY, "iOS: level %d not picked (ga %d)\n", i, (int)gameaction);
+				if (!iosCamera_IsBusy()) IOSTouch_CheatLevelFailed();
+			}
 		}
 	}
 	CheatFrame();

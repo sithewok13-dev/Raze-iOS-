@@ -55,7 +55,7 @@ jobs:
         path: deps
         key: ios-deps-${{ env.SDL_TAG }}-${{ env.OPENAL_TAG }}-${{ env.ZMUSIC_SHA }}-${{ env.VPX_TAG }}-${{ env.IOS_MIN }}-${{ hashFiles('ios/build_deps.sh', 'ios/zmusic_ios.py') }}
 
-    - name: Build SDL2, OpenAL Soft, ZMusic and libvpx for iOS
+    - name: Build SDL2, OpenAL Soft, libsndfile, ZMusic and libvpx for iOS
       if: steps.deps.outputs.cache-hit != 'true'
       run: ios/build_deps.sh "$PWD/deps"
 
@@ -96,7 +96,7 @@ jobs:
           -DOPENAL_INCLUDE_DIR=$DEPS/include/AL \
           -DOPENAL_LIBRARY=$DEPS/lib/libopenal.a \
           -DZMUSIC_INCLUDE_DIR=$DEPS/include \
-          -DZMUSIC_LIBRARIES=$DEPS/lib/libzmusic.a \
+          "-DZMUSIC_LIBRARIES=$DEPS/lib/libzmusic.a;$DEPS/lib/libsndfile.a;$DEPS/lib/libvorbisenc.a;$DEPS/lib/libvorbis.a;$DEPS/lib/libFLAC.a;$DEPS/lib/libopus.a;$DEPS/lib/libogg.a" \
           -DVPX_INCLUDE_DIR=$DEPS/include -DVPX_LIBRARIES=$DEPS/lib/libvpx.a \
           -DNO_GTK=ON \
           -DRAZE_IOS_VERSION=0.1.${{ github.run_number }}

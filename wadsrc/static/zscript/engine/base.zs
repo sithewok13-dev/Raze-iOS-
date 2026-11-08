@@ -216,6 +216,8 @@ struct _ native	// These are the global variables, the struct is only here to av
 	native readonly bool demoplayback;
 	native ui int BackbuttonTime;
 	native ui float BackbuttonAlpha;
+	native ui int BackbuttonX, BackbuttonY;	// (Added: touch screens)
+	native ui bool BackbuttonAlways;
 	native readonly @MusPlayingInfo musplaying;
 	native readonly bool generic_ui;
 	native readonly int GameTicRate;
