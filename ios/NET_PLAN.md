@@ -14,7 +14,8 @@ place, angle, state and health once a second (2: every tic, with sectors and
 walls; 3: actor classes; 4: every actor), and the logs of all machines are
 compared. Scripted touches (the touch rig) move, turn and fire on both;
 `net_presskey` presses a key for the screens between levels;
-`net_scan` runs the phone's LAN search.
+`net_scan` runs the phone's LAN search; `RAZE_NET_CANCEL=<s>` cancels
+the wait for players as the phone's Cancel does.
 
 ## Works on the rig (checksums identical)
 
@@ -32,9 +33,14 @@ compared. Scripted touches (the touch rig) move, turn and fire on both;
   (each machine's own). Not offered on the phone.
 - Real phones on Wi-Fi: nothing yet (the local-network permission, the
   search on a real /24, the UIKit screens, the box while waiting).
-- A player leaving mid-game, dying and coming back in a deathmatch, the
-  end of an episode, Redneck Rides Again, Duke's other add-ons: not tested.
-- A phone in the background stops sending: the others wait (lockstep).
+- A player leaving: quitting tells the others at once; a machine silent
+  for 30 s is dropped ("Waiting for player N..." meanwhile); the rest go on
+  (tested: 3 players, one killed). With 3+ players a dropped machine's
+  last tics may have reached the others unevenly: they could differ.
+- A phone in the background: the others wait; back after 30 s or more it
+  leaves the game and goes to the main menu alone (rig: `net_leave`).
+- Dying and coming back in a deathmatch, the end of an episode, Redneck
+  Rides Again, Duke's other add-ons: not tested.
 - The CHEAT button, quick save / load, selfies and Action Freeze stay
   single player; saving and loading are off in a network game.
 - A desktop Raze can join only if built from this branch (stock Raze
