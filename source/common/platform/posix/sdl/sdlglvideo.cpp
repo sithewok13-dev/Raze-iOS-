@@ -116,6 +116,10 @@ CCMD(vid_list_sdl_render_drivers)
 
 // PRIVATE DATA DEFINITIONS ------------------------------------------------
 
+#ifdef RAZE_IOS
+void IOS_AttachWindowToScene(SDL_Window* window); // ios/i_ios.mm
+#endif
+
 namespace Priv
 {
 	SDL_Window *window;
@@ -186,10 +190,7 @@ namespace Priv
 #ifdef RAZE_IOS
 		// iOS: SDL 2 makes its window without a scene, which new iOS versions
 		// never show: put it in the app's scene and bring it to the front
-		{
-			extern void IOS_AttachWindowToScene(SDL_Window* window); // ios/i_ios.mm
-			if (Priv::window != nullptr) IOS_AttachWindowToScene(Priv::window);
-		}
+		if (Priv::window != nullptr) ::IOS_AttachWindowToScene(Priv::window);
 #endif
 		if (Priv::window != nullptr)
 		{
