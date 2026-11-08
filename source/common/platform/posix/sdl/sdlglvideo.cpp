@@ -698,27 +698,41 @@ void SystemGLFrameBuffer::SwapBuffers()
 }
 
 
+#ifdef RAZE_IOS
+// The app in front or not (home screen, app switcher, lock), from iOS's own
+// app state (i_input.cpp)
+void IOS_SetAppActive(bool active)
+{
+	extern bool AppActive;
+	Printf("App %s\n", active ? "in front" : "in the background");
+	S_SetSoundPaused(active ? 1 : 0);
+	AppActive = active;
+}
+#endif
+
 void ProcessSDLWindowEvent(const SDL_WindowEvent &event)
 {
 	switch (event.event)
 	{
 	extern bool AppActive;
 
-	case SDL_WINDOWEVENT_FOCUS_GAINED:
 #ifdef RAZE_IOS
-		Printf("Window: focus gained\n");
-#endif
+	// iOS: window focus comes and goes without the app leaving the front
+	// (it froze the menus until a swipe); IOS_SetAppActive decides instead
+	case SDL_WINDOWEVENT_FOCUS_GAINED:
+	case SDL_WINDOWEVENT_FOCUS_LOST:
+		break;
+#else
+	case SDL_WINDOWEVENT_FOCUS_GAINED:
 		S_SetSoundPaused(1);
 		AppActive = true;
 		break;
 
 	case SDL_WINDOWEVENT_FOCUS_LOST:
-#ifdef RAZE_IOS
-		Printf("Window: focus lost\n");
-#endif
 		S_SetSoundPaused(0);
 		AppActive = false;
 		break;
+#endif
 
 	case SDL_WINDOWEVENT_MOVED:
 		if (!vid_fullscreen)

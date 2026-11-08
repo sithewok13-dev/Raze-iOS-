@@ -251,6 +251,18 @@ void MessagePump (const SDL_Event &sev)
 	case SDL_QUIT:
 		throw CExitEvent(0);
 
+#ifdef RAZE_IOS
+	// iOS: the app is "active" while it is in front, by the app's own state
+	// (home screen, app switcher, lock); the window focus events also come
+	// when nothing left the app and froze the menus (sdlglvideo.cpp)
+	case SDL_APP_WILLENTERBACKGROUND:
+	case SDL_APP_DIDENTERFOREGROUND:
+		{
+			extern void IOS_SetAppActive(bool active);
+			IOS_SetAppActive(sev.type == SDL_APP_DIDENTERFOREGROUND);
+		}
+		break;
+#endif
 	case SDL_WINDOWEVENT:
 		extern void ProcessSDLWindowEvent(const SDL_WindowEvent &);
 		ProcessSDLWindowEvent(sev.window);
