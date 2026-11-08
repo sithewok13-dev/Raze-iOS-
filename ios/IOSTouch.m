@@ -374,7 +374,11 @@ static void IOSTouch_HudFrameInsets(double inLeft, double inTop, double inRight,
   const double side = fmax(inLeft, inRight);
   *pfLeft = *pfRight = (side >= 40.0 && side < 55.0) ? fmax(c, side - 22.0) : c;
   *pfTop = fmax(inTop, c);
-  *pfBottom = fmax(inBottom, c);
+  // The bottom goes to the screen's edge, under the home indicator (the
+  // owner's choice for Raze: the HUD at the very bottom, as in the
+  // original games, rather than lifted above the indicator)
+  *pfBottom = 0.0;
+  (void)inBottom;
 }
 
 typedef struct {
