@@ -465,12 +465,11 @@ extern "C" void IOS_FrameReport(int frame, int w, int h)
 // already was; kept as a safeguard for newer iOS versions.)
 void IOS_AttachWindowToScene(SDL_Window* window)
 {
-	// Sound plays with the silent switch on too (the owner's choice), and
-	// music from other apps plays on, a little quieter (the playback
-	// category, as in the Jedi Knight port; set before the game opens its
-	// sound)
+	// Sound plays with the silent switch on too, and the game takes over the
+	// sound: other apps' music stops while it plays (the owner's choice; the
+	// playback category without mixing; set before the game opens its sound)
 	[[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback mode:AVAudioSessionModeDefault
-		options:AVAudioSessionCategoryOptionMixWithOthers | AVAudioSessionCategoryOptionDuckOthers error:nil];
+		options:0 error:nil];
 	[[AVAudioSession sharedInstance] setActive:YES error:nil];
 	SDL_SysWMinfo info;
 	SDL_VERSION(&info.version);
