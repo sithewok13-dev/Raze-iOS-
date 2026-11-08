@@ -608,6 +608,11 @@ void TryRunTics (void)
 
 	if (vid_dontdowait && ((vid_maxfps > 0) || (vid_vsync == true)))
 		doWait = false;
+#ifdef RAZE_IOSCAMERA
+	// Added: the CAMERA's Action Freeze holds the game still, but its camera
+	// moves with the fingers: every frame drawn, not one per tic
+	if (iosCam_IsFrozen()) doWait = false;
+#endif
 
 	// get real tics
 	if (doWait)
