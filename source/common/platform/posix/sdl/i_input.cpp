@@ -222,6 +222,24 @@ static void I_CheckNativeMouse ()
 	}
 }
 
+// iOS: SDL gives touch/mouse positions in points, while the game's screen
+// (a high-DPI drawable) is measured in pixels: scale them to pixels
+static void IOS_PointsToPixels(int16_t& x, int16_t& y)
+{
+#ifdef RAZE_IOS
+	SDL_Window* w = SDL_GL_GetCurrentWindow();
+	int ww = 0, wh = 0, pw = 0, ph = 0;
+	if (w == nullptr) return;
+	SDL_GetWindowSize(w, &ww, &wh);
+	SDL_GL_GetDrawableSize(w, &pw, &ph);
+	if (ww > 0 && wh > 0 && pw > 0 && ph > 0)
+	{
+		x = int16_t(x * pw / ww);
+		y = int16_t(y * ph / wh);
+	}
+#endif
+}
+
 void MessagePump (const SDL_Event &sev)
 {
 	static int lastx = 0, lasty = 0;
@@ -272,6 +290,7 @@ void MessagePump (const SDL_Event &sev)
 			event.data1 = x;
 			event.data2 = y;
 
+			IOS_PointsToPixels(event.data1, event.data2);
 			screen->ScaleCoordsFromWindow(event.data1, event.data2);
 
 			if (sev.type == SDL_MOUSEBUTTONDOWN)
@@ -314,6 +333,7 @@ void MessagePump (const SDL_Event &sev)
 			event.data1 = sev.motion.x;
 			event.data2 = sev.motion.y;
 
+			IOS_PointsToPixels(event.data1, event.data2);
 			screen->ScaleCoordsFromWindow(event.data1, event.data2);
 
 			event.type = EV_GUI_Event;
