@@ -44,23 +44,16 @@ static UIViewController* TopViewController()
 	return vc;
 }
 
-// Shows the alert and waits for an answer; returns the chosen action's index
-static int RunAlert(UIAlertController* alert, NSArray<NSString*>* titles, int cancelIndex)
-{
-	__block int chosen = -1;
-	for (NSUInteger i = 0; i < titles.count; i++)
-	{
-		const int index = (int)i;
-		UIAlertActionStyle style = (index == cancelIndex) ? UIAlertActionStyleCancel : UIAlertActionStyleDefault;
-		[alert addAction:[UIAlertAction actionWithTitle:titles[i] style:style handler:^(UIAlertAction*) { chosen = index; }]];
-	}
+// What to put an alert on: the top of what's on screen, or, with nothing
+// on screen yet (the game window comes later), a plain black window of our
+// own (HideOwnWindow takes it away again)
+static UIWindow* ownWindow = nil;
 
+static UIViewController* PresentingController()
+{
 	UIViewController* vc = TopViewController();
-	static UIWindow* ownWindow = nil;
 	if (vc == nil)
 	{
-		// Nothing on screen yet (the game window comes later): put up a
-		// plain black window of our own to show the alert on
 		UIWindowScene* windowScene = nil;
 		for (UIScene* scene in UIApplication.sharedApplication.connectedScenes)
 			if ([scene isKindOfClass:UIWindowScene.class]) { windowScene = (UIWindowScene*)scene; break; }
@@ -71,28 +64,69 @@ static int RunAlert(UIAlertController* alert, NSArray<NSString*>* titles, int ca
 		[ownWindow makeKeyAndVisible];
 		vc = ownWindow.rootViewController;
 	}
-	if (alert.popoverPresentationController)
-	{
-		// iPad: an action sheet needs an anchor
-		alert.popoverPresentationController.sourceView = vc.view;
-		alert.popoverPresentationController.sourceRect = CGRectMake(CGRectGetMidX(vc.view.bounds), CGRectGetMidY(vc.view.bounds), 0, 0);
-		alert.popoverPresentationController.permittedArrowDirections = 0;
-	}
-	[vc presentViewController:alert animated:YES completion:nil];
+	return vc;
+}
 
-	while (chosen < 0)
-	{
-		@autoreleasepool
-		{
-			[[NSRunLoop mainRunLoop] runMode:NSDefaultRunLoopMode beforeDate:[NSDate dateWithTimeIntervalSinceNow:0.05]];
-		}
-	}
+static void HideOwnWindow()
+{
 	if (ownWindow)
 	{
 		// Out of the way again before the game makes its own window
 		ownWindow.hidden = YES;
 		ownWindow = nil;
 	}
+}
+
+static void SpinRunLoop(double seconds)
+{
+	@autoreleasepool
+	{
+		[[NSRunLoop mainRunLoop] runMode:NSDefaultRunLoopMode beforeDate:[NSDate dateWithTimeIntervalSinceNow:seconds]];
+	}
+}
+
+// Shows an alert (an iPad's action sheet gets an anchor); false when it
+// couldn't be shown
+static bool Present(UIAlertController* alert)
+{
+	UIViewController* vc = PresentingController();
+	if (vc == nil) return false;
+	if (alert.popoverPresentationController)
+	{
+		alert.popoverPresentationController.sourceView = vc.view;
+		alert.popoverPresentationController.sourceRect = CGRectMake(CGRectGetMidX(vc.view.bounds), CGRectGetMidY(vc.view.bounds), 0, 0);
+		alert.popoverPresentationController.permittedArrowDirections = 0;
+	}
+	[vc presentViewController:alert animated:YES completion:nil];
+	return alert.presentingViewController != nil;
+}
+
+// Waits (up to a second) until a closed alert is really off the screen, so
+// the next one can be shown
+static void WaitGone(UIAlertController* alert)
+{
+	for (int i = 0; i < 20 && alert.presentingViewController != nil; i++) SpinRunLoop(0.05);
+}
+
+// Shows the alert and waits for an answer; returns the chosen action's index
+// (-1: it couldn't be shown)
+static int RunAlert(UIAlertController* alert, NSArray<NSString*>* titles, int cancelIndex)
+{
+	__block int chosen = -1;
+	for (NSUInteger i = 0; i < titles.count; i++)
+	{
+		const int index = (int)i;
+		UIAlertActionStyle style = (index == cancelIndex) ? UIAlertActionStyleCancel : UIAlertActionStyleDefault;
+		[alert addAction:[UIAlertAction actionWithTitle:titles[i] style:style handler:^(UIAlertAction*) { chosen = index; }]];
+	}
+	if (!Present(alert))
+	{
+		HideOwnWindow();
+		return -1;
+	}
+	while (chosen < 0) SpinRunLoop(0.05);
+	WaitGone(alert);
+	HideOwnWindow();
 	return chosen;
 }
 
@@ -173,21 +207,18 @@ static bool ChooseJoin()
 		static IOSNetHost hosts[IOSNET_MAXHOSTS];	// (static: the search block fills it)
 		__block int ctHosts = -1;
 		UIAlertController* busy = [UIAlertController alertControllerWithTitle:@"Join a LAN game" message:@"Looking for games on this Wi-Fi…" preferredStyle:UIAlertControllerStyleAlert];
-		[TopViewController() presentViewController:busy animated:YES completion:nil];
+		const bool shown = Present(busy);
 		dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
 			int n = IOSNet_Scan(hosts, IOSNET_MAXHOSTS, 1.5);
 			dispatch_async(dispatch_get_main_queue(), ^{ ctHosts = n; });
 		});
-		while (ctHosts < 0)
+		while (ctHosts < 0) SpinRunLoop(0.05);
+		if (shown)
 		{
-			@autoreleasepool { [[NSRunLoop mainRunLoop] runMode:NSDefaultRunLoopMode beforeDate:[NSDate dateWithTimeIntervalSinceNow:0.05]]; }
+			[busy dismissViewControllerAnimated:NO completion:nil];
+			WaitGone(busy);
 		}
-		__block bool gone = false;
-		[busy dismissViewControllerAnimated:NO completion:^{ gone = true; }];
-		while (!gone)
-		{
-			@autoreleasepool { [[NSRunLoop mainRunLoop] runMode:NSDefaultRunLoopMode beforeDate:[NSDate dateWithTimeIntervalSinceNow:0.05]]; }
-		}
+		HideOwnWindow();
 
 		NSMutableArray<NSString*>* titles = [NSMutableArray array];
 		for (int i = 0; i < ctHosts; i++)
@@ -231,32 +262,36 @@ static bool ChooseJoin()
 	}
 }
 
-static void ChooseNetwork(const char* gameName)
+// Host or join, for the game picked. false: back
+static bool ChooseNetwork(const char* gameName, const NetMode* modes, int ctModes)
 {
-	const NetMode* modes = nullptr;
-	int ctModes = 0;
-	NetModes(gameName, &ctModes, &modes);
-	if (ctModes == 0) return;	// (no network game for it)
 	for (;;)
 	{
-		const int c = RunAlert(Sheet([NSString stringWithUTF8String:gameName], @"Play alone, or with others on this Wi-Fi"),
-			@[ @"Single player", @"Host a LAN game", @"Join a LAN game" ], -1);
-		if (c == 1 && !ChooseHost(modes, ctModes)) continue;
-		if (c == 2 && !ChooseJoin()) continue;
-		return;
+		const int c = RunAlert(Sheet([NSString stringWithUTF8String:gameName], @"A game with others on this Wi-Fi"),
+			@[ @"Host a LAN game", @"Join a LAN game", @"Back" ], 2);
+		if (c == 0 && ChooseHost(modes, ctModes)) return true;
+		if (c == 1 && ChooseJoin()) return true;
+		if (c < 0 || c == 2) return false;
 	}
 }
 
 int I_PickIWad_Cocoa(WadStuff* wads, int numwads, bool showwin, int defaultiwad)
 {
 	if (!showwin) return defaultiwad;
-	int chosen = defaultiwad;
-	if (numwads > 1)
+	// the games that have network games
+	TArray<int> netGames;
+	for (int i = 0; i < numwads; i++)
 	{
-		UIAlertController* alert = [UIAlertController alertControllerWithTitle:@"Raze"
-			message:@"Choose a game"
-			preferredStyle:UIAlertControllerStyleActionSheet];
+		const NetMode* modes = nullptr;
+		int ctModes = 0;
+		NetModes(wads[i].Name.GetChars(), &ctModes, &modes);
+		if (ctModes > 0) netGames.Push(i);
+	}
 
+	for (;;)
+	{
+		// The picker as it always was (a game: single player straight away),
+		// with one more entry at the end: LAN multiplayer (Added)
 		NSMutableArray<NSString*>* titles = [NSMutableArray array];
 		for (int i = 0; i < numwads; i++)
 		{
@@ -265,15 +300,34 @@ int I_PickIWad_Cocoa(WadStuff* wads, int numwads, bool showwin, int defaultiwad)
 			if (i == defaultiwad) name = [name stringByAppendingString:@"  ✓"];
 			[titles addObject:name];
 		}
+		const int iLan = netGames.Size() > 0 ? numwads : -1;
+		if (iLan >= 0) [titles addObject:@"LAN multiplayer…"];
+		const int iQuit = (int)titles.count;
 		[titles addObject:@"Quit"];
 
-		chosen = RunAlert(alert, titles, numwads);
+		const int chosen = numwads > 1 || iLan >= 0
+			? RunAlert(Sheet(@"Raze", @"Choose a game"), titles, iQuit)
+			: defaultiwad;
 		printf("Game picker: chose %d of %d\n", chosen, numwads);
-		if (chosen >= numwads) return -1;
+		if (chosen < 0 || chosen == iQuit) return -1;
+		if (chosen != iLan) return chosen;
+
+		// LAN multiplayer: which game, then host or join (Back: the picker again)
+		NSMutableArray<NSString*>* games = [NSMutableArray array];
+		for (unsigned i = 0; i < netGames.Size(); i++)
+		{
+			NSString* name = [NSString stringWithUTF8String:wads[netGames[i]].Name.GetChars()];
+			[games addObject:name ? name : @"?"];
+		}
+		[games addObject:@"Back"];
+		const int g = RunAlert(Sheet(@"LAN multiplayer", @"Which game? (Everyone needs the same game files.)"), games, (int)netGames.Size());
+		if (g < 0 || g >= (int)netGames.Size()) continue;
+		const int pick = netGames[g];
+		const NetMode* modes = nullptr;
+		int ctModes = 0;
+		NetModes(wads[pick].Name.GetChars(), &ctModes, &modes);
+		if (ChooseNetwork(wads[pick].Name.GetChars(), modes, ctModes)) return pick;
 	}
-	// Added: LAN games (a network game for the picked game, or not)
-	if (chosen >= 0 && chosen < numwads) ChooseNetwork(wads[chosen].Name.GetChars());
-	return chosen;
 }
 
 //---------------------------------------------------------------------------
@@ -289,8 +343,12 @@ bool I_NetWaitTick(const char* message, int pos, int max)
 	static bool cancelled = false;
 	if (message == nullptr)
 	{
-		if (box) [box dismissViewControllerAnimated:NO completion:nil];
+		// (the network game is set up, or cancelled: the box goes)
+		if (box && box.presentingViewController) [box dismissViewControllerAnimated:NO completion:nil];
+		if (box) WaitGone(box);
+		[box release];
 		box = nil;
+		HideOwnWindow();
 		return true;
 	}
 
@@ -300,7 +358,7 @@ bool I_NetWaitTick(const char* message, int pos, int max)
 	{
 		char mine[64] = "";
 		IOSNet_WifiAddress(mine, sizeof(mine));
-		text = [NSString stringWithFormat:@"%d of %d players here.\n\nThis phone's address: %s\n(the others: Join a LAN game, then tap this game or type the address)",
+		text = [NSString stringWithFormat:@"%d of %d players here.\n\nThis phone's address: %s\n(the others: LAN multiplayer, Join, then tap this game or type the address)",
 			pos > 0 ? pos : 1, max, mine[0] ? mine : "no Wi-Fi?"];
 	}
 	else if ([what hasPrefix:@"Contacting"]) text = @"Looking for the host…\n(it must be waiting for players, on this Wi-Fi)";
@@ -310,16 +368,22 @@ bool I_NetWaitTick(const char* message, int pos, int max)
 	if (box == nil)
 	{
 		cancelled = false;
-		box = [UIAlertController alertControllerWithTitle:@"LAN game" message:text preferredStyle:UIAlertControllerStyleAlert];
+		box = [[UIAlertController alertControllerWithTitle:@"LAN game" message:text preferredStyle:UIAlertControllerStyleAlert] retain];
 		[box addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:^(UIAlertAction*) { cancelled = true; }]];
-		[TopViewController() presentViewController:box animated:YES completion:nil];
 	}
 	else if (![box.message isEqualToString:text]) box.message = text;
+	// (shown once; again if it couldn't be shown yet, while something else
+	// was still going away)
+	if (!cancelled && box.presentingViewController == nil) Present(box);
 
-	@autoreleasepool { [[NSRunLoop mainRunLoop] runMode:NSDefaultRunLoopMode beforeDate:[NSDate dateWithTimeIntervalSinceNow:0.12]]; }
+	SpinRunLoop(0.12);
 	if (cancelled)
 	{
-		box = nil;	// (an alert's button closes it)
+		// (its button closed it; the next call, or the null one, makes a
+		// new box if the wait goes on)
+		WaitGone(box);
+		[box release];
+		box = nil;
 		return false;
 	}
 	return true;

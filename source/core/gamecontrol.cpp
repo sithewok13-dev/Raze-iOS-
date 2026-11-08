@@ -1193,16 +1193,8 @@ int RunGame()
 	screen->SetTextureFilterMode();
 	setViewport(hud_size);
 
-	if (!D_CheckNetGame())
-	{
-		// Added: the network game was cancelled while waiting: one player
-		CloseNetwork();
-		netgame = multiplayer = false;
-		doomcom.numplayers = doomcom.numnodes = 1;
-		consoleplayer = myconnectindex = 0;
-		for (int i = 1; i < MAXPLAYERS; i++) playeringame[i] = false;
-		Printf("Network game cancelled: single player\n");
-	}
+	D_CheckNetGame();	// (Added: a cancelled wait for players is one player: i_net.cpp, d_net.cpp)
+	I_NetWaitTick(nullptr, 0, 0);	// (Added: the wait for players is over: its box goes)
 	Net_SetupPlayers();	// Added: LAN games (netgame.cpp)
 	UpdateGenericUI(ui_generic);
 	PClassActor::StaticInit();

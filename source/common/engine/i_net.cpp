@@ -68,6 +68,7 @@
 #endif
 
 #include "i_system.h"
+#include "i_time.h"
 #include "m_argv.h"
 #include "m_crc32.h"
 #include "st_start.h"
@@ -1036,15 +1037,32 @@ int I_InitNetwork (void)
 	// parse network game options,
 	//		player 1: -host <numplayers>
 	//		player x: -join <player 1's address>
+	// (Added: a wait for players that was cancelled is one player, as
+	// without -host / -join)
+	bool cancelled = false;
 	if ( (i = Args->CheckParm ("-host")) )
 	{
-		if (!HostGame (i)) return -1;
+		if (!HostGame (i)) cancelled = true;
 	}
 	else if ( (i = Args->CheckParm ("-join")) )
 	{
-		if (!JoinGame (i)) return -1;
+		if (!JoinGame (i)) cancelled = true;
 	}
-	else
+	if (cancelled)
+	{
+		CloseNetwork();
+		Printf("Network game cancelled: one player\n");
+		netgame = false;
+		multiplayer = false;
+		const int dup = doomcom.ticdup;
+		memset(&doomcom, 0, sizeof(doomcom));
+		doomcom.ticdup = dup;
+		doomcom.id = DOOMCOM_ID;
+		doomcom.numplayers = doomcom.numnodes = 1;
+		doomcom.consoleplayer = 0;
+		return 0;
+	}
+	if (!netgame)
 	{
 		// single player game
 		netgame = false;
@@ -1128,16 +1146,10 @@ bool I_NetLoop(bool (*timer_callback)(void*), void* userdata)
 	if (StartWindow) return StartWindow->NetLoop(timer_callback, userdata);
 	for (;;)
 	{
-		if (timer_callback(userdata))
-		{
-			I_NetWaitTick(nullptr, 0, 0);	// (done: the box goes)
-			return true;
-		}
-		if (!I_NetWaitTick(NetWaitMessage.GetChars(), NetWaitPos, NetWaitMax))
-		{
-			I_NetWaitTick(nullptr, 0, 0);
-			return false;
-		}
+		// (the box stays from one wait to the next: D_CheckNetGame's caller
+		// closes it, I_NetWaitTick(nullptr...))
+		if (timer_callback(userdata)) return true;
+		if (!I_NetWaitTick(NetWaitMessage.GetChars(), NetWaitPos, NetWaitMax)) return false;
 	}
 }
 
@@ -1145,12 +1157,17 @@ bool I_NetLoop(bool (*timer_callback)(void*), void* userdata)
 bool I_NetWaitTick(const char* message, int pos, int max)
 {
 	if (message == nullptr) return true;
+	// (the rig: RAZE_NET_CANCEL=<seconds> cancels the wait, as the phone's
+	// Cancel button does)
+	static uint64_t tStart = I_msTime();
+	const char* cancel = getenv("RAZE_NET_CANCEL");
+	if (cancel && I_msTime() - tStart >= uint64_t(atof(cancel) * 1000)) return false;
 	static FString last;
 	FString now;
 	now.Format("%s: %d/%d", message, pos, max);
 	if (now.Compare(last) != 0) fprintf(stderr, "%s\n", now.GetChars());
 	last = now;
-	usleep(125000);
+	Sleep(125);
 	return true;
 }
 #endif

@@ -269,6 +269,7 @@ CCMD(menu_quit)
 
 CCMD(menu_endgame)
 {	// F7
+	if (netgame) return;	// (Added: only quitting leaves a network game; ending it on one machine would leave it behind)
 	if (!gi->CanSave())
 	{
 		return;

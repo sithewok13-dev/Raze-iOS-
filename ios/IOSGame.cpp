@@ -636,6 +636,7 @@ void IOSGame_HudFrame(double w, double h, double* pFrame)
 // iOS start screen makes), in the console: net_scan
 CCMD(net_scan)
 {
+	if (netgame) return;	// (it waits 1.5 s: never in a network game)
 	IOSNetHost hosts[IOSNET_MAXHOSTS];
 	char mine[64] = "";
 	IOSNet_WifiAddress(mine, sizeof(mine));

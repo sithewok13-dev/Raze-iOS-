@@ -36,6 +36,8 @@ void NetUpdate (void);
 // Broadcasts special packets to other players
 //	to notify of game exit
 void D_QuitNetGame (void);
+bool Net_PlayerGone(int player);
+void Net_LeaveNetwork();	// (Added: this machine leaves the network game)	// (Added: LAN games: the player left)
 
 //? how many ticks to run?
 void TryRunTics (void);

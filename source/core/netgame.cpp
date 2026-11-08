@@ -48,14 +48,15 @@ CVAR(Int, net_mode, 0, CVAR_NOSAVE)
 CVAR(Bool, net_ffire, false, CVAR_NOSAVE)
 // (the host's) the console cheats for everyone: sv_cheats, which the host
 // sends to the others as the game starts
-CVAR(Bool, net_cheats, false, CVAR_NOSAVE)
+// (-1, as on a desktop: sv_cheats as it is)
+CVAR(Int, net_cheats, -1, CVAR_NOSAVE)
 EXTERN_CVAR(Bool, sv_cheats)
 
 // Before the host sends its settings (D_CheckNetGame, after the saved
 // network settings were read): the host's choice, not an old game's
 void Net_HostSettings()
 {
-	if (doomcom.consoleplayer == 0) sv_cheats = (bool)net_cheats;
+	if (doomcom.consoleplayer == 0 && net_cheats >= 0) sv_cheats = net_cheats > 0;
 }
 // (the rig) a checksum of the game's state every second in the log
 CVAR(Int, net_checksums, 0, CVAR_NOSAVE)	// 1: once a second, 2: every tic, with the random seed
@@ -236,6 +237,13 @@ void Net_LogChecksum()
 				ac->spr.pos.X, ac->spr.pos.Y, ac->spr.pos.Z, ac->vel.X, ac->vel.Z, ac->spr.Angles.Yaw.Degrees(), ac->spr.statnum, ac->spr.cstat, ac->spr.extra);
 	}
 	Printf(PRINT_NONOTIFY, "NETSUM tic %d %08x actors %u%s\n", gametic, sum, count, players.GetChars());
+}
+
+// (the rig) what a phone away too long does: net_leave
+CCMD(net_leave)
+{
+	Net_LeaveNetwork();
+	Printf(PRINT_HIGH, "Away too long: the network game went on without you\n");
 }
 
 // (the rig) a key press, for screens that wait for one: net_presskey

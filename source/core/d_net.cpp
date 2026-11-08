@@ -51,6 +51,7 @@
 #include "c_console.h"
 #include "d_net.h"
 #include "netgame.h"
+#include "gamecontrol.h"
 #include "d_protocol.h"
 #include "i_protocol.h"
 #include "cmdlib.h"
@@ -674,6 +675,8 @@ bool HGetPacket (void)
 	return true;		
 }
 
+static void Net_PlayerLeft(int netnode, int player);	// (Added: LAN games)
+
 void PlayerIsGone (int netnode, int netconsole)
 {
 	int i;
@@ -802,6 +805,7 @@ void GetPackets (void)
 			if (NetMode != NET_PacketServer || netconsole == Net_Arbitrator)
 			{
 				PlayerIsGone (netnode, netconsole);
+				Net_PlayerLeft (netnode, netconsole);	// (Added: LAN games)
 				if (NetMode == NET_PacketServer)
 				{
 					for (int i = 0; i < MAXPLAYERS; ++i)
@@ -1712,7 +1716,17 @@ bool D_CheckNetGame (void)
 	{
 		GameConfig->ReadNetVars ();	// [RH] Read network ServerInfo cvars
 		Net_HostSettings();	// Added: LAN games (netgame.cpp)
-		if (!D_ArbitrateNetStart ()) return false;
+		if (!D_ArbitrateNetStart ())
+		{
+			// (Added: cancelled while the game's settings went round: one player)
+			CloseNetwork();
+			Printf("Network game cancelled: one player\n");
+			netgame = multiplayer = false;
+			doomcom.numplayers = doomcom.numnodes = 1;
+			doomcom.consoleplayer = 0;
+			myconnectindex = 0;
+			for (i = 1; i < MAXPLAYERS; i++) playeringame[i] = false;
+		}
 	}
 
 	// read values out of doomcom
@@ -1730,6 +1744,18 @@ bool D_CheckNetGame (void)
 
 	if (!batchrun) Printf (PRINT_NONOTIFY, "player %i of %i (%i nodes)\n",
 			myconnectindex+1, doomcom.numplayers, doomcom.numnodes);
+
+	if (netgame)
+	{
+		// Added (LAN games): the others are told when this machine quits
+		// (D_QuitNetGame was never called), and each player's quiet time
+		// starts now
+		usergame = true;
+		static bool once;
+		if (!once) atexit(D_QuitNetGame);
+		once = true;
+		for (i = 0; i < MAXPLAYERS; i++) currrecvtime[i] = I_msTime();
+	}
 
 	return true;
 }
@@ -1783,8 +1809,73 @@ void D_QuitNetGame (void)
 }
 
 
+// Added (LAN games): a player that left or whose machine went quiet. The
+// others go on; the player's character stays where it is, without input.
+static bool netPlayerGone[MAXPLAYERS];
+static uint64_t netWaitNotice;
+static const uint64_t NET_DROP_MS = 30000;	// quiet this long: gone
+
+bool Net_PlayerGone(int player)
+{
+	return player >= 0 && player < MAXPLAYERS && netPlayerGone[player];
+}
+
+static void Net_PlayerLeft(int netnode, int player)
+{
+	if (netPlayerGone[player]) return;
+	netPlayerGone[player] = true;
+	Printf(PRINT_HIGH, "Player %d left the game\n", player + 1);
+}
+
+// Added (LAN games): this machine leaves the network game (it was away too
+// long): the others are told, and it goes on alone from the main menu.
+// Call it between frames, not during a tic.
+void Net_LeaveNetwork()
+{
+	if (!netgame) return;
+	D_QuitNetGame();
+	CloseNetwork();
+	netgame = multiplayer = false;
+	usergame = false;
+	doomcom.numplayers = doomcom.numnodes = 1;
+	doomcom.consoleplayer = 0;
+	myconnectindex = 0;
+	numplayers = 1;
+	connecthead = 0;
+	connectpoint2[0] = -1;
+	playeringame[0] = true;
+	for (int i = 1; i < MAXPLAYERS; i++) playeringame[i] = false;
+	memset(netPlayerGone, 0, sizeof(netPlayerGone));
+	Net_ClearBuffers();
+	netGameMode = -1;
+	gameaction = ga_mainmenu;
+}
+
 void Net_CheckLastReceived (int counts)
 {
+	if (netgame)
+	{
+		// (Added) the machines the game waits for: a word after 3 s, gone
+		// after 30 s
+		const uint64_t now = I_msTime();
+		for (int i = 1; i < doomcom.numnodes; i++)
+		{
+			if (!nodeingame[i]) continue;
+			const int pl = playerfornode[i] & ~PL_DRONE;
+			if (nettics[i] * ticdup > gametic + counts) continue;	// (not waiting for this one)
+			const uint64_t quiet = now - currrecvtime[pl];
+			if (quiet >= NET_DROP_MS)
+			{
+				PlayerIsGone(i, pl);
+				Net_PlayerLeft(i, pl);
+			}
+			else if (quiet >= 3000 && now - netWaitNotice >= 3000)
+			{
+				netWaitNotice = now;
+				Printf(PRINT_HIGH, "Waiting for player %d... (%d s)\n", pl + 1, int((NET_DROP_MS - quiet) / 1000));
+			}
+		}
+	}
 #if 0
 	// [Ed850] Check to see the last time a packet was received.
 	// If it's longer then 3 seconds, a node has likely stalled.

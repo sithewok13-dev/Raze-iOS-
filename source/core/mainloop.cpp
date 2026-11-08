@@ -338,10 +338,11 @@ static void GameTicker()
 			PlayerArray[i]->lastcmd = *cmd;
 			PlayerArray[i]->resetCameraAngles();
 
-			if ((gametic % ticdup) == 0)
+			if ((gametic % ticdup) == 0 && !Net_PlayerGone(i))	// (Added: not a player that left)
 			{
 				RunNetSpecs(i, buf);
 			}
+			if (Net_PlayerGone(i)) newcmd->ucmd = {};	// (Added: a player that left stands still)
 #if 0
 			if (demorecording)
 			{
@@ -803,10 +804,18 @@ void MainLoop ()
 			// black and stuck on return); wait for it to come back
 			{
 				extern bool AppActive;
+				const uint64_t tAway = AppActive ? 0 : I_msTime();
 				while (!AppActive)
 				{
 					std::this_thread::sleep_for(std::chrono::milliseconds(50));
 					I_StartTic();
+				}
+				// (Added: LAN games: away longer than the others wait, it's
+				// over: they went on without this phone)
+				if (netgame && tAway && I_msTime() - tAway >= 30000)
+				{
+					Net_LeaveNetwork();
+					Printf(PRINT_HIGH, "Away too long: the network game went on without you\n");
 				}
 			}
 #endif
