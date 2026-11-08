@@ -184,8 +184,12 @@ namespace Priv
 		Priv::window = SDL_CreateWindow(caption.GetChars(), xWindowPos, yWindowPos, win_w, win_h, windowFlags);
 
 #ifdef RAZE_IOS
-		// iOS: the game picker had a window of its own up: bring the game's to the front
-		if (Priv::window != nullptr) SDL_RaiseWindow(Priv::window);
+		// iOS: SDL 2 makes its window without a scene, which new iOS versions
+		// never show: put it in the app's scene and bring it to the front
+		{
+			extern void IOS_AttachWindowToScene(SDL_Window* window); // ios/i_ios.mm
+			if (Priv::window != nullptr) IOS_AttachWindowToScene(Priv::window);
+		}
 #endif
 		if (Priv::window != nullptr)
 		{

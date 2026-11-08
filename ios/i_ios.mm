@@ -168,10 +168,35 @@ extern "C" void IOS_FrameReport(int frame, int w, int h)
 		frame, w, h, (int)fb, status, vp[0], vp[1], vp[2], vp[3], px[0], px[1], px[2], err);
 	for (UIWindow* win in UIApplication.sharedApplication.windows)
 	{
-		printf("  window %s: %s%s level %.0f, %.0fx%.0f, root %s\n", class_getName(win.class),
-			win.isKeyWindow ? "key, " : "", win.hidden ? "hidden" : "shown", win.windowLevel,
+		printf("  window %s: %s%s%s level %.0f, %.0fx%.0f, root %s\n", class_getName(win.class),
+			win.isKeyWindow ? "key, " : "", win.hidden ? "hidden" : "shown", win.windowScene ? ", in a scene" : ", NO scene", win.windowLevel,
 			win.bounds.size.width, win.bounds.size.height,
 			win.rootViewController ? class_getName(win.rootViewController.class) : "none");
 	}
 	fflush(stdout);
+}
+
+// SDL 2 makes its UIWindow with initWithFrame:, outside any scene. Recent iOS
+// versions don't show such a window (the game drew into it, nothing appeared).
+// Put it into the app's window scene and show it.
+#include "SDL.h"
+#include "SDL_syswm.h"
+void IOS_AttachWindowToScene(SDL_Window* window)
+{
+	SDL_SysWMinfo info;
+	SDL_VERSION(&info.version);
+	if (!SDL_GetWindowWMInfo(window, &info) || info.subsystem != SDL_SYSWM_UIKIT || !info.info.uikit.window) return;
+	UIWindow* w = info.info.uikit.window;
+	UIWindowScene* windowScene = nil;
+	for (UIScene* scene in UIApplication.sharedApplication.connectedScenes)
+	{
+		if ([scene isKindOfClass:UIWindowScene.class]) { windowScene = (UIWindowScene*)scene; break; }
+	}
+	printf("Game window: scene %s, attaching to %s\n", w.windowScene ? "set" : "none", windowScene ? "the app's scene" : "nothing (no scene found)");
+	if (windowScene && w.windowScene != windowScene)
+	{
+		w.windowScene = windowScene;
+		w.frame = windowScene.coordinateSpace.bounds;
+	}
+	[w makeKeyAndVisible];
 }
