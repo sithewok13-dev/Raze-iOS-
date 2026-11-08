@@ -355,6 +355,29 @@ bool I_CreateVulkanSurface(VkInstance instance, VkSurfaceKHR *surface)
 #endif
 
 
+#ifdef RAZE_IOS
+// Added (iOS): settings put right once for older installs; MoltenVK
+extern "C" bool IOS_LoadVulkan(); // ios/i_ios.mm
+CVAR(Int, ios_settingsversion, 0, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+EXTERN_CVAR(Float, vid_scalefactor)
+EXTERN_CVAR(Int, vid_preferbackend)
+EXTERN_CVAR(Bool, vid_vsync)
+static void IOS_MigrateSettings()
+{
+	if (ios_settingsversion < 1)
+	{
+		vid_scalefactor = 0.67f; // (the full resolution was sluggish with OpenGL ES)
+		ios_settingsversion = 1;
+	}
+	if (ios_settingsversion < 2)
+	{
+		vid_preferbackend = 1; // Vulkan (on Metal): OpenGL ES was the default before
+		vid_vsync = true; // (Vulkan otherwise draws frames the screen never shows)
+		ios_settingsversion = 2;
+	}
+}
+#endif
+
 SDLVideo::SDLVideo ()
 {
 	if (SDL_Init(SDL_INIT_VIDEO) < 0)
@@ -369,8 +392,15 @@ SDLVideo::SDLVideo ()
 		I_FatalError("Only SDL 2.0.6 or later is supported.");
 	}
 
+#ifdef RAZE_IOS
+	IOS_MigrateSettings();
+#endif
 #ifdef HAVE_VULKAN
 	Priv::vulkanEnabled = V_GetBackend() == 1;
+#ifdef RAZE_IOS
+	// iOS: MoltenVK, from the app's Frameworks folder (OpenGL ES without it)
+	if (Priv::vulkanEnabled && !IOS_LoadVulkan()) Priv::vulkanEnabled = false;
+#endif
 
 	if (Priv::vulkanEnabled)
 	{
@@ -560,20 +590,11 @@ void SystemBaseFrameBuffer::SetWindowSize(int w, int h)
 #ifdef RAZE_IOS
 // Settings the iOS build changed the default of after earlier test builds had
 // saved the old one: brought to the new default once
-CVAR(Int, ios_settingsversion, 0, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
-EXTERN_CVAR(Float, vid_scalefactor)
 #endif
 
 SystemGLFrameBuffer::SystemGLFrameBuffer(void *hMonitor, bool fullscreen)
 : SystemBaseFrameBuffer(hMonitor, fullscreen)
 {
-#ifdef RAZE_IOS
-	if (ios_settingsversion < 1)
-	{
-		vid_scalefactor = 0.67f;
-		ios_settingsversion = 1;
-	}
-#endif
 	// NOTE: Core profiles were added with GL 3.2, so there's no sense trying
 	// to set core 3.1 or 3.0. We could try a forward-compatible context
 	// instead, but that would be too restrictive (w.r.t. shaders).

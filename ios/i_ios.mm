@@ -488,6 +488,34 @@ void IOS_AttachWindowToScene(SDL_Window* window)
 }
 
 
+// Vulkan (iOS): MoltenVK, the app carries it in Frameworks/ (the
+// workflow puts it there): SDL loads it before the game's window is made
+// with Vulkan, and the renderer takes vkGetInstanceProcAddr from SDL
+#include "SDL_vulkan.h"
+
+extern "C" bool IOS_LoadVulkan()
+{
+	NSString* path = [[NSBundle mainBundle].privateFrameworksPath stringByAppendingPathComponent:@"MoltenVK.framework/MoltenVK"];
+	if (![[NSFileManager defaultManager] fileExistsAtPath:path])
+	{
+		printf("iOS: MoltenVK is not in the app: OpenGL ES\n");
+		return false;
+	}
+	if (SDL_Vulkan_LoadLibrary(path.UTF8String) != 0)
+	{
+		printf("iOS: MoltenVK did not load (%s): OpenGL ES\n", SDL_GetError());
+		return false;
+	}
+	printf("iOS: MoltenVK loaded: Vulkan on Metal\n");
+	fflush(stdout);
+	return true;
+}
+
+extern "C" void* IOS_VulkanGetInstanceProcAddr()
+{
+	return SDL_Vulkan_GetVkGetInstanceProcAddr();
+}
+
 // Frame times for the log: every 5 seconds of play, the frames drawn and
 // where each one's time went (the game's tics; drawing it, which is mostly
 // the CPU handing GL its work; and presentRenderbuffer, which waits while

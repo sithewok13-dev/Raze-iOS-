@@ -24,6 +24,7 @@ env:
   OPENAL_TAG: 1.24.3
   ZMUSIC_SHA: d3b730795784bff3f97571446101c57c1c6ac9bc
   VPX_TAG: v1.15.2
+  MOLTENVK_TAG: v1.4.2
 
 permissions:
   contents: read
@@ -122,6 +123,15 @@ jobs:
         ls -la "$APP"
         test -f "$APP/raze.pk3"
         plutil -lint "$APP/Info.plist"
+        # MoltenVK (Vulkan on Metal), Khronos's own build for iOS, in the
+        # app's Frameworks folder (the game loads it at start: ios/i_ios.mm)
+        curl -sSfL -o mvk.tar "https://github.com/KhronosGroup/MoltenVK/releases/download/$MOLTENVK_TAG/MoltenVK-ios.tar"
+        tar xf mvk.tar
+        mkdir -p "$APP/Frameworks"
+        cp -R MoltenVK/MoltenVK/dynamic/MoltenVK.xcframework/ios-arm64/MoltenVK.framework "$APP/Frameworks/"
+        cp MoltenVK/LICENSE "$APP/Frameworks/MoltenVK.framework/LICENSE"
+        lipo -info "$APP/Frameworks/MoltenVK.framework/MoltenVK"
+        codesign --force --sign - --timestamp=none "$APP/Frameworks/MoltenVK.framework"
         codesign --force --sign - --timestamp=none "$APP"
         mkdir -p ipa/Payload
         cp -R "$APP" ipa/Payload/

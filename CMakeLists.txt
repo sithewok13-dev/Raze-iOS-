@@ -255,11 +255,8 @@ if( ${TARGET_ARCHITECTURE} MATCHES "x86_64" )
 	set( HAVE_VM_JIT ON )
 endif()
 
-if( RAZE_IOS )
-	option (HAVE_VULKAN "Enable Vulkan support" OFF)
-else()
-	option (HAVE_VULKAN "Enable Vulkan support" ON)
-endif()
+# (iOS: Vulkan through MoltenVK, which the app carries in Frameworks/)
+option (HAVE_VULKAN "Enable Vulkan support" ON)
 option (HAVE_GLES2 "Enable GLES2 support" ON)
 
 # no, we're not using external asmjit for now, we made too many modifications to our's.

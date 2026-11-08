@@ -29,6 +29,9 @@ class VulkanRenderDevice : public SystemBaseFrameBuffer
 
 
 public:
+#if defined(RAZE_IOS) || defined(RAZE_GLES_RIG)
+	int IOSReadFrame(int w, int h, unsigned char* p); // Added: the CAMERA's frame grabs
+#endif
 	std::shared_ptr<VulkanDevice> device;
 
 	VkCommandBufferManager* GetCommands() { return mCommands.get(); }
@@ -97,6 +100,7 @@ private:
 	void RenderTextureView(FCanvasTexture* tex, std::function<void(IntRect &)> renderFunc) override;
 	void PrintStartupLog();
 	void CopyScreenToBuffer(int w, int h, uint8_t *data) override;
+
 
 	std::unique_ptr<VkCommandBufferManager> mCommands;
 	std::unique_ptr<VkBufferManager> mBufferManager;

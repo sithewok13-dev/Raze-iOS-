@@ -172,8 +172,14 @@ void OpenGLFrameBuffer::InitializeState()
 // Added: the CAMERA (core/ioscamera.h) reads the frame drawn so far from
 // the scene buffer, before it is presented (so before any gamma)
 extern "C" void iosCamera_AfterHud(void);
+#ifdef HAVE_VULKAN
+extern "C" int iosCapture_ReadFrameVulkan(int w, int h, unsigned char* p); // vulkan/system/vk_renderdevice.cpp
+#endif
 extern "C" int iosCapture_ReadFrame(int w, int h, unsigned char* p)
 {
+#ifdef HAVE_VULKAN
+	if (!GLRenderer) return iosCapture_ReadFrameVulkan(w, h, p); // (the Vulkan renderer's)
+#endif
 	if (!GLRenderer || !GLRenderer->mBuffers) return 0;
 	const auto& vp = screen->mScreenViewport;
 	if (w > vp.width || h > vp.height) return 0;

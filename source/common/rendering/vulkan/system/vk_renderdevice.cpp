@@ -210,6 +210,83 @@ void VulkanRenderDevice::InitializeState()
 #endif
 }
 
+#if defined(RAZE_IOS) || defined(RAZE_GLES_RIG)
+// Added: the CAMERA (core/ioscamera.h) reads the frame drawn so far, before
+// it is presented (so before any gamma), as the OpenGL ES renderer's
+// iosCapture_ReadFrame does: RGBA, the bottom row first (as GL gives it)
+extern "C" void iosCamera_AfterHud(void);
+
+int VulkanRenderDevice::IOSReadFrame(int w, int h, unsigned char* p)
+{
+	const auto& vp = screen->mScreenViewport;
+	if (w <= 0 || h <= 0 || w > vp.width || h > vp.height) return 0;
+	auto srcimage = &GetBuffers()->PipelineImage[GetPostprocess()->GetCurrentPipelineImage()];
+	if (!srcimage->Image) return 0;
+
+	mRenderState->EndRenderPass();
+
+	// the region, converted from the scene's rgba16f to rgba8 by a blit
+	// (the scene image is stored as GL's is: the bottom row first)
+	VkTextureImage image;
+	image.Image = ImageBuilder()
+		.Format(VK_FORMAT_R8G8B8A8_UNORM)
+		.Usage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+		.Size(w, h)
+		.DebugName("IOSReadFrame")
+		.Create(device.get());
+
+	auto cmdbuffer = mCommands->GetDrawCommands();
+	VkImageTransition()
+		.AddImage(srcimage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, false)
+		.AddImage(&image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, true)
+		.Execute(cmdbuffer);
+
+	const int y0 = vp.top;
+	VkImageBlit blit = {};
+	blit.srcOffsets[0] = { vp.left, y0, 0 };
+	blit.srcOffsets[1] = { vp.left + w, y0 + h, 1 };
+	blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	blit.srcSubresource.layerCount = 1;
+	blit.dstOffsets[0] = { 0, 0, 0 };
+	blit.dstOffsets[1] = { w, h, 1 };
+	blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	blit.dstSubresource.layerCount = 1;
+	cmdbuffer->blitImage(srcimage->Image->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+		image.Image->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_NEAREST);
+
+	VkImageTransition()
+		.AddImage(&image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, false)
+		.Execute(cmdbuffer);
+
+	auto staging = BufferBuilder()
+		.Size((size_t)w * h * 4)
+		.Usage(VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_TO_CPU)
+		.DebugName("IOSReadFrame")
+		.Create(device.get());
+
+	VkBufferImageCopy region = {};
+	region.imageExtent.width = w;
+	region.imageExtent.height = h;
+	region.imageExtent.depth = 1;
+	region.imageSubresource.layerCount = 1;
+	region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	cmdbuffer->copyImageToBuffer(image.Image->image, image.Layout, staging->buffer, 1, &region);
+
+	// (the frame goes on drawing after this: the scene image back as it was)
+	VkImageTransition()
+		.AddImage(srcimage, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, false)
+		.Execute(cmdbuffer);
+
+	mCommands->WaitForCommands(false);
+
+	const size_t row = (size_t)w * 4;
+	const uint8_t* pixels = (const uint8_t*)staging->Map(0, row * h);
+	memcpy(p, pixels, row * h);
+	staging->Unmap();
+	return 1;
+}
+#endif
+
 void VulkanRenderDevice::Update()
 {
 	twoD.Reset();
@@ -221,6 +298,10 @@ void VulkanRenderDevice::Update()
 
 	Draw2D();
 	twod->Clear();
+#if defined(RAZE_IOS) || defined(RAZE_GLES_RIG)
+	// Added: the HUD and the menus drawn, then the CAMERA's HUD photo taken
+	iosCamera_AfterHud();
+#endif
 
 	mRenderState->EndRenderPass();
 	mRenderState->EndFrame();
@@ -573,3 +654,13 @@ bool VulkanRenderDevice::RaytracingEnabled()
 {
 	return vk_raytrace && device->SupportsExtension(VK_KHR_RAY_QUERY_EXTENSION_NAME);
 }
+
+#if defined(RAZE_IOS) || defined(RAZE_GLES_RIG)
+// Added: the CAMERA's frame grab with this renderer (gles_framebuffer.cpp's
+// iosCapture_ReadFrame hands over to it)
+extern "C" int iosCapture_ReadFrameVulkan(int w, int h, unsigned char* p)
+{
+	auto fb = dynamic_cast<VulkanRenderDevice*>(screen);
+	return fb ? fb->IOSReadFrame(w, h, p) : 0;
+}
+#endif
