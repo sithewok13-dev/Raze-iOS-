@@ -12,6 +12,7 @@
 #include "blood.h"
 #include "bloodactor.h"
 #include "gameinput.h"
+#include "qav.h"
 #include "../../../../ios/IOSGame.h"
 
 BEGIN_BLD_NS
@@ -130,7 +131,60 @@ static void FillAmmo()
 	}
 }
 
+// The wheel's pictures: each weapon's pickup sprite (the game's own table
+// of them; the proximity and remote bombs' from their ammo's), the
+// pitchfork's from the HUD
+static const char* const* Icon(int w)
+{
+	static char names[IOSTOUCH_WPN_MAX][16];
+	static const char* lists[IOSTOUCH_WPN_MAX][2];
+	if (w < 0 || w >= IOSTOUCH_WPN_MAX) return nullptr;
+	int pic = -1;
+	for (int i = 0; i < kItemWeaponMax - kItemWeaponBase && pic < 0; i++)
+		if (gWeaponItemData[i].type == w && gWeaponItemData[i].picno > 0) pic = gWeaponItemData[i].picno;
+	for (int i = 0; i < kItemAmmoMax - kItemAmmoBase && pic < 0; i++)
+		if (gAmmoItemData[i].weaponType == w && gAmmoItemData[i].picno > 0) pic = gAmmoItemData[i].picno;
+	// (the pitchfork: the biggest picture of its HUD's first frame held)
+	if (pic < 0 && w == kWeapPitchFork)
+	{
+		auto qav = getQAV(kQAVFORKIDLE);
+		int area = 0;
+		for (int t = 0; qav && qav->nFrames > 0 && t < 8; t++)
+		{
+			auto tex = TexMan.GetGameTexture(qav->frames[0].tiles[t].texid);
+			if (!tex || !tex->isValid()) continue;
+			const int a = tex->GetTexelWidth() * tex->GetTexelHeight();
+			if (a > area)
+			{
+				area = a;
+				pic = legacyTileNum(qav->frames[0].tiles[t].texid);
+			}
+		}
+	}
+	if (pic < 0) return nullptr;
+	snprintf(names[w], sizeof(names[w]), "#%d", pic);
+	lists[w][0] = names[w];
+	lists[w][1] = nullptr;
+	return lists[w];
+}
+
+// CHEAT: the trapped soul (the life leech's ammo: a skull in a blue orb),
+// else the skull key
+static const char* const* CheatIcon()
+{
+	static const char* const list[] = { "#820", "KeyIcon1", nullptr };
+	return list;
+}
+
+// Caleb's line as the cheat comes on: one of those he has for blowing
+// something to pieces (the game's own list, gPlayerGibThingComments)
+static void CheatSound()
+{
+	static const int lines[] = { 734, 735, 736, 737, 738, 739, 740, 741, 3038, 3049 };
+	sndStartSample(lines[rand() % countof(lines)], 255, -1, false, CHANF_UI);
+}
+
 END_BLD_NS
 
 const IOSGamePart iosBloodPart = { BLD_NS::Weapons, BLD_NS::Pick, BLD_NS::PickTick, BLD_NS::State, BLD_NS::FillAmmo, true,
-                                   BLD_NS::Alive, BLD_NS::GodOn, BLD_NS::Reset };
+                                   BLD_NS::Alive, BLD_NS::GodOn, BLD_NS::Reset, BLD_NS::Icon, BLD_NS::CheatIcon, BLD_NS::CheatSound };

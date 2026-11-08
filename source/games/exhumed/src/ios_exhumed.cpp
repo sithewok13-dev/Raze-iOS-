@@ -10,6 +10,7 @@
 #include "player.h"
 #include "aistuff.h"
 #include "gameinput.h"
+#include "sound.h"
 #include "../../../../ios/IOSGame.h"
 
 BEGIN_PS_NS
@@ -75,7 +76,32 @@ static bool GodOn()
 	return pPlayer && pPlayer->invincibility < 0;
 }
 
+// The wheel's pictures: the weapon pickups (the alternate HUD's weapon
+// icons), the grenades' their ammo's; the machete and the ring of Ra have
+// none (their names show)
+static const char* const* Icon(int w)
+{
+	static const char* const list[][2] = {
+		{ nullptr }, { "WeaponSpriteMagnum" }, { "WeaponSpriteM60" }, { "WeaponSpriteFlamethrower" }, { "AmmoSpriteGrenade" },
+		{ "WeaponSpriteCobra" }, { nullptr },
+	};
+	return (w >= 0 && w < (int)countof(list) && list[w][0]) ? list[w] : nullptr;
+}
+
+// CHEAT: no picture of the game's (its drawn ankh)
+static const char* const* CheatIcon()
+{
+	return nullptr;
+}
+
+// The game's own fanfare for a special item as the cheat comes on (its
+// title screen's sound)
+static void CheatSound()
+{
+	PlayLocalSound(StaticSound[kSoundItemSpecial], 0, false, CHANF_UI);
+}
+
 END_PS_NS
 
 const IOSGamePart iosExhumedPart = { PS_NS::Weapons, PS_NS::Pick, nullptr, PS_NS::State, PS_NS::FillAmmo, true,
-                                     PS_NS::Alive, PS_NS::GodOn, nullptr };
+                                     PS_NS::Alive, PS_NS::GodOn, nullptr, PS_NS::Icon, PS_NS::CheatIcon, PS_NS::CheatSound };

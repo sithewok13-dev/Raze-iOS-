@@ -19,11 +19,15 @@
        secondary button also looks. Top left: NEXT WPN and PREV WPN. Top
        right: QUICK SAVE, QUICK LOAD (0.3 s holds with a ring) and MENU (a
        tap: the game's menu; held 0.45 s: the tray). CAMERA and CHEAT in
-       the top row (CAMERA's work is iosCamera.h's).
+       the top row (CAMERA's work is iosCamera.h's; CHEAT shows a picture
+       from the game's own art, and a sound of the game's own, its hero's
+       line, plays as the cheat comes on).
      - NEXT WPN and PREV WPN: a quick tap is the next / previous weapon; a
        10 pt slide opens the weapon wheel at once, a 0.3 s hold opens it to
        tap. One slice per weapon of the game being played, in its own NEXT
-       order, with its ammo. The game holds still while it is open.
+       order, with its picture (from the game's own art, IOSGame.cpp) and
+       its ammo, on a wheel with that game's own look. The game holds still
+       while it is open.
      - MENU's tray: LOOK, SENS, GYRO, FPS, CAMERA, CHEAT, LEVEL (the cheat
        on), the keyboard (the console, for typing cheats and commands).
    Buttons act on the player directly (the input bits Raze's games read),
@@ -129,6 +133,17 @@ typedef struct IOSTouchWeapons {
   int aiAmmo[IOSTOUCH_WPN_MAX];     /* the ammo count for weapon w, -1: none to show */
   int aiMaxAmmo[IOSTOUCH_WPN_MAX];
 } IOSTouchWeapons;
+
+/* The pictures (IOSGame.cpp makes them from the game's own art, as RGBA,
+   not premultiplied, at most IOSTOUCH_ICON_MAX square): the weapons whose
+   wheel icon the overlay still wants (bit w; each asked for once, until it
+   comes), each one handed over (NULL: there is none, the slice shows the
+   name), and CHEAT's (NULL: its drawn emblem stays) */
+#define IOSTOUCH_ICON_MAX 128
+unsigned int IOSTouch_WantedIcons(void);
+void IOSTouch_SetWeaponIcon(int iWeapon, const unsigned char *pubRGBA, int iWidth, int iHeight);
+int IOSTouch_WantsCheatIcon(void);
+void IOSTouch_SetCheatIcon(const unsigned char *pubRGBA, int iWidth, int iHeight);
 
 /* Once per frame: shows or hides the overlay for iMode, follows the SDL
    window (an SDL_Window *). ulFramesDrawn: the game's count of frames drawn,

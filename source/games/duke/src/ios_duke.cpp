@@ -169,7 +169,48 @@ static bool GodOn()
 	return ud.god != 0;
 }
 
+// The wheel's pictures: the pickup sprites (the alternate HUD's weapon
+// icons; the buzzsaw's its saw blades, the chicken bow's its chicken
+// arrows), the HUD's own picture where a weapon has no pickup (the foot,
+// the crowbar, the sling blade)
+static const char* const* Icon(int w)
+{
+	static const char* const duke[][3] = {
+		{ "KNEE" }, { "FIRSTGUNSPRITE" }, { "SHOTGUNSPRITE" }, { "CHAINGUNSPRITE" }, { "RPGSPRITE" }, { "HEAVYHBOMB" },
+		{ "SHRINKERSPRITE" }, { "DEVISTATORSPRITE" }, { "TRIPBOMBSPRITE" }, { "FREEZESPRITE" }, { nullptr },
+		{ "GROWSPRITEICON" }, { "FLAMETHROWERSPRITE" },
+	};
+	static const char* const rr[][3] = {
+		{ "CROWBAR" }, { "FIRSTGUNSPRITE" }, { "SHOTGUNSPRITE" }, { "RIFLEGUNSPRITE" }, { "DYNAMITE" }, { "CROSSBOWSPRITE" },
+		{ "RIPSAWSPRITE" }, { "ALIENBLASTERSPRITE" }, { "POWDERKEG" }, { "TITSPRITE" }, { nullptr },
+		{ "SAWAMMO" }, { "BOWLINGBALLSPRITE" }, { nullptr }, { nullptr }, { "SLINGBLADE" }, { "RPG2SPRITE", "CBOW2GUN" },
+	};
+	if (isRR()) return (w >= 0 && w < (int)countof(rr) && rr[w][0]) ? rr[w] : nullptr;
+	return (w >= 0 && w < (int)countof(duke) && duke[w][0]) ? duke[w] : nullptr;
+}
+
+// CHEAT: Duke's nuke button (the radiation sign), Redneck Rampage's
+// moonshine
+static const char* const* CheatIcon()
+{
+	static const char* const duke[] = { "NUKEBUTTON", "ATOMICHEALTH", nullptr };
+	static const char* const rr[] = { "MOONSHINE_ICON", "WHISKEY_ICON", nullptr };
+	return isRR() ? rr : duke;
+}
+
+// The hero's line as the cheat comes on (the game's own sounds, by their
+// numbers in the game's DEFS.CON): Duke's "Hail to the king, baby",
+// "Come get some", "Groovy", "Let's rock"; Leonard's "Yeehaw" and "Hot
+// damn"
+static void CheatSound()
+{
+	static const int duke[] = { DUKE_GETWEAPON6, DUKE_GETWEAPON2, DUKE_GETWEAPON3, BONUS_SPEECH1 };
+	static const int rr[] = { 390 /* YEHAA16 */, 78 /* LN_HOTDM */ };
+	const int id = isRR() ? rr[rand() % countof(rr)] : duke[rand() % countof(duke)];
+	S_PlaySound(id, CHAN_VOICE, CHANF_UI, 1.f);
+}
+
 END_DUKE_NS
 
 const IOSGamePart iosDukePart = { DUKE_NS::Weapons, DUKE_NS::Pick, DUKE_NS::PickTick, DUKE_NS::State, DUKE_NS::FillAmmo, false,
-                                  DUKE_NS::Alive, DUKE_NS::GodOn, DUKE_NS::Reset };
+                                  DUKE_NS::Alive, DUKE_NS::GodOn, DUKE_NS::Reset, DUKE_NS::Icon, DUKE_NS::CheatIcon, DUKE_NS::CheatSound };

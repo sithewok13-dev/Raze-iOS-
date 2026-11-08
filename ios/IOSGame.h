@@ -22,6 +22,14 @@ struct IOSGamePart
 	bool (*Alive)();     // the player is there and alive (a quick save needs that)
 	bool (*GodOn)();     // the game's god mode is on
 	void (*Reset)();     // a level was started, restarted or loaded: drop what was waiting (a two-step pick)
+	// The pictures, from the game's own art (IOSGame.cpp makes icons of
+	// them): weapon w's on the wheel, and CHEAT's; each a list of textures
+	// to try in order (names, or "#<tile number>"), nullptr-ended (nullptr:
+	// none: the wheel shows the name, CHEAT its drawn emblem)
+	const char* const* (*Icon)(int iWeapon);
+	const char* const* (*CheatIcon)();
+	// the game's own line (a voice of its hero) as the cheat comes on
+	void (*CheatSound)();
 };
 extern const IOSGamePart iosDukePart, iosBloodPart, iosSWPart, iosExhumedPart;
 

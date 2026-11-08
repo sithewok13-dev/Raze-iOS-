@@ -35,6 +35,10 @@
 #include "gamestate.h"
 #include "savegamehelp.h"
 #include "i_interface.h"
+#include "texturemanager.h"
+#include "buildtiles.h"
+#include "bitmap.h"
+#include "s_soundinternal.h"
 
 EXTERN_CVAR(Float, m_sensitivity_x)
 EXTERN_CVAR(Float, m_sensitivity_y)
@@ -178,6 +182,116 @@ CCMD(sithewok)
 	bool want = !IOSTouch_CheatOn();
 	if (argv.argc() >= 2) want = !stricmp(argv[1], "on");
 	if (want != (IOSTouch_CheatOn() != 0)) IOSTouch_CheatTyped();
+}
+
+//---------------------------------------------------------------------------
+//
+// The weapon wheel's and CHEAT's pictures, from the game's own art (the
+// player's data, read now: nothing of it is in the app): each part names
+// the textures (its HUD's weapon icons, pickup sprites, a tile by number
+// as "#<n>"), the first one there is taken, cropped to its pixels, in the
+// game's palette, and scaled to fit IOSTOUCH_ICON_MAX: down by averaging,
+// up by a whole number (sharp pixels)
+//
+//---------------------------------------------------------------------------
+
+static FGameTexture* FindIconTexture(const char* const* names)
+{
+	for (; names && *names; names++)
+	{
+		FGameTexture* tex = nullptr;
+		if (**names == '#') tex = tileGetTexture(atoi(*names + 1));
+		else
+		{
+			auto id = TexMan.CheckForTexture(*names, ETextureType::Any);
+			if (id.isValid()) tex = TexMan.GetGameTexture(id);
+		}
+		if (tex && tex->isValid() && tex->GetTexture() && tex->GetTexelWidth() > 0 && tex->GetTexelHeight() > 0) return tex;
+	}
+	return nullptr;
+}
+
+static bool MakeIcon(FGameTexture* tex, TArray<uint8_t>& out, int& ow, int& oh)
+{
+	if (!tex) return false;
+	FBitmap bmp = tex->GetTexture()->GetBgraBitmap(nullptr);
+	const int w = bmp.GetWidth(), h = bmp.GetHeight(), pitch = bmp.GetPitch();
+	const uint8_t* px = bmp.GetPixels();
+	if (!px || w <= 0 || h <= 0) return false;
+	// (cropped to what isn't see-through)
+	int x0 = w, y0 = h, x1 = -1, y1 = -1;
+	for (int y = 0; y < h; y++)
+		for (int x = 0; x < w; x++)
+			if (px[y * pitch + x * 4 + 3] > 8)
+			{
+				x0 = min(x0, x); x1 = max(x1, x);
+				y0 = min(y0, y); y1 = max(y1, y);
+			}
+	if (x1 < x0 || y1 < y0) return false;
+	const int cw = x1 - x0 + 1, ch = y1 - y0 + 1, big = max(cw, ch);
+	if (big <= IOSTOUCH_ICON_MAX)
+	{
+		const int k = max(1, IOSTOUCH_ICON_MAX / big);
+		ow = cw * k;
+		oh = ch * k;
+		out.Resize(ow * oh * 4);
+		for (int y = 0; y < oh; y++)
+			for (int x = 0; x < ow; x++)
+			{
+				const uint8_t* p = px + (y0 + y / k) * pitch + (x0 + x / k) * 4;
+				uint8_t* q = &out[(y * ow + x) * 4];
+				q[0] = p[2]; q[1] = p[1]; q[2] = p[0]; q[3] = p[3]; // (BGRA to RGBA)
+			}
+		return true;
+	}
+	ow = max(1, cw * IOSTOUCH_ICON_MAX / big);
+	oh = max(1, ch * IOSTOUCH_ICON_MAX / big);
+	out.Resize(ow * oh * 4);
+	for (int y = 0; y < oh; y++)
+		for (int x = 0; x < ow; x++)
+		{
+			// the average of the texels under it, weighted by their alpha
+			const int sx0 = x0 + x * cw / ow, sx1 = x0 + max((x + 1) * cw / ow, x * cw / ow + 1);
+			const int sy0 = y0 + y * ch / oh, sy1 = y0 + max((y + 1) * ch / oh, y * ch / oh + 1);
+			double r = 0, g = 0, b = 0, a = 0;
+			int n = 0;
+			for (int sy = sy0; sy < sy1; sy++)
+				for (int sx = sx0; sx < sx1; sx++, n++)
+				{
+					const uint8_t* p = px + sy * pitch + sx * 4;
+					const double al = p[3];
+					r += p[2] * al; g += p[1] * al; b += p[0] * al; a += al;
+				}
+			uint8_t* q = &out[(y * ow + x) * 4];
+			if (a > 0)
+			{
+				q[0] = (uint8_t)(r / a + 0.5); q[1] = (uint8_t)(g / a + 0.5); q[2] = (uint8_t)(b / a + 0.5);
+			}
+			else q[0] = q[1] = q[2] = 0;
+			q[3] = (uint8_t)(a / max(n, 1) + 0.5);
+		}
+	return true;
+}
+
+// Once a frame: the pictures the overlay wants (each once for the
+// process: Raze plays one game a run)
+static void FeedIcons(const IOSGamePart* part)
+{
+	if (!part) return;
+	TArray<uint8_t> px;
+	int w = 0, h = 0;
+	const unsigned wanted = IOSTouch_WantedIcons();
+	for (int i = 0; i < IOSTOUCH_WPN_MAX; i++)
+	{
+		if (!(wanted & (1u << i))) continue;
+		if (part->Icon && MakeIcon(FindIconTexture(part->Icon(i)), px, w, h)) IOSTouch_SetWeaponIcon(i, px.Data(), w, h);
+		else IOSTouch_SetWeaponIcon(i, nullptr, 0, 0); // (its name shows)
+	}
+	if (IOSTouch_WantsCheatIcon())
+	{
+		if (part->CheatIcon && MakeIcon(FindIconTexture(part->CheatIcon()), px, w, h)) IOSTouch_SetCheatIcon(px.Data(), w, h);
+		else IOSTouch_SetCheatIcon(nullptr, 0, 0); // (the drawn emblem stays)
+	}
 }
 
 //---------------------------------------------------------------------------
@@ -344,6 +458,7 @@ void IOSGame_Frame()
 	hud.uWorld = levelStarts;
 	if (part && part->PickTick) part->PickTick();
 	IOSTouch_SetWeapons(&wpn);
+	if (mode != IOSTOUCH_HIDDEN) FeedIcons(part);
 
 	const int req = IOSTouch_Update(SDL_GL_GetCurrentWindow(), mode, &hud, framesDrawn);
 
@@ -366,6 +481,8 @@ void IOSGame_Frame()
 	}
 	if (req & IOSTOUCH_REQ_CHEATON)
 	{
+		// the game's own line for it (only when it can come on here)
+		if (!cheatOn && CheatAllowed() && part && part->CheatSound) part->CheatSound();
 		cheatOn = true;
 		cheatLevel = nullptr;
 		godOffLevel = false;
@@ -494,6 +611,65 @@ void IOSGame_HudFrame(double w, double h, double* pFrame)
 extern "C" void IOSGame_RigCommand(const char* cmd)
 {
 	C_DoCommand(cmd);
+}
+
+// The pictures as the overlay gets them, as raw files (4-byte width, height,
+// then RGBA) in argv[1]: ios_icondump <dir> (the wheel's and CHEAT's), and
+// ios_tiledump <dir> <first> <last> (tiles, to look for pictures)
+static void DumpIcon(const char* dir, const char* name, FGameTexture* tex)
+{
+	TArray<uint8_t> px;
+	int w = 0, h = 0;
+	if (!MakeIcon(tex, px, w, h)) return;
+	FILE* f = fopen(FStringf("%s/%s.rgba", dir, name).GetChars(), "wb");
+	if (!f) return;
+	int32_t wh[2] = { w, h };
+	fwrite(wh, 4, 2, f);
+	fwrite(px.Data(), 1, px.Size(), f);
+	fclose(f);
+}
+
+CCMD(ios_icondump)
+{
+	auto part = Part();
+	if (argv.argc() < 2 || !part) return;
+	for (int i = 0; i < IOSTOUCH_WPN_MAX; i++)
+	{
+		auto names = part->Icon ? part->Icon(i) : nullptr;
+		auto tex = FindIconTexture(names);
+		Printf("icon %d: %s -> %s\n", i, names && names[0] ? names[0] : "-", tex ? tex->GetName().GetChars() : "none");
+		DumpIcon(argv[1], FStringf("w%02d", i).GetChars(), tex);
+	}
+	auto names = part->CheatIcon ? part->CheatIcon() : nullptr;
+	auto tex = FindIconTexture(names);
+	Printf("icon cheat: %s -> %s\n", names && names[0] ? names[0] : "-", tex ? tex->GetName().GetChars() : "none");
+	DumpIcon(argv[1], "cheat", tex);
+}
+
+CCMD(ios_tiledump)
+{
+	if (argv.argc() < 4) return;
+	for (int t = atoi(argv[2]); t <= atoi(argv[3]); t++) DumpIcon(argv[1], FStringf("t%05d", t).GetChars(), tileGetTexture(t));
+}
+
+// What plays now, with the file it comes from
+CCMD(ios_rigsounds)
+{
+	soundEngine->EnumerateChannels([](FSoundChan* chan)
+	{
+		auto sfx = soundEngine->GetSfx(chan->SoundID);
+		Printf("rig sound playing: %s (%s)\n", soundEngine->GetSoundName(chan->OrgID),
+			sfx && sfx->lumpnum >= 0 ? fileSystem.GetFileFullName(sfx->lumpnum) : "-");
+		return 0;
+	});
+}
+
+// The cheat's line, as when it comes on
+CCMD(ios_cheatsound)
+{
+	auto part = Part();
+	if (part && part->CheatSound) part->CheatSound();
+	C_DoCommand("ios_rigsounds");
 }
 
 CCMD(ios_rigpos)

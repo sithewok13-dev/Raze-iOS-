@@ -111,7 +111,34 @@ static bool GodOn()
 	return GodMode != 0;
 }
 
+// The wheel's pictures: the pickup sprites (the alternate HUD's weapon
+// icons); the fists and the sword the HUD's own
+static const char* const* Icon(int w)
+{
+	static const char* const list[][3] = {
+		{ "FIST_REST" }, { "ICON_STAR" }, { "ICON_SHOTGUN" }, { "ICON_UZI" }, { "ICON_MICRO_GUN" }, { "ICON_GRENADE_LAUNCHER" },
+		{ "ICON_LG_MINE" }, { "ICON_RAIL_GUN" }, { "ICON_GUARD_HEAD" }, { "ICON_HEART" }, { nullptr }, { nullptr }, { nullptr },
+		{ "SWORD_REST" },
+	};
+	return (w >= 0 && w < (int)countof(list) && list[w][0]) ? list[w] : nullptr;
+}
+
+// CHEAT: the fortune cookie
+static const char* const* CheatIcon()
+{
+	static const char* const list[] = { "ICON_BOOSTER", nullptr };
+	return list;
+}
+
+// Lo Wang's line as the cheat comes on: "Who wants some Wang?" or "No mess
+// with Wang"
+static void CheatSound()
+{
+	static const int lines[] = { DIGI_WHOWANTSWANG, DIGI_NOMESSWITHWANG };
+	PlaySound(lines[rand() % countof(lines)], v3df_none, CHAN_VOICE, CHANF_UI);
+}
+
 END_SW_NS
 
 const IOSGamePart iosSWPart = { SW_NS::Weapons, SW_NS::Pick, nullptr, SW_NS::State, SW_NS::FillAmmo, false,
-                                SW_NS::Alive, SW_NS::GodOn, nullptr };
+                                SW_NS::Alive, SW_NS::GodOn, nullptr, SW_NS::Icon, SW_NS::CheatIcon, SW_NS::CheatSound };

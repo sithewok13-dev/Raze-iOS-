@@ -1830,20 +1830,21 @@ void IOSTouch_SetWeapons(const IOSTouchWeapons *pw)
 }
 
 // ------------------------------------------------- the wheel's icons
-// Weapon icons, which the game can hand over from its data
+// Weapon icons, which the game hands over from its own art
 // (IOSTouch_WantedIcons, IOSTouch_SetWeaponIcon): kept for the process, each
-// as it is and tinted for the states that grey it (IOSTouch_TintIcon). Until
-// an icon comes (none do yet) a slice shows the weapon's name.
-#define IOSTOUCH_ICON_MAX 64
+// as it is and tinted for the states that grey it (IOSTouch_TintIcon). A
+// weapon the game has no picture of shows its name. CHEAT's picture comes
+// the same way (IOSTouch_SetCheatIcon): as it is (on) and greyed (off).
 enum { WICON_READY = 0, WICON_NOAMMO, WICON_NOTFOUND, WICON_NUM };
 typedef struct {
-  int bHave, bGaveUp, bAsked;
-  double tAsked;
+  int bHave, bGaveUp;
   int w, h;
   unsigned char aub[WICON_NUM][IOSTOUCH_ICON_MAX * IOSTOUCH_ICON_MAX * 4];
 } IOSTouchIcon;
 static IOSTouchIcon _aIcons[IOSTOUCH_WPN_MAX];
 static unsigned int _ulIconsNew = 0; // icons the view hasn't made images of yet
+static IOSTouchIcon _cheatIcon;      // [WICON_READY] on, [WICON_NOTFOUND] off
+static int _bCheatIconAsked = 0, _bCheatIconNew = 0;
 
 // The icon a weapon shows: its own
 static int IOSTouch_WheelIconOf(int iWeapon)
@@ -1873,28 +1874,31 @@ static void IOSTouch_TintIcon(const unsigned char *pubSrc, int ctTexels, int iSt
   }
 }
 
-unsigned int IOSTouch_WantedIcons(double tNow)
+// The icons of the game being played's weapons not asked for yet (each is
+// asked for once: the game answers at once, with it or with none)
+unsigned int IOSTouch_WantedIcons(void)
 {
-  if (_iMode != IOSTOUCH_GAMEPLAY || !_wpn.bValid) return 0;
+  if (_iMode == IOSTOUCH_HIDDEN || !_wpn.bValid) return 0;
   const IOSTouchWheelMap *m = IOSTouch_WheelMapOf(_wpn.iMap);
   unsigned int ul = 0;
   for (int i = 0; i < m->ctSlots; i++) {
     const int w = IOSTouch_WheelIconOf(m->aSlots[i].iWeapon);
-    IOSTouchIcon *pi = &_aIcons[w];
-    if (pi->bHave || pi->bGaveUp || (ul & (1u << w))) continue;
-    if (pi->bAsked && tNow - pi->tAsked < 1.0) continue;
-    pi->bAsked = 1;
-    pi->tAsked = tNow;
+    if (_aIcons[w].bHave || _aIcons[w].bGaveUp) continue;
     ul |= 1u << w;
   }
   return ul;
+}
+
+static int IOSTouch_IconFits(const unsigned char *pubRGBA, int iWidth, int iHeight)
+{
+  return pubRGBA && iWidth > 0 && iHeight > 0 && iWidth <= IOSTOUCH_ICON_MAX && iHeight <= IOSTOUCH_ICON_MAX;
 }
 
 void IOSTouch_SetWeaponIcon(int iWeapon, const unsigned char *pubRGBA, int iWidth, int iHeight)
 {
   if (iWeapon < 0 || iWeapon >= IOSTOUCH_WPN_MAX) return;
   IOSTouchIcon *pi = &_aIcons[iWeapon];
-  if (!pubRGBA || iWidth <= 0 || iHeight <= 0 || iWidth > IOSTOUCH_ICON_MAX || iHeight > IOSTOUCH_ICON_MAX) {
+  if (!IOSTouch_IconFits(pubRGBA, iWidth, iHeight)) {
     if (!pi->bHave) pi->bGaveUp = 1; // its name shows instead
     _ulIconsNew |= 1u << iWeapon;
     return;
@@ -1907,8 +1911,41 @@ void IOSTouch_SetWeaponIcon(int iWeapon, const unsigned char *pubRGBA, int iWidt
   _ulIconsNew |= 1u << iWeapon;
 }
 
+int IOSTouch_WantsCheatIcon(void)
+{
+  if (_bCheatIconAsked || _iMode == IOSTOUCH_HIDDEN) return 0;
+  _bCheatIconAsked = 1;
+  return 1;
+}
+
+void IOSTouch_SetCheatIcon(const unsigned char *pubRGBA, int iWidth, int iHeight)
+{
+  _bCheatIconAsked = 1;
+  if (!IOSTouch_IconFits(pubRGBA, iWidth, iHeight)) {
+    if (!_cheatIcon.bHave) _cheatIcon.bGaveUp = 1;
+    return;
+  }
+  _cheatIcon.w = iWidth;
+  _cheatIcon.h = iHeight;
+  IOSTouch_TintIcon(pubRGBA, iWidth * iHeight, WICON_READY, _cheatIcon.aub[WICON_READY]);
+  // off: grey, a little dimmer than a weapon out of ammo
+  const float k = 0.70f, a = 0.80f;
+  for (int i = 0; i < iWidth * iHeight; i++) {
+    const unsigned char *p = pubRGBA + i * 4;
+    const float lum = 0.299f * p[0] + 0.587f * p[1] + 0.114f * p[2];
+    unsigned char *q = _cheatIcon.aub[WICON_NOTFOUND] + i * 4;
+    q[0] = q[1] = q[2] = (unsigned char)fminf(lum * k + 0.5f, 255.0f);
+    q[3] = (unsigned char)fminf(p[3] * a + 0.5f, 255.0f);
+  }
+  _cheatIcon.bHave = 1;
+  _cheatIcon.bGaveUp = 0;
+  _bCheatIconNew = 1;
+}
+
 // ------------------------------------------------- the wheel's layout
-// Each slice shows its icon in a box IOSTOUCH_WHEEL_ICON x k points square,
+// Each slice shows its icon in a box IOSTOUCH_WHEEL_ICON_W x
+// IOSTOUCH_WHEEL_ICON_H x k points (wider than tall: the games' weapon
+// pictures mostly are; each is fitted in it, its shape kept),
 // and under it, IOSTOUCH_WHEEL_ROW_GAP down, its ammo count in a row as tall
 // as the digits (IOSTOUCH_WHEEL_AMMO_INK of the IOSTOUCH_WHEEL_AMMO_FONT x k
 // pt font) and as wide as "000". The two are fitted as one block, upright,
@@ -1919,7 +1956,8 @@ void IOSTouch_SetWeaponIcon(int iWeapon, const unsigned char *pubRGBA, int iWidt
 // of the stretch of its slice's middle line where it fits; a slice without a
 // count centres its icon in the block. A slice that pops out takes its block
 // out IOSTOUCH_WHEEL_POP_SHIFT, the icon IOSTOUCH_WHEEL_POP_ICON as big.
-#define IOSTOUCH_WHEEL_ICON 32.0
+#define IOSTOUCH_WHEEL_ICON_W 46.0
+#define IOSTOUCH_WHEEL_ICON_H 30.0
 #define IOSTOUCH_WHEEL_ROW_GAP 2.0
 #define IOSTOUCH_WHEEL_AMMO_FONT 9.0
 #define IOSTOUCH_WHEEL_AMMO_INK 0.705
@@ -1938,9 +1976,8 @@ typedef struct {
 // The block's size at scale k
 static void IOSTouch_WheelBlockSize(double k, double *pfW, double *pfH)
 {
-  const double B = IOSTOUCH_WHEEL_ICON * k;
-  *pfW = fmax(B, IOSTOUCH_WHEEL_ROW_W * k);
-  *pfH = B + IOSTOUCH_WHEEL_ROW_GAP + IOSTOUCH_WHEEL_AMMO_FONT * IOSTOUCH_WHEEL_AMMO_INK * k;
+  *pfW = fmax(IOSTOUCH_WHEEL_ICON_W, IOSTOUCH_WHEEL_ROW_W) * k;
+  *pfH = IOSTOUCH_WHEEL_ICON_H * k + IOSTOUCH_WHEEL_ROW_GAP + IOSTOUCH_WHEEL_AMMO_FONT * IOSTOUCH_WHEEL_AMMO_INK * k;
 }
 
 // Whether a w x h block centred at (cx,cy) (y up, from the wheel's centre)
@@ -2036,10 +2073,11 @@ static void IOSTouch_WheelSlotRects(int i, int bPopped, int bCount, IOSTouchRect
   const double bx = _fWheelCX + r * cos(th), by = _fWheelCY - r * sin(th);
   double w, h;
   IOSTouch_WheelBlockSize(f->k, &w, &h);
-  const double B = IOSTOUCH_WHEEL_ICON * f->k, rowH = IOSTOUCH_WHEEL_AMMO_FONT * IOSTOUCH_WHEEL_AMMO_INK * f->k;
+  const double B = IOSTOUCH_WHEEL_ICON_H * f->k, rowH = IOSTOUCH_WHEEL_AMMO_FONT * IOSTOUCH_WHEEL_AMMO_INK * f->k;
   const double iy = bCount ? by - h * 0.5 + B * 0.5 : by; // the icon's middle
   const double s = B * (bPopped ? IOSTOUCH_WHEEL_POP_ICON : 1.0) * 0.5;
-  const IOSTouchRect rIcon = { 1, bx - s, iy - s, bx + s, iy + s };
+  const double sw = s * IOSTOUCH_WHEEL_ICON_W / IOSTOUCH_WHEEL_ICON_H;
+  const IOSTouchRect rIcon = { 1, bx - sw, iy - s, bx + sw, iy + s };
   const double ry = by - h * 0.5 + B + IOSTOUCH_WHEEL_ROW_GAP + rowH * 0.5;
   const IOSTouchRect rRow = { bCount, bx - IOSTOUCH_WHEEL_ROW_W * f->k * 0.5, ry - rowH * 0.5, bx + IOSTOUCH_WHEEL_ROW_W * f->k * 0.5, ry + rowH * 0.5 };
   if (prIcon) *prIcon = rIcon;
@@ -2323,10 +2361,61 @@ static int IOSTouch_WheelMiddleLayout(double R0, const IOSTouchWheelMiddle *pm, 
 }
 
 // ------------------------------------------------- the wheel's looks
-// A slice's colour, k of the way to it from the wheel's dark grey (RGB 0..1)
+// Each game's wheel has a look of its own (drawn here, nothing of the
+// game's art): the disc's colour, its rim and what is drawn on it, a
+// motif in the middle behind the words, the dark the slices' colours are
+// mixed from (the slices keep their ammo groups' colours) and the middle's
+// title colour.
+//   Duke Nukem 3D: black, a radiation-yellow rim with hazard stripes, the
+//     radiation sign in the middle
+//   Redneck Rampage: dark wood, a rusty rim with rivets, a sheriff's star
+//   Blood: near-black red, a bone-white double rim with ritual ticks, a
+//     pentagram's circle (five points) in the middle
+//   Shadow Warrior: black, a red rim with a black line, the yin-yang
+//   Exhumed: lapis blue, a gold rim with gold dots, the sun disc's rays
+enum { WMOTIF_NONE = 0, WMOTIF_TREFOIL, WMOTIF_STAR, WMOTIF_PENTACLE, WMOTIF_YINYANG, WMOTIF_SUN };
+enum { WRIM_PLAIN = 0, WRIM_HAZARD, WRIM_RIVETS, WRIM_TICKS, WRIM_DOTS };
+typedef struct {
+  unsigned char aubDisc[4];   // the disc (RGBA)
+  unsigned char aubRim[4];    // its rim, a band at its edge
+  unsigned char aubRim2[4];   // the rim's marks (stripes, rivets, ticks, dots) and its inner line
+  unsigned char aubMotif[4];  // the middle's motif
+  unsigned char aubMotif2[4]; // ...its second colour (the yin-yang's dark half)
+  unsigned char aubBase[3];   // the slices' colours are mixed from this dark
+  unsigned char aubTitle[3];  // the middle's title when it isn't a slice's colour
+  int iRim, iMotif;
+} IOSTouchWheelTheme;
+static const IOSTouchWheelTheme _aWheelThemes[IOSTOUCH_WHEEL_NUM] = {
+  [IOSTOUCH_WHEEL_NONE]    = { { 0, 0, 0, 217 }, { 70, 70, 70, 255 }, { 120, 120, 120, 255 }, { 0, 0, 0, 0 }, { 0, 0, 0, 0 },
+                               { 32, 32, 32 }, { 255, 255, 255 }, WRIM_PLAIN, WMOTIF_NONE },
+  [IOSTOUCH_WHEEL_DUKE]    = { { 8, 8, 6, 222 }, { 255, 196, 0, 255 }, { 20, 18, 10, 255 }, { 255, 196, 0, 46 }, { 0, 0, 0, 0 },
+                               { 34, 30, 18 }, { 255, 210, 60 }, WRIM_HAZARD, WMOTIF_TREFOIL },
+  [IOSTOUCH_WHEEL_RR]      = { { 46, 28, 16, 225 }, { 150, 78, 38, 255 }, { 214, 170, 110, 255 }, { 226, 176, 90, 44 }, { 0, 0, 0, 0 },
+                               { 44, 30, 20 }, { 236, 190, 120 }, WRIM_RIVETS, WMOTIF_STAR },
+  [IOSTOUCH_WHEEL_BLOOD]   = { { 24, 4, 4, 225 }, { 120, 14, 14, 255 }, { 226, 214, 184, 255 }, { 200, 30, 24, 52 }, { 0, 0, 0, 0 },
+                               { 38, 14, 14 }, { 232, 220, 190 }, WRIM_TICKS, WMOTIF_PENTACLE },
+  [IOSTOUCH_WHEEL_SW]      = { { 6, 6, 6, 225 }, { 200, 24, 24, 255 }, { 0, 0, 0, 255 }, { 230, 40, 34, 52 }, { 240, 232, 220, 30 },
+                               { 34, 18, 18 }, { 255, 90, 80 }, WRIM_PLAIN, WMOTIF_YINYANG },
+  [IOSTOUCH_WHEEL_EXHUMED] = { { 14, 30, 72, 225 }, { 212, 168, 60, 255 }, { 255, 222, 120, 255 }, { 240, 196, 80, 48 }, { 0, 0, 0, 0 },
+                               { 20, 30, 54 }, { 255, 214, 110 }, WRIM_DOTS, WMOTIF_SUN },
+};
+// (Duke World Tour's and Rides Again's are Duke's and Redneck Rampage's)
+static const IOSTouchWheelTheme *IOSTouch_WheelThemeOf(int iMap)
+{
+  if (iMap == IOSTOUCH_WHEEL_DUKEWT) iMap = IOSTOUCH_WHEEL_DUKE;
+  if (iMap == IOSTOUCH_WHEEL_RRRA) iMap = IOSTOUCH_WHEEL_RR;
+  return &_aWheelThemes[(iMap > 0 && iMap < IOSTOUCH_WHEEL_NUM) ? iMap : IOSTOUCH_WHEEL_NONE];
+}
+static void IOSTouch_ThemeColour(const unsigned char aub[4], float af[4])
+{
+  for (int c = 0; c < 4; c++) af[c] = aub[c] / 255.0f;
+}
+
+// A slice's colour, k of the way to it from the wheel's dark (RGB 0..1)
 static void IOSTouch_WheelMix(int iColour, double k, float af[4])
 {
-  for (int c = 0; c < 3; c++) af[c] = (float)((_aubWheelColours[iColour][c] * k + 32.0 * (1.0 - k)) / 255.0);
+  const unsigned char *base = IOSTouch_WheelThemeOf(_iWheelMap)->aubBase;
+  for (int c = 0; c < 3; c++) af[c] = (float)((_aubWheelColours[iColour][c] * k + base[c] * (1.0 - k)) / 255.0);
   af[3] = 1.0f;
 }
 static void IOSTouch_Grey(double v, double a, float af[4])
@@ -3419,6 +3508,12 @@ typedef struct {
   // for each tint), whether it shows, what it was drawn for
   UIView *wheelView;
   CAShapeLayer *wheelDisc;
+  // the game's look (IOSTouchWheelTheme): the rim, its marks, the middle's
+  // motif in two colours; the map it was drawn for (-1: none yet)
+  CAShapeLayer *wheelRim;
+  CAShapeLayer *wheelRimMarks;
+  CAShapeLayer *wheelMotif2;
+  CAShapeLayer *wheelMotif;
   CAShapeLayer *aSliceLayers[IOSTOUCH_WHEEL_MAX];
   CALayer *aIconLayers[IOSTOUCH_WHEEL_MAX][2];
   UILabel *aCountLabels[IOSTOUCH_WHEEL_MAX];
@@ -3448,6 +3543,9 @@ typedef struct {
   // settings
   CAShapeLayer *cheatBody;
   CAShapeLayer *cheatFuse;
+  CALayer *cheatPicture;  // the game's picture for it, when there is one (the emblem hides)
+  id cheatImages[2];      // ...on and off
+  int iCheatEmblem;       // which drawn emblem shows: 0 the bomb, 1 Exhumed's ankh
   CAShapeLayer *cheatRing;
   CAShapeLayer *aCheatActRings[2];
   UILabel *aCheatActLabels[2];
@@ -3734,6 +3832,18 @@ static void IOSTouch_CheatEmblemPaths(CGFloat cx, CGFloat cy, CGFloat r, UIBezie
   *ppFuse = fuse;
 }
 
+// Exhumed's CHEAT (the game has no picture for it): an ankh, in lines
+static UIBezierPath *IOSTouch_AnkhPath(CGFloat cx, CGFloat cy, CGFloat r)
+{
+  const CGFloat k = r * 0.5;
+  UIBezierPath *p = [UIBezierPath bezierPathWithOvalInRect:CGRectMake(cx - 0.30 * k, cy - 0.95 * k, 0.60 * k, 0.72 * k)];
+  [p moveToPoint:CGPointMake(cx, cy - 0.23 * k)];
+  [p addLineToPoint:CGPointMake(cx, cy + 0.95 * k)];
+  [p moveToPoint:CGPointMake(cx - 0.62 * k, cy - 0.05 * k)];
+  [p addLineToPoint:CGPointMake(cx + 0.62 * k, cy - 0.05 * k)];
+  return p;
+}
+
 - (void)makeCheat
 {
   const CGFloat r = _aButtons[BTN_CHEAT].radius;
@@ -3750,6 +3860,14 @@ static void IOSTouch_CheatEmblemPaths(CGFloat cx, CGFloat cy, CGFloat r, UIBezie
   cheatFuse.lineCap = kCALineCapRound;
   [aButtonViews[BTN_CHEAT].layer addSublayer:cheatBody];
   [aButtonViews[BTN_CHEAT].layer addSublayer:cheatFuse];
+  // the game's picture (IOSTouch_SetCheatIcon), fitted inside the circle
+  cheatPicture = [CALayer layer];
+  cheatPicture.frame = CGRectInset(CGRectMake(0, 0, r * 2, r * 2), r * 0.30, r * 0.30);
+  cheatPicture.contentsGravity = kCAGravityResizeAspect;
+  cheatPicture.magnificationFilter = kCAFilterLinear;
+  cheatPicture.hidden = YES;
+  [aButtonViews[BTN_CHEAT].layer addSublayer:cheatPicture];
+  iCheatEmblem = 0;
   cheatRing = IOSTouch_MakeHoldRing(r);
   [aButtonViews[BTN_CHEAT].layer addSublayer:cheatRing];
   static const char *const astrAct[2] = { "FLY", "NOCLIP" };
@@ -3799,15 +3917,42 @@ static void IOSTouch_CheatEmblemPaths(CGFloat cx, CGFloat cy, CGFloat r, UIBezie
     }
     trayBack.frame = CGRectMake(_rTrayBack.x0, _rTrayBack.y0, _rTrayBack.x1 - _rTrayBack.x0, _rTrayBack.y1 - _rTrayBack.y0);
   }
-  // CHEAT: gold and orange while on, grey while off
+  // CHEAT: the game's picture once it has come (as it is while on, grey
+  // while off); without one, the drawn emblem (Exhumed's an ankh)
+  int bPictureNew = 0;
+  if (_bCheatIconNew) {
+    _bCheatIconNew = 0;
+    cheatImages[0] = CFBridgingRelease(IOSTouch_MakeIconImage(_cheatIcon.aub[WICON_READY], _cheatIcon.w, _cheatIcon.h));
+    cheatImages[1] = CFBridgingRelease(IOSTouch_MakeIconImage(_cheatIcon.aub[WICON_NOTFOUND], _cheatIcon.w, _cheatIcon.h));
+    [CATransaction begin];
+    [CATransaction setDisableActions:YES];
+    cheatPicture.hidden = NO;
+    cheatBody.hidden = cheatFuse.hidden = YES;
+    [CATransaction commit];
+    bPictureNew = 1;
+  }
+  const int iEmblem = (_wpn.iMap == IOSTOUCH_WHEEL_EXHUMED && !_cheatIcon.bHave) ? 1 : 0;
+  if (iEmblem != iCheatEmblem) {
+    iCheatEmblem = iEmblem;
+    const CGFloat r = _aButtons[BTN_CHEAT].radius;
+    UIBezierPath *body = nil, *fuse = nil;
+    IOSTouch_CheatEmblemPaths(r, r, r * 1.25, &body, &fuse);
+    [CATransaction begin];
+    [CATransaction setDisableActions:YES];
+    cheatBody.path = iEmblem ? NULL : body.CGPath;
+    cheatFuse.path = iEmblem ? IOSTouch_AnkhPath(r, r, r * 1.25).CGPath : fuse.CGPath;
+    cheatFuse.lineWidth = iEmblem ? 2.6 : 1.6;
+    [CATransaction commit];
+  }
   const int bLookOn = _bCheatOn && _hud.bCheatAllowed;
-  if (bLookOn != bCheatLookOn) {
+  if (bLookOn != bCheatLookOn || bPictureNew) {
     bCheatLookOn = bLookOn;
     // (the fuse and spark brighter than the bomb, as if lit)
     UIColor *c = bLookOn ? [UIColor colorWithRed:1.0 green:0.68 blue:0.18 alpha:0.95] : [UIColor colorWithWhite:0.55 alpha:0.85];
     UIColor *cFuse = bLookOn ? [UIColor colorWithRed:1.0 green:0.92 blue:0.55 alpha:1.0] : c;
     [CATransaction begin];
     [CATransaction setDisableActions:YES];
+    if (_cheatIcon.bHave) cheatPicture.contents = cheatImages[bLookOn ? 0 : 1];
     cheatBody.fillColor = c.CGColor;
     cheatFuse.strokeColor = cFuse.CGColor;
     aButtonViews[BTN_CHEAT].layer.borderColor = bLookOn ? [UIColor colorWithRed:1.0 green:0.6 blue:0.15 alpha:0.8].CGColor
@@ -4064,6 +4209,177 @@ static CGImageRef IOSTouch_MakeIconImage(const unsigned char *pub, int w, int h)
   return im;
 }
 
+static UIColor *IOSTouch_ThemeUIColour(const unsigned char aub[4])
+{
+  float af[4];
+  IOSTouch_ThemeColour(aub, af);
+  return IOSTouch_Colour(af);
+}
+
+// A star of n points round c (radius r, its inner corners at ri), the first
+// point at deg (degrees, counter-clockwise from the right); with ri 0 the
+// points are joined every other one (a pentagram's lines)
+static UIBezierPath *IOSTouch_StarPath(CGPoint c, int n, CGFloat r, CGFloat ri, CGFloat deg)
+{
+  UIBezierPath *p = [UIBezierPath bezierPath];
+  const int ct = ri > 0.0 ? 2 * n : n;
+  for (int i = 0; i <= ct; i++) {
+    CGFloat a, rr;
+    if (ri > 0.0) {
+      a = (deg + i * 180.0 / n) * M_PI / 180.0;
+      rr = (i & 1) ? ri : r;
+    }
+    else {
+      a = (deg + (i * 2 % n) * 360.0 / n) * M_PI / 180.0;
+      rr = r;
+    }
+    const CGPoint q = CGPointMake(c.x + rr * cos(a), c.y - rr * sin(a));
+    if (i == 0) [p moveToPoint:q];
+    else [p addLineToPoint:q];
+  }
+  [p closePath];
+  return p;
+}
+
+static void IOSTouch_AddCircle(UIBezierPath *p, CGPoint c, CGFloat r)
+{
+  [p appendPath:[UIBezierPath bezierPathWithArcCenter:c radius:r startAngle:0.0 endAngle:2.0 * M_PI clockwise:YES]];
+}
+
+// The game's look round the wheel at c (the hole R0, the slices out to R1;
+// the disc goes 14 pt further, the rim is its outer 8 pt) and its motif in
+// the middle, behind the words
+static void IOSTouch_DrawWheelTheme(const IOSTouchWheelTheme *t, CGPoint c, double R0, double R1, CAShapeLayer *disc,
+                                    CAShapeLayer *rim, CAShapeLayer *marks, CAShapeLayer *motif2, CAShapeLayer *motif)
+{
+  const CGFloat rRim = R1 + 10.0;
+  disc.path = [UIBezierPath bezierPathWithArcCenter:c radius:R1 + 14.0 startAngle:0.0 endAngle:2.0 * M_PI clockwise:YES].CGPath;
+  disc.fillColor = IOSTouch_ThemeUIColour(t->aubDisc).CGColor;
+  UIBezierPath *ring = [UIBezierPath bezierPathWithArcCenter:c radius:rRim startAngle:0.0 endAngle:2.0 * M_PI clockwise:YES];
+  rim.path = ring.CGPath;
+  rim.lineWidth = 8.0;
+  rim.strokeColor = IOSTouch_ThemeUIColour(t->aubRim).CGColor;
+  marks.lineDashPattern = nil;
+  marks.fillColor = [UIColor clearColor].CGColor;
+  marks.strokeColor = IOSTouch_ThemeUIColour(t->aubRim2).CGColor;
+  marks.lineWidth = 1.5;
+  UIBezierPath *pm = [UIBezierPath bezierPath];
+  switch (t->iRim) {
+  case WRIM_HAZARD: {
+    // black stripes across the yellow band, as on a hazard sign
+    const int n = 48;
+    for (int i = 0; i < n; i += 2) {
+      const CGFloat a0 = 2.0 * M_PI * i / n, a1 = 2.0 * M_PI * (i + 1) / n, sk = 2.0 * M_PI / n * 0.6;
+      [pm moveToPoint:CGPointMake(c.x + (rRim - 4.0) * cos(a0), c.y + (rRim - 4.0) * sin(a0))];
+      [pm addLineToPoint:CGPointMake(c.x + (rRim + 4.0) * cos(a0 + sk), c.y + (rRim + 4.0) * sin(a0 + sk))];
+      [pm addLineToPoint:CGPointMake(c.x + (rRim + 4.0) * cos(a1 + sk), c.y + (rRim + 4.0) * sin(a1 + sk))];
+      [pm addLineToPoint:CGPointMake(c.x + (rRim - 4.0) * cos(a1), c.y + (rRim - 4.0) * sin(a1))];
+      [pm closePath];
+    }
+    marks.fillColor = marks.strokeColor;
+    marks.lineWidth = 0.0;
+    break;
+  }
+  case WRIM_RIVETS:
+    for (int i = 0; i < 24; i++) {
+      const CGFloat a = 2.0 * M_PI * (i + 0.5) / 24;
+      IOSTouch_AddCircle(pm, CGPointMake(c.x + rRim * cos(a), c.y + rRim * sin(a)), 1.8);
+    }
+    marks.fillColor = marks.strokeColor;
+    marks.lineWidth = 0.0;
+    break;
+  case WRIM_TICKS:
+    // a thin bone line either side of the band, short marks across it
+    IOSTouch_AddCircle(pm, c, rRim - 4.0);
+    IOSTouch_AddCircle(pm, c, rRim + 4.0);
+    for (int i = 0; i < 36; i++) {
+      const CGFloat a = 2.0 * M_PI * i / 36;
+      [pm moveToPoint:CGPointMake(c.x + (rRim - 2.5) * cos(a), c.y + (rRim - 2.5) * sin(a))];
+      [pm addLineToPoint:CGPointMake(c.x + (rRim + 2.5) * cos(a), c.y + (rRim + 2.5) * sin(a))];
+    }
+    marks.lineWidth = 1.2;
+    break;
+  case WRIM_DOTS:
+    for (int i = 0; i < 36; i++) {
+      const CGFloat a = 2.0 * M_PI * i / 36;
+      IOSTouch_AddCircle(pm, CGPointMake(c.x + rRim * cos(a), c.y + rRim * sin(a)), (i % 3 == 0) ? 1.9 : 1.1);
+    }
+    marks.fillColor = marks.strokeColor;
+    marks.lineWidth = 0.0;
+    break;
+  default:
+    // a dark line along the band's middle
+    IOSTouch_AddCircle(pm, c, rRim);
+    marks.lineWidth = 1.5;
+    break;
+  }
+  marks.path = pm.CGPath;
+  // the motif, inside the hole
+  const CGFloat r = R0 * 0.86;
+  UIBezierPath *p = [UIBezierPath bezierPath], *p2 = nil;
+  motif.fillColor = IOSTouch_ThemeUIColour(t->aubMotif).CGColor;
+  motif.strokeColor = [UIColor clearColor].CGColor;
+  motif.lineWidth = 0.0;
+  switch (t->iMotif) {
+  case WMOTIF_TREFOIL:
+    // the radiation sign: a dot and three blades
+    IOSTouch_AddCircle(p, c, r * 0.16);
+    for (int i = 0; i < 3; i++) {
+      const CGFloat d = 30.0 + i * 120.0; // (one blade down, as the sign is)
+      [p appendPath:IOSTouch_WedgePath(c, d - 30.0, d + 30.0, r * 0.26, r)];
+    }
+    break;
+  case WMOTIF_STAR:
+    // a sheriff's star: five points, a ball on each
+    [p appendPath:IOSTouch_StarPath(c, 5, r * 0.88, r * 0.42, 90.0)];
+    for (int i = 0; i < 5; i++) {
+      const CGFloat a = (90.0 + i * 72.0) * M_PI / 180.0;
+      IOSTouch_AddCircle(p, CGPointMake(c.x + r * 0.9 * cos(a), c.y - r * 0.9 * sin(a)), r * 0.09);
+    }
+    motif.fillRule = kCAFillRuleNonZero;
+    break;
+  case WMOTIF_PENTACLE:
+    // a circle and a five-pointed star in lines, a point down
+    IOSTouch_AddCircle(p, c, r);
+    [p appendPath:IOSTouch_StarPath(c, 5, r, 0.0, -90.0)];
+    motif.fillColor = [UIColor clearColor].CGColor;
+    motif.strokeColor = IOSTouch_ThemeUIColour(t->aubMotif).CGColor;
+    motif.lineWidth = 2.0;
+    break;
+  case WMOTIF_YINYANG: {
+    // the yin-yang: its light half under, the dark half and the two dots over
+    p2 = [UIBezierPath bezierPathWithArcCenter:c radius:r startAngle:0.0 endAngle:2.0 * M_PI clockwise:YES];
+    [p moveToPoint:CGPointMake(c.x, c.y - r)];
+    [p addArcWithCenter:c radius:r startAngle:-M_PI_2 endAngle:M_PI_2 clockwise:YES];
+    [p addArcWithCenter:CGPointMake(c.x, c.y + r * 0.5) radius:r * 0.5 startAngle:M_PI_2 endAngle:-M_PI_2 clockwise:YES];
+    [p addArcWithCenter:CGPointMake(c.x, c.y - r * 0.5) radius:r * 0.5 startAngle:M_PI_2 endAngle:-M_PI_2 clockwise:NO];
+    [p closePath];
+    IOSTouch_AddCircle(p, CGPointMake(c.x, c.y + r * 0.5), r * 0.14);
+    IOSTouch_AddCircle(p, CGPointMake(c.x, c.y - r * 0.5), r * 0.14);
+    motif.fillRule = kCAFillRuleEvenOdd;
+    break;
+  }
+  case WMOTIF_SUN:
+    // the sun disc: a ring and its rays
+    IOSTouch_AddCircle(p, c, r * 0.42);
+    for (int i = 0; i < 16; i++) {
+      const CGFloat a = 2.0 * M_PI * (i + 0.5) / 16;
+      [p moveToPoint:CGPointMake(c.x + r * 0.58 * cos(a), c.y + r * 0.58 * sin(a))];
+      [p addLineToPoint:CGPointMake(c.x + r * ((i & 1) ? 0.84 : 1.0) * cos(a), c.y + r * ((i & 1) ? 0.84 : 1.0) * sin(a))];
+    }
+    motif.fillColor = [UIColor clearColor].CGColor;
+    motif.strokeColor = IOSTouch_ThemeUIColour(t->aubMotif).CGColor;
+    motif.lineWidth = 2.5;
+    break;
+  default:
+    break;
+  }
+  if (t->iMotif == WMOTIF_TREFOIL) motif.fillRule = kCAFillRuleNonZero;
+  motif.path = p.CGPath;
+  motif2.path = p2 ? p2.CGPath : NULL;
+  motif2.fillColor = IOSTouch_ThemeUIColour(t->aubMotif2).CGColor;
+}
+
 // The wheel's parts, made once, hidden until it opens: a dim over the game,
 // the dark disc, the slices on it, each slice's icon (twice for the two
 // colts), its count and its name (shown instead of an icon the game couldn't
@@ -4078,6 +4394,18 @@ static CGImageRef IOSTouch_MakeIconImage(const unsigned char *pub, int w, int h)
   wheelDisc = [CAShapeLayer layer];
   wheelDisc.fillColor = [UIColor colorWithWhite:0.0 alpha:0.85].CGColor;
   [wheelView.layer addSublayer:wheelDisc];
+  wheelRim = [CAShapeLayer layer];
+  wheelRim.fillColor = [UIColor clearColor].CGColor;
+  [wheelView.layer addSublayer:wheelRim];
+  wheelRimMarks = [CAShapeLayer layer];
+  [wheelView.layer addSublayer:wheelRimMarks];
+  wheelMotif2 = [CAShapeLayer layer];
+  [wheelView.layer addSublayer:wheelMotif2];
+  wheelMotif = [CAShapeLayer layer];
+  wheelMotif.fillRule = kCAFillRuleEvenOdd;
+  wheelMotif.lineJoin = kCALineJoinRound;
+  wheelMotif.lineCap = kCALineCapRound;
+  [wheelView.layer addSublayer:wheelMotif];
   for (int i = 0; i < IOSTOUCH_WHEEL_MAX; i++) {
     CAShapeLayer *sl = [CAShapeLayer layer];
     sl.lineJoin = kCALineJoinRound;
@@ -4090,7 +4418,7 @@ static CGImageRef IOSTouch_MakeIconImage(const unsigned char *pub, int w, int h)
       CALayer *l = [CALayer layer];
       l.zPosition = 2.0;
       l.hidden = YES;
-      l.contentsGravity = kCAGravityResize;
+      l.contentsGravity = kCAGravityResizeAspect; // (fitted in its box, its shape kept)
       l.magnificationFilter = kCAFilterLinear;
       l.minificationFilter = kCAFilterLinear;
       aIconLayers[i][k] = l;
@@ -4184,7 +4512,7 @@ static CGImageRef IOSTouch_MakeIconImage(const unsigned char *pub, int w, int h)
     bWheelRebuild = 0;
     wheelKey = key;
     wheelView.frame = self.bounds;
-    wheelDisc.path = [UIBezierPath bezierPathWithArcCenter:c radius:R1 + 14.0 startAngle:0.0 endAngle:2.0 * M_PI clockwise:YES].CGPath;
+    IOSTouch_DrawWheelTheme(IOSTouch_WheelThemeOf(_iWheelMap), c, R0, R1, wheelDisc, wheelRim, wheelRimMarks, wheelMotif2, wheelMotif);
     const IOSTouchWheelFit *f = IOSTouch_WheelFit();
     for (int i = 0; i < IOSTOUCH_WHEEL_MAX; i++) {
       const int bOn = i < m->ctSlots;
@@ -4246,7 +4574,13 @@ static CGImageRef IOSTouch_MakeIconImage(const unsigned char *pub, int w, int h)
       if (ln->iKind == WLINE_TITLE) {
         float af[4];
         if (mid.iTitleLook == WTITLE_SLOT) IOSTouch_WheelMix(mid.iColour, 1.0, af);
-        else IOSTouch_Grey(mid.iTitleLook == WTITLE_WHITE ? 1.0 : 0.63, 1.0, af);
+        else if (mid.iTitleLook == WTITLE_WHITE) {
+          // (the game's own title colour)
+          const unsigned char *t = IOSTouch_WheelThemeOf(_iWheelMap)->aubTitle;
+          for (int k = 0; k < 3; k++) af[k] = t[k] / 255.0f;
+          af[3] = 1.0f;
+        }
+        else IOSTouch_Grey(0.63, 1.0, af);
         l.textColor = IOSTouch_Colour(af);
       }
       else {
