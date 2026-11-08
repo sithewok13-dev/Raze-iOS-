@@ -180,13 +180,21 @@ void I_SetMouseCapture()
 {
 	// Clear out any mouse movement.
 	SDL_GetRelativeMouseState (NULL, NULL);
+#ifndef RAZE_IOS
 	SDL_SetRelativeMouseMode (SDL_TRUE);
+#endif
 }
 
 void I_ReleaseMouseCapture()
 {
+#ifndef RAZE_IOS
 	SDL_SetRelativeMouseMode (SDL_FALSE);
+#endif
 }
+
+// Added: iOS has no mouse to capture (the menus "capture" it from each
+// press to its release). SDL's relative mode there asks UIKit for pointer
+// lock every time it changes, on every menu tap: it is left off.
 
 static void MouseRead ()
 {
@@ -240,11 +248,86 @@ static void IOS_PointsToPixels(int16_t& x, int16_t& y)
 #endif
 }
 
+#if defined(RAZE_IOS) || defined(RAZE_TOUCH)
+// Added: iOS menus (and anything else that takes the mouse as GUI events)
+// take a finger straight from SDL's finger events, not from SDL's
+// touch-to-mouse emulation: a press is the finger going down, and its
+// release always comes as that finger lifts or iOS takes it away (a system
+// gesture), at the finger, in the game screen's pixels. SDL's emulated
+// mouse buttons and motion from touches are ignored while the GUI takes
+// input; outside it (cutscenes: a tap skips) they work as before.
+static bool guiFingerDown = false;
+static SDL_FingerID guiFinger = 0;
+
+static void IOS_FingerToScreen(float fx, float fy, int& x, int& y)
+{
+	int pw = 0, ph = 0;
+	SDL_Window* w = SDL_GL_GetCurrentWindow();
+	if (w) SDL_GL_GetDrawableSize(w, &pw, &ph);
+	if (pw <= 0 || ph <= 0) { pw = screen->GetClientWidth(); ph = screen->GetClientHeight(); }
+	fx = fx < 0.f ? 0.f : (fx > 1.f ? 1.f : fx);
+	fy = fy < 0.f ? 0.f : (fy > 1.f ? 1.f : fy);
+	int16_t sx = int16_t(fx * (pw - 1)), sy = int16_t(fy * (ph - 1));
+	screen->ScaleCoordsFromWindow(sx, sy);
+	x = sx;
+	y = sy;
+}
+
+static void IOS_PostGuiFinger(int subtype, float fx, float fy)
+{
+	event_t event = { 0,0,0,0,0,0,0 };
+	event.type = EV_GUI_Event;
+	event.subtype = subtype;
+	int x, y;
+	IOS_FingerToScreen(fx, fy, x, y);
+	event.data1 = x;
+	event.data2 = y;
+	D_PostEvent(&event);
+}
+
+static bool IOS_FingerEvent(const SDL_Event& sev)
+{
+	const SDL_TouchFingerEvent& f = sev.tfinger;
+	switch (sev.type)
+	{
+	case SDL_FINGERDOWN:
+		if (GUICapture && !guiFingerDown)
+		{
+			guiFingerDown = true;
+			guiFinger = f.fingerId;
+			IOS_PostGuiFinger(EV_GUI_MouseMove, f.x, f.y);
+			IOS_PostGuiFinger(EV_GUI_LButtonDown, f.x, f.y);
+		}
+		return true;
+	case SDL_FINGERMOTION:
+		if (guiFingerDown && f.fingerId == guiFinger && GUICapture) IOS_PostGuiFinger(EV_GUI_MouseMove, f.x, f.y);
+		return true;
+	case SDL_FINGERUP:
+		// (always, even if the menu went in between: a press never stays down)
+		if (guiFingerDown && f.fingerId == guiFinger)
+		{
+			guiFingerDown = false;
+			IOS_PostGuiFinger(EV_GUI_LButtonUp, f.x, f.y);
+		}
+		return true;
+	}
+	return false;
+}
+#endif
+
 void MessagePump (const SDL_Event &sev)
 {
 	static int lastx = 0, lasty = 0;
 	int x, y;
 	event_t event = { 0,0,0,0,0,0,0 };
+
+#if defined(RAZE_IOS) || defined(RAZE_TOUCH)
+	if (IOS_FingerEvent(sev)) return;
+	// (the emulated mouse from touches: the fingers above do the GUI's)
+	if (GUICapture && ((sev.type == SDL_MOUSEMOTION && sev.motion.which == SDL_TOUCH_MOUSEID)
+		|| ((sev.type == SDL_MOUSEBUTTONDOWN || sev.type == SDL_MOUSEBUTTONUP) && sev.button.which == SDL_TOUCH_MOUSEID)))
+		return;
+#endif
 
 	switch (sev.type)
 	{
