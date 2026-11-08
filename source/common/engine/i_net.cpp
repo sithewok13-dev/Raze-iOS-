@@ -1121,21 +1121,30 @@ void I_NetInit(const char* msg, int num)
 // so the waiting is done here: the callback about 8 times a second, and the
 // platform's say in it (on iOS a "waiting for players" box with a Cancel
 // button; elsewhere a line on the terminal). Returns false when cancelled.
-bool I_NetWaitTick(const char* message, int pos, int max);	// false: cancel
+bool I_NetWaitTick(const char* message, int pos, int max);	// false: cancel; message null: the wait is over
 
 bool I_NetLoop(bool (*timer_callback)(void*), void* userdata)
 {
 	if (StartWindow) return StartWindow->NetLoop(timer_callback, userdata);
 	for (;;)
 	{
-		if (timer_callback(userdata)) return true;
-		if (!I_NetWaitTick(NetWaitMessage.GetChars(), NetWaitPos, NetWaitMax)) return false;
+		if (timer_callback(userdata))
+		{
+			I_NetWaitTick(nullptr, 0, 0);	// (done: the box goes)
+			return true;
+		}
+		if (!I_NetWaitTick(NetWaitMessage.GetChars(), NetWaitPos, NetWaitMax))
+		{
+			I_NetWaitTick(nullptr, 0, 0);
+			return false;
+		}
 	}
 }
 
 #ifndef RAZE_IOSNET
 bool I_NetWaitTick(const char* message, int pos, int max)
 {
+	if (message == nullptr) return true;
 	static FString last;
 	FString now;
 	now.Format("%s: %d/%d", message, pos, max);

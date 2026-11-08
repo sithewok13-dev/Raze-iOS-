@@ -1711,6 +1711,7 @@ bool D_CheckNetGame (void)
 	if (netgame)
 	{
 		GameConfig->ReadNetVars ();	// [RH] Read network ServerInfo cvars
+		Net_HostSettings();	// Added: LAN games (netgame.cpp)
 		if (!D_ArbitrateNetStart ()) return false;
 	}
 

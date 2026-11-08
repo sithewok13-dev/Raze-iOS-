@@ -9,6 +9,7 @@
 ** games read, whatever keys are bound.
 */
 
+#include "IOSNet.h"
 #include "IOSGame.h"
 #include "iosCamera.h"
 
@@ -607,6 +608,19 @@ void IOSGame_HudFrame(double w, double h, double* pFrame)
 // its script, and where the player is, for its log
 //
 //---------------------------------------------------------------------------
+
+// LAN games: the hosts waiting for players on this Wi-Fi (the search the
+// iOS start screen makes), in the console: net_scan
+CCMD(net_scan)
+{
+	IOSNetHost hosts[IOSNET_MAXHOSTS];
+	char mine[64] = "";
+	IOSNet_WifiAddress(mine, sizeof(mine));
+	const int n = IOSNet_Scan(hosts, IOSNET_MAXHOSTS, 1.5);
+	Printf("net_scan: this machine %s, %d host(s)\n", mine, n);
+	for (int i = 0; i < n; i++)
+		Printf("net_scan: %s | %s | %s | %d/%d\n", hosts[i].strAddress, hosts[i].strGame, hosts[i].strMode, hosts[i].ctPresent, hosts[i].ctWanted);
+}
 
 extern "C" void IOSGame_RigCommand(const char* cmd)
 {

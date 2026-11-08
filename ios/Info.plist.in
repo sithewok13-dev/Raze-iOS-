@@ -35,6 +35,8 @@
 	</array>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>The CAMERA button saves your photos, bursts and selfies of the game to Photos.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>LAN games: Raze finds and joins games of other players on this Wi-Fi.</string>
 	<key>UIFileSharingEnabled</key>
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>

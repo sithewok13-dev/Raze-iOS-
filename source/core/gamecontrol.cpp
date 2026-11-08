@@ -1265,6 +1265,14 @@ void updatePauseStatus()
 	// still (as the menu does; the music plays on)
 	if (iosCam_HoldsGame()) paused = 1;
 #endif
+	// Added: in a network game nothing on one machine holds the game still
+	// (the pause key, the app in the background, the camera): every
+	// machine must run the same tics
+	if (netgame)
+	{
+		paused = 0;
+		pausedWithKey = false;
+	}
 	if (paused)
 		S_PauseSound(!pausedWithKey, !paused);
 	else 

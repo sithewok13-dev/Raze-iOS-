@@ -31,6 +31,7 @@
 #include "i_net.h"
 #include "startupinfo.h"
 #include "i_protocol.h"
+#include "menu.h"
 #include "m_random.h"
 #include "gamefuncs.h"
 #include "maptypes.h"
@@ -45,6 +46,17 @@ extern int gametic;
 CVAR(Int, net_mode, 0, CVAR_NOSAVE)
 // (the host's) players hurt each other in co-op
 CVAR(Bool, net_ffire, false, CVAR_NOSAVE)
+// (the host's) the console cheats for everyone: sv_cheats, which the host
+// sends to the others as the game starts
+CVAR(Bool, net_cheats, false, CVAR_NOSAVE)
+EXTERN_CVAR(Bool, sv_cheats)
+
+// Before the host sends its settings (D_CheckNetGame, after the saved
+// network settings were read): the host's choice, not an old game's
+void Net_HostSettings()
+{
+	if (doomcom.consoleplayer == 0) sv_cheats = (bool)net_cheats;
+}
 // (the rig) a checksum of the game's state every second in the log
 CVAR(Int, net_checksums, 0, CVAR_NOSAVE)	// 1: once a second, 2: every tic, with the random seed
 
@@ -123,7 +135,7 @@ bool Net_StartGame(MapRecord* map, int skill)
 	if (!netgame) return false;
 	if (myconnectindex != 0)
 	{
-		Printf(PRINT_NOTIFY, "The host starts the game\n");
+		M_StartMessage("The host starts the game: wait for it here", 1, NAME_None);
 		return true;
 	}
 	// (-1, "the skill already set", is this machine's own: everyone must

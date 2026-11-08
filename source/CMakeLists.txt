@@ -483,6 +483,8 @@ elseif( APPLE )
 			# No crash catcher (no fork on iOS), no AppKit: the iOS file has
 			# the game picker and the fatal error alert
 			list( REMOVE_ITEM SYSTEM_SOURCES common/platform/posix/sdl/crashcatcher.c )
+			# (the wait for a LAN game's players is i_ios.mm's: I_NetWaitTick)
+			add_definitions( -DRAZE_IOSNET )
 			set( PLAT_OSX_SOURCES
 				common/platform/posix/osx/i_specialpaths.mm
 				../ios/i_ios.mm
@@ -1507,7 +1509,8 @@ if( RAZE_TOUCH )
 	# (the CAMERA calls go to the camera system). Each game's part (games/*/src/ios_*.cpp)
 	# is built in its game's all.cpp, as the rest of the game is.
 	set( TOUCH_SOURCES
-		../ios/IOSGame.cpp )
+		../ios/IOSGame.cpp
+		../ios/IOSNet.c )
 	if( RAZE_IOS )
 		list( APPEND TOUCH_SOURCES ../ios/IOSTouch.m )
 		# (built as Objective-C by the C compiler, clang)
