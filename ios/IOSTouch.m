@@ -943,11 +943,11 @@ static void IOSTouch_GyroNextSens(void)
   _iGyroSens = (_iGyroSens + 1) % IOSTOUCH_GYRO_NUM_SENS;
 }
 
-// Whether the tray's LEVEL is in the tray: the cheat on, playing a game that
-// has levels to pick
+// Whether the tray's LEVEL is in the tray: playing a game that has levels to
+// pick, in single player (ctLevels is 0 in network games), cheat on or off
 static int IOSTouch_LevelPickShows(void)
 {
-  return _bCheatOn && _hud.bCheatAllowed && _hud.ctLevels > 0 && _iMode == IOSTOUCH_GAMEPLAY;
+  return _hud.ctLevels > 0 && _iMode == IOSTOUCH_GAMEPLAY;
 }
 
 // Whether a button shows now

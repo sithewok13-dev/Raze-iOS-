@@ -471,8 +471,11 @@ void IOSGame_Frame()
 	hud.bNoSaves = netgame; // (QUICK SAVE says when it can't save; QUICK LOAD works dead too)
 	hud.bCheatAllowed = CheatAllowed();
 	hud.strCheatRefusal = hud.bCheatAllowed ? nullptr : CheatRefusal();
-	if (hud.bCheatAllowed && cheatLevels.Size() == 0) FindLevels();
-	hud.ctLevels = hud.bCheatAllowed ? cheatLevels.Size() : 0;
+	// The tray's LEVEL: every game's own levels, in single player whether or
+	// not the cheat is on (the owner's choice)
+	const bool levelPick = !netgame && gamestate == GS_LEVEL && currentLevel != nullptr && part != nullptr;
+	if (levelPick && cheatLevels.Size() == 0) FindLevels();
+	hud.ctLevels = levelPick ? cheatLevels.Size() : 0;
 	hud.uWorld = levelStarts;
 	if (part && part->PickTick) part->PickTick();
 	IOSTouch_SetWeapons(&wpn);
@@ -510,7 +513,7 @@ void IOSGame_Frame()
 		cheatOn = false;
 		if (CheatAllowed()) C_DoCommand("godoff");
 	}
-	if (CheatAllowed())
+	if (levelPick)
 	{
 		if (req & IOSTOUCH_REQ_LEVEL)
 		{
