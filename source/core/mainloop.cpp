@@ -792,6 +792,19 @@ void MainLoop ()
 			// update the scale factor for unsynchronised input here.
 			gameInput.UpdateInputScale();
 
+#ifdef RAZE_IOS
+			// Added: iOS: nothing at all runs while the app is in the
+			// background (GL work there gets the app cut off from the GPU:
+			// black and stuck on return); wait for it to come back
+			{
+				extern bool AppActive;
+				while (!AppActive)
+				{
+					std::this_thread::sleep_for(std::chrono::milliseconds(50));
+					I_StartTic();
+				}
+			}
+#endif
 			TryRunTics (); // will run at least one tic
 			// Update display, next frame, with current state.
 			I_StartTic();

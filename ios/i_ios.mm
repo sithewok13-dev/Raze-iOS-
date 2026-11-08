@@ -10,6 +10,7 @@
 
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
+#import <AVFoundation/AVFoundation.h>
 #include "SDL.h"
 #include "SDL_syswm.h"
 
@@ -184,6 +185,10 @@ extern "C" void IOS_FrameReport(int frame, int w, int h)
 // already was; kept as a safeguard for newer iOS versions.)
 void IOS_AttachWindowToScene(SDL_Window* window)
 {
+	// Sound follows the silent switch, and music from other apps can play on
+	// (the ambient category; set before the game opens its sound)
+	[[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryAmbient error:nil];
+	[[AVAudioSession sharedInstance] setActive:YES error:nil];
 	SDL_SysWMinfo info;
 	SDL_VERSION(&info.version);
 	if (!SDL_GetWindowWMInfo(window, &info) || info.subsystem != SDL_SYSWM_UIKIT || !info.info.uikit.window) return;
