@@ -355,6 +355,15 @@ bool I_CreateVulkanSurface(VkInstance instance, VkSurfaceKHR *surface)
 #endif
 
 
+#if defined(RAZE_IOS) || defined(RAZE_TOUCH)
+// Added: the game's window, whichever renderer draws in it (the touch
+// controls and the input need it; with Vulkan there is no current GL window)
+SDL_Window* IOS_GetGameWindow()
+{
+	return Priv::window;
+}
+#endif
+
 #ifdef RAZE_IOS
 // Added (iOS): settings put right once for older installs; MoltenVK
 extern "C" bool IOS_LoadVulkan(); // ios/i_ios.mm

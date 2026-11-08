@@ -31,6 +31,9 @@
 **
 */
 #include <SDL.h>
+#ifdef HAVE_VULKAN
+#include <SDL_vulkan.h>
+#endif
 #include "m_argv.h"
 #include "v_video.h"
 
@@ -236,14 +239,41 @@ static void I_CheckNativeMouse ()
 
 // iOS: SDL gives touch/mouse positions in points, while the game's screen
 // (a high-DPI drawable) is measured in pixels: scale them to pixels
+#if defined(RAZE_IOS) || defined(RAZE_TOUCH)
+// The window's drawable in pixels, whichever renderer draws it (with Vulkan,
+// SDL_GL_GetDrawableSize only gives the size in points)
+static void IOS_DrawableSize(SDL_Window* w, int* pw, int* ph)
+{
+	*pw = *ph = 0;
+	if (!w) return;
+#ifdef HAVE_VULKAN
+	if (SDL_GetWindowFlags(w) & SDL_WINDOW_VULKAN) SDL_Vulkan_GetDrawableSize(w, pw, ph);
+	else
+#endif
+	SDL_GL_GetDrawableSize(w, pw, ph);
+}
+
+// The game's window (with Vulkan there is no current GL window)
+SDL_Window* IOS_GetGameWindow(); // sdlglvideo.cpp
+static SDL_Window* IOS_GameWindow()
+{
+	SDL_Window* w = IOS_GetGameWindow();
+	if (!w) w = SDL_GL_GetCurrentWindow();
+	if (!w) w = SDL_GetKeyboardFocus();
+	if (!w) w = SDL_GetMouseFocus();
+	if (!w) w = SDL_GetWindowFromID(1);
+	return w;
+}
+#endif
+
 static void IOS_PointsToPixels(int16_t& x, int16_t& y)
 {
 #ifdef RAZE_IOS
-	SDL_Window* w = SDL_GL_GetCurrentWindow();
+	SDL_Window* w = IOS_GameWindow();
 	int ww = 0, wh = 0, pw = 0, ph = 0;
 	if (w == nullptr) return;
 	SDL_GetWindowSize(w, &ww, &wh);
-	SDL_GL_GetDrawableSize(w, &pw, &ph);
+	IOS_DrawableSize(w, &pw, &ph);
 	if (ww > 0 && wh > 0 && pw > 0 && ph > 0)
 	{
 		x = int16_t(x * pw / ww);
@@ -269,11 +299,10 @@ static void IOS_FingerToScreen(Uint32 windowID, float fx, float fy, int& x, int&
 	// screen's coordinates are scaled from, as the mouse's are)
 	int pw = 0, ph = 0;
 	SDL_Window* w = windowID ? SDL_GetWindowFromID(windowID) : nullptr;
-	if (!w) w = SDL_GL_GetCurrentWindow();
-	if (!w) w = SDL_GetKeyboardFocus();
+	if (!w) w = IOS_GameWindow();
 	if (w)
 	{
-		SDL_GL_GetDrawableSize(w, &pw, &ph);
+		IOS_DrawableSize(w, &pw, &ph);
 		if (pw <= 0 || ph <= 0) SDL_GetWindowSize(w, &pw, &ph);
 	}
 	if (pw <= 0 || ph <= 0) { pw = screen->GetClientWidth(); ph = screen->GetClientHeight(); }

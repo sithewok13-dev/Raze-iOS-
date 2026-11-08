@@ -17,6 +17,7 @@
 #include <sys/stat.h>
 
 #include <SDL.h>
+SDL_Window* IOS_GetGameWindow(); // sdlglvideo.cpp: the game's window (OpenGL ES or Vulkan)
 
 #include "gamecontrol.h"
 #include "gameinput.h"
@@ -500,7 +501,7 @@ void IOSGame_Frame()
 	IOSTouch_SetWeapons(&wpn);
 	if (mode != IOSTOUCH_HIDDEN) FeedIcons(part);
 
-	const int req = IOSTouch_Update(SDL_GL_GetCurrentWindow(), mode, &hud, framesDrawn);
+	const int req = IOSTouch_Update(IOS_GetGameWindow(), mode, &hud, framesDrawn);
 
 	if (req & IOSTOUCH_REQ_MENU)
 	{
