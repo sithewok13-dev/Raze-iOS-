@@ -881,6 +881,8 @@ static double _tJumpTapLift = -1.0;
 static double _tFlyAsked = -1.0e9; // when flying was last asked for or against
 static int _ctCheatTicks = 0;
 static unsigned int _uWorldSeen = 0;
+// The touch controls hidden while a game controller is played (IOSTouch_SetPadHidden)
+static int _bPadHidden = 0;
 // The message line, what it says and when it came
 static char _strCamMessage[192] = "";
 static double _tCamMessage = -1.0e9;
@@ -2533,6 +2535,14 @@ static void IOSTouch_TouchBegan(const void *touch, double x, double y, double W,
   s->uSeq = ++_uTouchSeq;
   s->trayButton = -1;
   s->wheelSlot = -1;
+  // Hidden for a game controller: a touch brings the controls back, and
+  // does nothing else until it lifts
+  if (_bPadHidden) {
+    _bPadHidden = 0;
+    s->role = ROLE_IGNORED;
+    s->button = -1;
+    return;
+  }
   // The cheat's list of levels open: the list itself takes the touches on it
   // (the view's level panel); one anywhere else closes it, and does nothing
   // more until it lifts
@@ -3189,7 +3199,7 @@ static void IOSTouch_GyroFrame(int bShown, int bActive, int side, double now)
 {
   if (side != 0 && _iGyroLastSide != 0 && side != _iGyroLastSide) _tGyroTurnedRound = now;
   if (side != 0) _iGyroLastSide = side;
-  IOSTouch_GyroRun(bShown && _iMode == IOSTOUCH_GAMEPLAY && bActive && side != 0 && _iGyroMode != IOSTOUCH_GYRO_OFF
+  IOSTouch_GyroRun(bShown && !_bPadHidden && _iMode == IOSTOUCH_GAMEPLAY && bActive && side != 0 && _iGyroMode != IOSTOUCH_GYRO_OFF
                    && IOSTouch_GyroAvailable());
 
   os_unfair_lock_lock(&_gyroLock);
@@ -3216,6 +3226,16 @@ static void IOSTouch_GyroFrame(int bShown, int bActive, int side, double now)
     _fGyroPitch += (float)pitch * k;
   }
   os_unfair_lock_unlock(&_lock);
+}
+
+static void IOSTouch_ResetTouches(int bReading);
+
+void IOSTouch_SetPadHidden(int bHidden)
+{
+  bHidden = bHidden != 0;
+  if (bHidden == _bPadHidden) return;
+  _bPadHidden = bHidden;
+  if (bHidden) IOSTouch_ResetTouches(_iMode == IOSTOUCH_GAMEPLAY);
 }
 
 // Lets go of every touch and closes the tray and the weapon wheel (on every
@@ -3533,6 +3553,11 @@ typedef struct {
   CAShapeLayer *cameraRing;
   CAShapeLayer *camSwitchRing;
   UILabel *camMessageLabel;
+  // Hidden for a game controller: a mask over the whole overlay that lets
+  // only the message line through (a mask doesn't change where touches go,
+  // so a touch anywhere still reaches the overlay and brings it back)
+  CALayer *padMask;
+  CALayer *padMaskHole;
   double tCamMessageShown;
   int bShowCameraSaved;
   int bCameraBusyShown;
@@ -3575,6 +3600,7 @@ typedef struct {
 }
 - (void)resetAll;
 - (void)tick;
+- (void)refreshPadMask;
 - (void)syncLevels;
 - (void)refreshButtonLooks;
 - (void)refreshStick;
@@ -4005,6 +4031,27 @@ static UIBezierPath *IOSTouch_AnkhPath(CGFloat cx, CGFloat cy, CGFloat r)
   }
 }
 
+- (void)refreshPadMask
+{
+  if (!_bPadHidden) {
+    if (self.layer.mask) self.layer.mask = nil;
+    return;
+  }
+  [CATransaction begin];
+  [CATransaction setDisableActions:YES];
+  if (!padMask) {
+    padMask = [CALayer layer];
+    padMaskHole = [CALayer layer];
+    padMaskHole.backgroundColor = [UIColor blackColor].CGColor;
+    padMaskHole.cornerRadius = 11.0;
+    [padMask addSublayer:padMaskHole];
+  }
+  padMask.frame = self.bounds;
+  padMaskHole.frame = camMessageLabel.hidden ? CGRectZero : camMessageLabel.frame;
+  if (self.layer.mask != padMask) self.layer.mask = padMask;
+  [CATransaction commit];
+}
+
 - (void)layoutSubviews
 {
   [super layoutSubviews];
@@ -4164,6 +4211,7 @@ static UIBezierPath *IOSTouch_AnkhPath(CGFloat cx, CGFloat cy, CGFloat r)
   [self setRing:aWheelRings[1] progress:_afWheelRing[1]];
   [self syncWheel];
   [self refreshCamera];
+  [self refreshPadMask];
   [self syncLevels];
 }
 
@@ -4714,6 +4762,7 @@ static void IOSTouch_DrawWheelTheme(const IOSTouchWheelTheme *t, CGPoint c, doub
   tLastTick = now;
   [self refreshCamera];
   [self refreshCheat];
+  [self refreshPadMask];
   IOSTouch_CountFrames(_ulFramesDrawn, now);
   [self setRing:saveRing progress:_fSaveRing];
   [self setRing:loadRing progress:_fLoadRing];

@@ -1506,7 +1506,8 @@ if( RAZE_TOUCH )
 	# (the CAMERA calls go to the camera system). Each game's part (games/*/src/ios_*.cpp)
 	# is built in its game's all.cpp, as the rest of the game is.
 	set( TOUCH_SOURCES
-		../ios/IOSGame.cpp )
+		../ios/IOSGame.cpp
+		../ios/IOSPad.cpp )
 	if( RAZE_IOS )
 		list( APPEND TOUCH_SOURCES ../ios/IOSTouch.m )
 		# (built as Objective-C by the C compiler, clang)

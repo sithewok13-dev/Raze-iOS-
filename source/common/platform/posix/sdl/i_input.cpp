@@ -45,6 +45,9 @@
 #include "i_interface.h"
 #include "engineerrors.h"
 #include "printf.h"
+#ifdef RAZE_TOUCH
+#include "../../../../../ios/IOSPad.h" // Added: game controllers
+#endif
 #include "i_interface.h"
 
 
@@ -331,6 +334,7 @@ void MessagePump (const SDL_Event &sev)
 	event_t event = { 0,0,0,0,0,0,0 };
 
 #if defined(RAZE_IOS) || defined(RAZE_TOUCH)
+	if (IOSPad_Event(sev)) return; // Added: game controllers (ios/IOSPad.cpp)
 	if (IOS_FingerEvent(sev)) return;
 	// (the emulated mouse from touches: the fingers above do the GUI's)
 	if (GUICapture && ((sev.type == SDL_MOUSEMOTION && sev.motion.which == SDL_TOUCH_MOUSEID)

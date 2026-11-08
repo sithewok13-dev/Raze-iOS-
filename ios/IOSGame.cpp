@@ -10,6 +10,7 @@
 */
 
 #include "IOSGame.h"
+#include "IOSPad.h"
 #include "iosCamera.h"
 
 #include <sys/stat.h>
@@ -358,6 +359,23 @@ static void QuickLoad()
 	IOSTouch_ShowMessage("Quick load", 1.5);
 }
 
+// The game controller's Back held (ios/IOSPad.cpp): the same quick save and
+// load, while a level is being played (not paused, no console)
+bool IOSGame_PadInLevel()
+{
+	return TouchMode() == IOSTOUCH_GAMEPLAY;
+}
+
+void IOSGame_PadQuickSave()
+{
+	if (IOSGame_PadInLevel()) QuickSave();
+}
+
+void IOSGame_PadQuickLoad()
+{
+	if (IOSGame_PadInLevel()) QuickLoad();
+}
+
 //---------------------------------------------------------------------------
 //
 // Once a frame
@@ -670,6 +688,31 @@ CCMD(ios_cheatsound)
 	auto part = Part();
 	if (part && part->CheatSound) part->CheatSound();
 	C_DoCommand("ios_rigsounds");
+}
+
+// The menu open, how deep, and the item picked in it (the pad's tests)
+CCMD(ios_rigmenu)
+{
+	int depth = 0;
+	for (DMenu* m = CurrentMenu; m; m = m->mParentMenu) depth++;
+	int sel = -99;
+	FString desc;
+	if (CurrentMenu)
+	{
+		auto f = dyn_cast<PField>(CurrentMenu->GetClass()->FindSymbol("mDesc", true));
+		if (f)
+		{
+			auto d = *(DMenuDescriptor**)((uint8_t*)CurrentMenu + f->Offset);
+			if (d)
+			{
+				desc = d->mMenuName.GetChars();
+				if (auto l = dyn_cast<DListMenuDescriptor>(d)) sel = l->mSelectedItem;
+				else if (auto o = dyn_cast<DOptionMenuDescriptor>(d)) sel = o->mSelectedItem;
+			}
+		}
+	}
+	Printf("rigmenu active %d depth %d class %s desc %s sel %d\n", (int)M_Active(), depth,
+		CurrentMenu ? CurrentMenu->GetClass()->TypeName.GetChars() : "-", desc.GetChars(), sel);
 }
 
 CCMD(ios_rigpos)
