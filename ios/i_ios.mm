@@ -404,6 +404,7 @@ void Mac_I_FatalError(const char* errortext)
 // raze-log.txt (replaced at each launch), so a problem on the phone can be
 // read and sent. Runs before main().
 #include <stdio.h>
+#include <time.h>
 #include <unistd.h>
 __attribute__((constructor(101))) static void IOS_LogToFile()
 {
@@ -487,6 +488,46 @@ void IOS_AttachWindowToScene(SDL_Window* window)
 }
 
 
+// Frame times for the log: every 5 seconds of play, the frames drawn and
+// where each one's time went (the game's tics; drawing it, which is mostly
+// the CPU handing GL its work; and presentRenderbuffer, which waits while
+// the GPU is behind), and GL's draw calls per frame
+static uint64_t IOS_Ns()
+{
+	return clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
+}
+static uint64_t iosPresentNs = 0;
+extern int iosDrawCalls;
+
+extern "C" void IOS_PerfFrame(uint64_t ticsNs, uint64_t drawNs, bool inLevel)
+{
+	static uint64_t tStart = 0, sumTics = 0, sumDraw = 0, sumPresent = 0, worst = 0;
+	static int frames = 0, calls = 0;
+	const uint64_t now = IOS_Ns();
+	const uint64_t present = iosPresentNs;
+	iosPresentNs = 0;
+	const int dc = iosDrawCalls;
+	iosDrawCalls = 0;
+	if (!inLevel) { tStart = 0; return; }
+	if (tStart == 0) { tStart = now; frames = calls = 0; sumTics = sumDraw = sumPresent = worst = 0; return; }
+	frames++;
+	calls += dc;
+	sumTics += ticsNs;
+	sumDraw += drawNs - (present < drawNs ? present : drawNs);
+	sumPresent += present;
+	if (ticsNs + drawNs > worst) worst = ticsNs + drawNs;
+	if (now - tStart >= 5000000000ull && frames > 0)
+	{
+		const double ms = 1e-6 / frames;
+		printf("iOS: frames %.1f fps; per frame %.1f ms (worst %.1f): tics %.1f, drawing %.1f, present %.1f; %d draw calls\n",
+			frames * 1e9 / (now - tStart), (sumTics + sumDraw + sumPresent) * ms, worst * 1e-6, sumTics * ms, sumDraw * ms, sumPresent * ms, calls / frames);
+		fflush(stdout);
+		tStart = now;
+		frames = calls = 0;
+		sumTics = sumDraw = sumPresent = worst = 0;
+	}
+}
+
 // The frame's hand-over to the screen, done here instead of SDL's swap so
 // that failures show in the log: SDL's colour renderbuffer, its size and
 // attachment, and what presentRenderbuffer says (logged for the first frames
@@ -516,7 +557,9 @@ extern "C" void IOS_Present(SDL_Window* window, int frame)
 	}
 	while (glGetError() != GL_NO_ERROR) {}
 	glBindRenderbuffer(GL_RENDERBUFFER, rb);
+	const uint64_t tPresent = IOS_Ns();
 	const BOOL ok = [[EAGLContext currentContext] presentRenderbuffer:GL_RENDERBUFFER];
+	iosPresentNs += IOS_Ns() - tPresent;
 	const GLenum err = glGetError();
 	if (report || (int)ok != lastOk)
 	{

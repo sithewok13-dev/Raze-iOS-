@@ -44,6 +44,10 @@
 
 #include "hwrenderer/data/hw_viewpointbuffer.h"
 
+#ifdef RAZE_IOS
+int iosDrawCalls = 0;	// Added: draw calls, for the log's frame times (ios/i_ios.mm)
+#endif
+
 namespace OpenGLESRenderer
 {
 
@@ -544,6 +548,9 @@ static int dt2gl[] = { GL_POINTS, GL_LINES, GL_TRIANGLES, GL_TRIANGLE_FAN, GL_TR
 
 void FGLRenderState::Draw(int dt, int index, int count, bool apply)
 {
+#ifdef RAZE_IOS
+	::iosDrawCalls++;
+#endif
 		if (apply)
 		{
 			Apply();
@@ -555,6 +562,9 @@ void FGLRenderState::Draw(int dt, int index, int count, bool apply)
 
 void FGLRenderState::DrawIndexed(int dt, int index, int count, bool apply)
 {
+#ifdef RAZE_IOS
+	::iosDrawCalls++;
+#endif
 	if (apply)
 	{
 		Apply();

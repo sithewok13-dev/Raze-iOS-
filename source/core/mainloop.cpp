@@ -66,6 +66,10 @@
 #include "../../ios/iosCamera.h"
 #include "c_cvars.h"
 #include "i_time.h"
+#include "menu.h"
+#ifdef RAZE_IOS
+extern "C" void IOS_PerfFrame(uint64_t ticsNs, uint64_t drawNs, bool inLevel); // ios/i_ios.mm
+#endif
 #include "d_net.h"
 #include "gamecontrol.h"
 #include "c_console.h"
@@ -819,7 +823,13 @@ void MainLoop ()
 				}
 			}
 #endif
+#ifdef RAZE_IOS
+			const uint64_t tFrame0 = I_nsTime();
+#endif
 			TryRunTics (); // will run at least one tic
+#ifdef RAZE_IOS
+			const uint64_t tFrame1 = I_nsTime();
+#endif
 			// Update display, next frame, with current state.
 			I_StartTic();
 
@@ -827,6 +837,12 @@ void MainLoop ()
 			IOSGame_Frame(); // Added: the iOS touch controls (after the frame's touches came in)
 #endif
 			Display();
+#ifdef RAZE_IOS
+			{
+				// Added: the frame's times, for the log (ios/i_ios.mm)
+				IOS_PerfFrame(tFrame1 - tFrame0, I_nsTime() - tFrame1, gamestate == GS_LEVEL && !M_Active() && !paused);
+			}
+#endif
 			Mus_UpdateMusic();		// must be at the end.
 		}
 		catch (CRecoverableError &error)

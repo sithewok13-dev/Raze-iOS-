@@ -26,7 +26,11 @@ export PKG_CONFIG_LIBDIR=/nonexistent PKG_CONFIG_PATH=
 lib() {  # lib <name> <git url> <tag> [cmake options...]
   local n=$1 url=$2 tag=$3; shift 3
   git clone -q --depth 1 -b "$tag" "$url" "$WORK/$n"
-  cmake -S "$WORK/$n" -B "$WORK/$n/build" "${IOSFLAGS[@]}" "$@"
+  # (an iOS build looks for libraries in the iOS SDK only: let these find
+  # the ones built here in $DEPS too, but never Homebrew's Mac ones)
+  cmake -S "$WORK/$n" -B "$WORK/$n/build" "${IOSFLAGS[@]}" \
+    -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=BOTH -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=BOTH \
+    -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=BOTH "-DCMAKE_IGNORE_PREFIX_PATH=/opt/homebrew;/usr/local" "$@"
   cmake --build "$WORK/$n/build"
   cmake --install "$WORK/$n/build"
 }
@@ -51,14 +55,21 @@ cmake --install "$WORK/openal/build"
 # in .ogg/.flac files (Duke Nukem 3D World Tour's sounds are all .ogg). On
 # the desktop ZMusic loads libsndfile at run time; iOS has none, so it is
 # built in. (No MP3: mpg123 isn't built.)
+# (each told exactly where the ones before it are)
+OGGV=(-DOGG_INCLUDE_DIR="$DEPS/include" -DOGG_LIBRARY="$DEPS/lib/libogg.a")
 lib ogg https://github.com/xiph/ogg.git "$OGG_TAG" -DINSTALL_DOCS=OFF -DBUILD_TESTING=OFF
-lib vorbis https://github.com/xiph/vorbis.git "$VORBIS_TAG" -DBUILD_TESTING=OFF
+lib vorbis https://github.com/xiph/vorbis.git "$VORBIS_TAG" -DBUILD_TESTING=OFF "${OGGV[@]}"
 lib flac https://github.com/xiph/flac.git "$FLAC_TAG" -DBUILD_CXXLIBS=OFF -DBUILD_PROGRAMS=OFF \
-  -DBUILD_EXAMPLES=OFF -DBUILD_TESTING=OFF -DBUILD_DOCS=OFF -DINSTALL_MANPAGES=OFF -DWITH_OGG=ON
+  -DBUILD_EXAMPLES=OFF -DBUILD_TESTING=OFF -DBUILD_DOCS=OFF -DINSTALL_MANPAGES=OFF -DWITH_OGG=ON "${OGGV[@]}"
 lib opus https://github.com/xiph/opus.git "$OPUS_TAG" -DOPUS_BUILD_PROGRAMS=OFF -DOPUS_BUILD_TESTING=OFF
 lib sndfile https://github.com/libsndfile/libsndfile.git "$SNDFILE_TAG" -DBUILD_PROGRAMS=OFF \
   -DBUILD_EXAMPLES=OFF -DBUILD_TESTING=OFF -DBUILD_REGTEST=OFF -DENABLE_CPACK=OFF \
-  -DENABLE_MPEG=OFF -DINSTALL_MANPAGES=OFF -DENABLE_EXTERNAL_LIBS=ON
+  -DENABLE_MPEG=OFF -DINSTALL_MANPAGES=OFF -DENABLE_EXTERNAL_LIBS=ON "${OGGV[@]}" \
+  -DVorbis_Vorbis_INCLUDE_DIR="$DEPS/include" -DVorbis_Enc_INCLUDE_DIR="$DEPS/include" \
+  -DVorbis_File_INCLUDE_DIR="$DEPS/include" -DVorbis_Vorbis_LIBRARY="$DEPS/lib/libvorbis.a" \
+  -DVorbis_Enc_LIBRARY="$DEPS/lib/libvorbisenc.a" -DVorbis_File_LIBRARY="$DEPS/lib/libvorbisfile.a" \
+  -DFLAC_INCLUDE_DIR="$DEPS/include" -DFLAC_LIBRARY="$DEPS/lib/libFLAC.a" \
+  -DOPUS_INCLUDE_DIR="$DEPS/include" -DOPUS_LIBRARY="$DEPS/lib/libopus.a"
 # (it quietly leaves the codecs out if one isn't found: make sure)
 grep -q "define HAVE_EXTERNAL_XIPH_LIBS 1" "$WORK/sndfile/build/src/config.h"
 
