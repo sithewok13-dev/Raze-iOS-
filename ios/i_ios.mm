@@ -186,7 +186,9 @@ extern "C" void IOS_FrameReport(int frame, int w, int h)
 			printf("SDL view: %s, frame %.0f,%.0f %.0fx%.0f, hidden %d, alpha %.2f, layer %s opaque %d, superview %s\n",
 				class_getName(v.class), v.frame.origin.x, v.frame.origin.y, v.frame.size.width, v.frame.size.height,
 				v.hidden, v.alpha, class_getName(v.layer.class), v.layer.opaque, v.superview ? class_getName(v.superview.class) : "none");
-			// A bright label on the game's window for 6 seconds: is the window shown at all?
+			// (A bright label on the game's window for 6 seconds showed the window is shown; off now)
+			if (0)
+			{
 			UILabel* l = [[UILabel alloc] initWithFrame:CGRectMake(40, 40, 360, 44)];
 			l.text = @"RAZE SCREEN TEST";
 			l.font = [UIFont boldSystemFontOfSize:28];
@@ -194,6 +196,7 @@ extern "C" void IOS_FrameReport(int frame, int w, int h)
 			l.backgroundColor = UIColor.yellowColor;
 			[v addSubview:l];
 			dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 6 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{ [l removeFromSuperview]; });
+			}
 		}
 	}
 	printf("Frame %d: drawable %dx%d, fb %d (status 0x%x), viewport %d,%d %dx%d, centre pixel %d,%d,%d, GL error 0x%x\n",
@@ -236,6 +239,7 @@ void IOS_AttachWindowToScene(SDL_Window* window)
 // anything GL draws reach the screen?
 extern "C" void IOS_ScreenTest(int frame)
 {
+	return; // done its job: GL reaches the screen with ES 3 at point resolution
 	if (frame >= 180) return;
 	glDisable(GL_SCISSOR_TEST);
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
