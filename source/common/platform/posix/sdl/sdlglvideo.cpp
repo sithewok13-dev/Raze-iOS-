@@ -181,9 +181,10 @@ namespace Priv
 
 #ifdef RAZE_IOS
 		// iOS: always the whole screen, at the screen's full resolution
-		// iOS: the whole screen, at its point size for now, as the owner's
-		// working Serious Sam port does (full resolution: later)
-		const uint32_t windowFlags = SDL_WINDOW_FULLSCREEN | SDL_WINDOW_BORDERLESS | (extraFlags & ~SDL_WINDOW_FULLSCREEN_DESKTOP);
+		// iOS: the whole screen at the screen's full resolution (the frames
+		// are handed over in ios/i_ios.mm: with SDL's swap, nothing after the
+		// first frames reached the screen)
+		const uint32_t windowFlags = SDL_WINDOW_FULLSCREEN | SDL_WINDOW_BORDERLESS | SDL_WINDOW_ALLOW_HIGHDPI | (extraFlags & ~SDL_WINDOW_FULLSCREEN_DESKTOP);
 #else
 		const uint32_t windowFlags = (win_maximized ? SDL_WINDOW_MAXIMIZED : 0) | SDL_WINDOW_RESIZABLE | extraFlags;
 #endif
