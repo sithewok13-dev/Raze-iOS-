@@ -557,9 +557,23 @@ void SystemBaseFrameBuffer::SetWindowSize(int w, int h)
 }
 
 
+#ifdef RAZE_IOS
+// Settings the iOS build changed the default of after earlier test builds had
+// saved the old one: brought to the new default once
+CVAR(Int, ios_settingsversion, 0, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+EXTERN_CVAR(Float, vid_scalefactor)
+#endif
+
 SystemGLFrameBuffer::SystemGLFrameBuffer(void *hMonitor, bool fullscreen)
 : SystemBaseFrameBuffer(hMonitor, fullscreen)
 {
+#ifdef RAZE_IOS
+	if (ios_settingsversion < 1)
+	{
+		vid_scalefactor = 0.67f;
+		ios_settingsversion = 1;
+	}
+#endif
 	// NOTE: Core profiles were added with GL 3.2, so there's no sense trying
 	// to set core 3.1 or 3.0. We could try a forward-compatible context
 	// instead, but that would be too restrictive (w.r.t. shaders).
