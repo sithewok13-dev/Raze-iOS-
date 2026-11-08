@@ -3199,7 +3199,8 @@ static void IOSTouch_GyroFrame(int bShown, int bActive, int side, double now)
 {
   if (side != 0 && _iGyroLastSide != 0 && side != _iGyroLastSide) _tGyroTurnedRound = now;
   if (side != 0) _iGyroLastSide = side;
-  IOSTouch_GyroRun(bShown && !_bPadHidden && _iMode == IOSTOUCH_GAMEPLAY && bActive && side != 0 && _iGyroMode != IOSTOUCH_GYRO_OFF
+  // (hidden for a game controller: only ALWAYS aims -- no thumbs are down)
+  IOSTouch_GyroRun(bShown && (!_bPadHidden || _iGyroMode == IOSTOUCH_GYRO_ALWAYS) && _iMode == IOSTOUCH_GAMEPLAY && bActive && side != 0 && _iGyroMode != IOSTOUCH_GYRO_OFF
                    && IOSTouch_GyroAvailable());
 
   os_unfair_lock_lock(&_gyroLock);
@@ -4713,8 +4714,12 @@ static void IOSTouch_DrawWheelTheme(const IOSTouchWheelTheme *t, CGPoint c, doub
 {
   const double now = CACurrentMediaTime();
   const double W = self.bounds.size.width;
+  // hidden for a game controller: every touch that comes with the one that
+  // brings the controls back is ignored too (each finds them still hidden)
+  const int bRevealing = _bPadHidden;
   for (UITouch *t in touches) {
     CGPoint p = [t locationInView:self];
+    if (bRevealing) _bPadHidden = 1;
     IOSTouch_TouchBegan((__bridge const void *)t, p.x, p.y, W, now, t.timestamp);
   }
   [self refreshAll];

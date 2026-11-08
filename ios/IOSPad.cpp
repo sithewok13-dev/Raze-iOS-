@@ -209,6 +209,29 @@ static void ReleaseAll()
 	{
 		for (auto& a : padConfig->axes) a.value = 0.f;
 	}
+	for (bool& p : pad.pushed) p = false;
+	pad.accelHeld = 0.0;
+}
+
+// The buttons the pads still connected hold, down again (after ReleaseAll,
+// a pad gone: its keys let go, the others' kept). Start and Back count as
+// let go; the sticks and triggers come back by themselves (ProcessPads).
+static void PressHeldAgain()
+{
+	if (!use_joystick || !padConfig || !padConfig->enabled) return;
+	for (int b = 0; b < SDL_CONTROLLER_BUTTON_MAX; b++)
+	{
+		const int key = KeyOfButton(b);
+		if (key == 0 || key == KEY_PAD_BACK) continue;
+		for (auto g : pads)
+		{
+			if (SDL_GameControllerGetButton(g, (SDL_GameControllerButton)b))
+			{
+				PostKey(key, true);
+				break;
+			}
+		}
+	}
 }
 
 static void UpdateName()
@@ -251,11 +274,10 @@ static void ClosePad(SDL_JoystickID id)
 		SDL_GameControllerClose(pads[i]);
 		pads.Delete(i);
 		UpdateName();
-		if (pads.Size() == 0)
-		{
-			ReleaseAll();
-			IOSTouch_SetPadHidden(0); // (the touch controls back)
-		}
+		// what the pad held let go (what the others hold, pressed again)
+		ReleaseAll();
+		if (pads.Size() == 0) IOSTouch_SetPadHidden(0); // (the touch controls back)
+		else PressHeldAgain();
 		event_t ev = { EV_DeviceChange };
 		D_PostEvent(&ev);
 		return;
@@ -316,6 +338,19 @@ static void WriteSettings()
 	if (padConfig && padConfigLoaded) M_SaveJoystickConfig(padConfig);
 	G_WriteConfigNow();
 }
+
+#ifdef RAZE_IOS
+// iOS may end the app from the background without a word: the settings
+// (the controller's among them) are written as it goes there. From an
+// event watch, which SDL runs while iOS tells it (inside the game's own
+// event pumping, on its thread): the queued event would come only after
+// iOS stopped waiting.
+static int SDLCALL BackgroundWatch(void*, SDL_Event* ev)
+{
+	if (ev->type == SDL_APP_DIDENTERBACKGROUND) WriteSettings();
+	return 0;
+}
+#endif
 
 CCMD(ios_writeconfig)
 {
@@ -405,13 +440,6 @@ bool IOSPad_Event(const SDL_Event& ev)
 	case SDL_JOYBATTERYUPDATED:
 		return true;
 
-#ifdef RAZE_IOS
-	case SDL_APP_DIDENTERBACKGROUND:
-		// iOS may end the app from the background without a word: the
-		// settings (the controller's among them) are written now
-		WriteSettings();
-		return false; // (i_input.cpp has its own work to do on it)
-#endif
 	}
 	return false;
 }
@@ -503,9 +531,11 @@ static void ProcessPads()
 		{
 			if (SDL_GameControllerGetButton(g, SDL_CONTROLLER_BUTTON_DPAD_DOWN)) load = true;
 		}
-		if (load) IOSGame_PadQuickLoad();
-		else IOSGame_PadQuickSave();
-		for (auto g : pads) SDL_GameControllerRumble(g, 0x6000, 0x6000, 120);
+		const bool acted = load ? IOSGame_PadQuickLoad() : IOSGame_PadQuickSave();
+		if (acted)
+		{
+			for (auto g : pads) SDL_GameControllerRumble(g, 0x6000, 0x6000, 120);
+		}
 	}
 }
 
@@ -524,6 +554,9 @@ void I_StartupJoysticks()
 		return;
 	}
 	SDL_GameControllerEventState(SDL_ENABLE);
+#ifdef RAZE_IOS
+	SDL_AddEventWatch(BackgroundWatch, nullptr);
+#endif
 	// the pads there now (SDL also sends their DEVICEADDED: opened once)
 	for (int i = 0; i < SDL_NumJoysticks(); i++) OpenPad(i);
 }
@@ -556,8 +589,12 @@ void I_GetAxes(float axes[NUM_JOYAXIS])
 
 void I_ProcessJoysticks()
 {
-	if (!use_joystick || pads.Size() == 0) return;
-	if (!Config()->enabled) return;
+	// switched off (Options > Controller) with something held: let go
+	static bool wasOn = false;
+	const bool on = use_joystick && Config()->enabled;
+	if (wasOn && !on) ReleaseAll();
+	wasOn = on;
+	if (!on || pads.Size() == 0) return;
 	ProcessPads();
 }
 

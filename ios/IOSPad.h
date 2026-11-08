@@ -52,7 +52,8 @@ void IOSPad_DefaultBinds();
 void IOSPad_UpgradeBinds();
 
 // IOSGame.cpp: the game side of the pad's quick save and quick load
-// (the touch controls' own), and whether a level is being played
-void IOSGame_PadQuickSave();
-void IOSGame_PadQuickLoad();
+// (the touch controls' own: true if it went ahead), and whether a level is
+// being played
+bool IOSGame_PadQuickSave();
+bool IOSGame_PadQuickLoad();
 bool IOSGame_PadInLevel();

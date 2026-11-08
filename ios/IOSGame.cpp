@@ -312,17 +312,18 @@ static bool CameraBusy()
 	return true;
 }
 
-static void QuickSave()
+static bool QuickSave()
 {
-	if (netgame || CameraBusy()) return;
+	if (netgame || CameraBusy()) return false;
 	auto part = Part();
 	if (!gi->CanSave() || (part && part->Alive && !part->Alive()))
 	{
 		IOSTouch_ShowMessage("Can't save now", 2.0);
-		return;
+		return false;
 	}
 	C_DoCommand("rotatingquicksave");
 	IOSTouch_ShowMessage("Quick save", 1.5);
+	return true;
 }
 
 // The newest of the quick saves in this game's own save folder (the
@@ -346,17 +347,18 @@ static FString NewestQuickSave()
 	return best;
 }
 
-static void QuickLoad()
+static bool QuickLoad()
 {
-	if (netgame || CameraBusy()) return;
+	if (netgame || CameraBusy()) return false;
 	auto name = NewestQuickSave();
 	if (name.IsEmpty())
 	{
 		IOSTouch_ShowMessage("No quick save yet (hold QUICK SAVE)", 3.0);
-		return;
+		return false;
 	}
 	G_LoadGame(name.GetChars());
 	IOSTouch_ShowMessage("Quick load", 1.5);
+	return true;
 }
 
 // The game controller's Back held (ios/IOSPad.cpp): the same quick save and
@@ -366,14 +368,14 @@ bool IOSGame_PadInLevel()
 	return TouchMode() == IOSTOUCH_GAMEPLAY;
 }
 
-void IOSGame_PadQuickSave()
+bool IOSGame_PadQuickSave()
 {
-	if (IOSGame_PadInLevel()) QuickSave();
+	return IOSGame_PadInLevel() && QuickSave();
 }
 
-void IOSGame_PadQuickLoad()
+bool IOSGame_PadQuickLoad()
 {
-	if (IOSGame_PadInLevel()) QuickLoad();
+	return IOSGame_PadInLevel() && QuickLoad();
 }
 
 //---------------------------------------------------------------------------
