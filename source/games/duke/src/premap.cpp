@@ -549,7 +549,13 @@ void resetpspritevars(int g, const DVector3& startpos, const DAngle startang)
 	while (auto act = it.Next())
 	{
 		if (numplayersprites == MAXPLAYERS)
-			I_Error("Too many player sprites (max 16.)");
+		{
+			// (Added: a map with more starts than Raze's 8 players, as
+			// Redneck Rampage's are in a network game: the rest go unused.
+			// Was a fatal error.)
+			act->Destroy();
+			continue;
+		}
 
 		po[numplayersprites].opos = act->spr.pos;
 		po[numplayersprites].oa = act->spr.Angles.Yaw;

@@ -180,7 +180,9 @@ class RedneckInvisible : DukeActor
 	override bool animate(tspritetype t)
 	{
 		t.cstat |= CSTAT_SPRITE_INVISIBLE;
-		self.cstat |= CSTAT_SPRITE_INVISIBLE;
+		// (Added: not in a network game: only the machines that draw it
+		// would change it, and every machine must stay the same)
+		if (!netgame) self.cstat |= CSTAT_SPRITE_INVISIBLE;
 		return true;
 	}
 }
@@ -190,6 +192,13 @@ class RedneckLadder : DukeActor
 	default
 	{
 		pic "Ladder";
+	}
+
+	// (Added: in a network game it is never drawn from the start, on every
+	// machine alike: drawing it can't be what changes it)
+	override void StaticSetup()
+	{
+		if (netgame) self.cstat |= CSTAT_SPRITE_INVISIBLE;
 	}
 	
 	override bool animate(tspritetype t)
