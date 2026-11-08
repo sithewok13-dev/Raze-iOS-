@@ -10,6 +10,8 @@
 
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
+#include "SDL.h"
+#include "SDL_syswm.h"
 
 #include "cmdlib.h"
 #include "i_interface.h"
@@ -203,8 +205,6 @@ extern "C" void IOS_FrameReport(int frame, int w, int h)
 // SDL 2 makes its UIWindow with initWithFrame:, outside any scene. Recent iOS
 // versions don't show such a window (the game drew into it, nothing appeared).
 // Put it into the app's window scene and show it.
-#include "SDL.h"
-#include "SDL_syswm.h"
 void IOS_AttachWindowToScene(SDL_Window* window)
 {
 	SDL_SysWMinfo info;
