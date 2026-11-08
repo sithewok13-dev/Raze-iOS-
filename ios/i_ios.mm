@@ -164,6 +164,30 @@ extern "C" void IOS_FrameReport(int frame, int w, int h)
 		}
 	}
 	GLenum err = glGetError();
+	if (frame == 0)
+	{
+		// SDL's own idea of the screen's frame buffer, to compare with ours
+		SDL_SysWMinfo info;
+		SDL_VERSION(&info.version);
+		SDL_Window* sw = SDL_GL_GetCurrentWindow();
+		if (sw && SDL_GetWindowWMInfo(sw, &info) && info.subsystem == SDL_SYSWM_UIKIT)
+		{
+			printf("SDL screen: framebuffer %u, colorbuffer %u, resolve %u\n",
+				info.info.uikit.framebuffer, info.info.uikit.colorbuffer, info.info.uikit.resolveFramebuffer);
+			UIView* v = info.info.uikit.window.rootViewController.view;
+			printf("SDL view: %s, frame %.0f,%.0f %.0fx%.0f, hidden %d, alpha %.2f, layer %s opaque %d, superview %s\n",
+				class_getName(v.class), v.frame.origin.x, v.frame.origin.y, v.frame.size.width, v.frame.size.height,
+				v.hidden, v.alpha, class_getName(v.layer.class), v.layer.opaque, v.superview ? class_getName(v.superview.class) : "none");
+			// A bright label on the game's window for 6 seconds: is the window shown at all?
+			UILabel* l = [[UILabel alloc] initWithFrame:CGRectMake(40, 40, 360, 44)];
+			l.text = @"RAZE SCREEN TEST";
+			l.font = [UIFont boldSystemFontOfSize:28];
+			l.textColor = UIColor.blackColor;
+			l.backgroundColor = UIColor.yellowColor;
+			[v addSubview:l];
+			dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 6 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{ [l removeFromSuperview]; });
+		}
+	}
 	printf("Frame %d: drawable %dx%d, fb %d (status 0x%x), viewport %d,%d %dx%d, centre pixel %d,%d,%d, GL error 0x%x\n",
 		frame, w, h, (int)fb, status, vp[0], vp[1], vp[2], vp[3], px[0], px[1], px[2], err);
 	for (UIWindow* win in UIApplication.sharedApplication.windows)
@@ -199,4 +223,16 @@ void IOS_AttachWindowToScene(SDL_Window* window)
 		w.frame = windowScene.coordinateSpace.bounds;
 	}
 	[w makeKeyAndVisible];
+}
+
+// Screen test: the first 3 seconds (180 frames) are cleared solid red right
+// before they are shown, straight into the bound (screen) frame buffer: does
+// anything GL draws reach the screen?
+extern "C" void IOS_ScreenTest(int frame)
+{
+	if (frame >= 180) return;
+	glDisable(GL_SCISSOR_TEST);
+	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+	glClearColor(1.f, 0.f, 0.f, 1.f);
+	glClear(GL_COLOR_BUFFER_BIT);
 }
