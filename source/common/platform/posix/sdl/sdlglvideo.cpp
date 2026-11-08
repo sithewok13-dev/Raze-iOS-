@@ -231,12 +231,12 @@ namespace Priv
 		if (gl_es)
 		{
 			SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
-#if defined(RAZE_GLES_RIG)
-			// the Linux rig: an ES 3.0 context
+#if defined(RAZE_IOS) || defined(RAZE_GLES_RIG)
+			// iOS and the Linux rig: an ES 3.0 context (on iOS the renderer
+			// drew nothing with ES 2; with ES 3 it draws, and the screen shows
+			// it at point resolution, see CreateWindow)
 			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
 #else
-			// (iOS too: an ES 2 context, as the owner's working Serious Sam
-			// port uses; with ES 3 nothing GL drew reached the screen)
 			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
 #endif
 			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
