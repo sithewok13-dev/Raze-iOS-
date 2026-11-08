@@ -181,7 +181,9 @@ namespace Priv
 
 #ifdef RAZE_IOS
 		// iOS: always the whole screen, at the screen's full resolution
-		const uint32_t windowFlags = SDL_WINDOW_FULLSCREEN | SDL_WINDOW_BORDERLESS | SDL_WINDOW_ALLOW_HIGHDPI | (extraFlags & ~SDL_WINDOW_FULLSCREEN_DESKTOP);
+		// iOS: the whole screen, at its point size for now, as the owner's
+		// working Serious Sam port does (full resolution: later)
+		const uint32_t windowFlags = SDL_WINDOW_FULLSCREEN | SDL_WINDOW_BORDERLESS | (extraFlags & ~SDL_WINDOW_FULLSCREEN_DESKTOP);
 #else
 		const uint32_t windowFlags = (win_maximized ? SDL_WINDOW_MAXIMIZED : 0) | SDL_WINDOW_RESIZABLE | extraFlags;
 #endif
@@ -229,11 +231,12 @@ namespace Priv
 		if (gl_es)
 		{
 			SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
-#if defined(RAZE_IOS) || defined(RAZE_GLES_RIG)
-			// iOS: an ES 3.0 context, so the mapped buffers, fences and integer
-			// attributes the renderer looks up really work
+#if defined(RAZE_GLES_RIG)
+			// the Linux rig: an ES 3.0 context
 			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
 #else
+			// (iOS too: an ES 2 context, as the owner's working Serious Sam
+			// port uses; with ES 3 nothing GL drew reached the screen)
 			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
 #endif
 			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);

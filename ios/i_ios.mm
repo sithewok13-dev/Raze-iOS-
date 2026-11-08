@@ -139,6 +139,7 @@ __attribute__((constructor)) static void IOS_LogToFile()
 // the GL frame buffer holds and which windows UIKit shows, into the log.
 #define GLES_SILENCE_DEPRECATION 1
 #include <OpenGLES/ES3/gl.h>
+#import <OpenGLES/EAGL.h>
 #include <vector>
 extern "C" void IOS_FrameReport(int frame, int w, int h)
 {
@@ -176,6 +177,11 @@ extern "C" void IOS_FrameReport(int frame, int w, int h)
 		{
 			printf("SDL screen: framebuffer %u, colorbuffer %u, resolve %u\n",
 				info.info.uikit.framebuffer, info.info.uikit.colorbuffer, info.info.uikit.resolveFramebuffer);
+			// Hand a frame to the screen ourselves once: does it work?
+			glBindRenderbuffer(GL_RENDERBUFFER, info.info.uikit.colorbuffer);
+			BOOL ok = [[EAGLContext currentContext] presentRenderbuffer:GL_RENDERBUFFER];
+			printf("Test present: %s, GL error 0x%x, context API %d\n", ok ? "ok" : "FAILED", glGetError(),
+				(int)[EAGLContext currentContext].API);
 			UIView* v = info.info.uikit.window.rootViewController.view;
 			printf("SDL view: %s, frame %.0f,%.0f %.0fx%.0f, hidden %d, alpha %.2f, layer %s opaque %d, superview %s\n",
 				class_getName(v.class), v.frame.origin.x, v.frame.origin.y, v.frame.size.width, v.frame.size.height,
