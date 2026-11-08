@@ -663,6 +663,7 @@ void SystemGLFrameBuffer::SetVSync( bool vsync )
 #ifdef RAZE_IOS
 extern "C" void IOS_FrameReport(int frame, int w, int h); // ios/i_ios.mm: start-up diagnostics in the log
 extern "C" void IOS_ScreenTest(int frame);                // ios/i_ios.mm: the first frames drawn solid red
+extern "C" void IOS_Present(SDL_Window* window, int frame); // ios/i_ios.mm: hands the frame to the screen
 #endif
 
 void SystemGLFrameBuffer::SwapBuffers()
@@ -676,9 +677,11 @@ void SystemGLFrameBuffer::SwapBuffers()
 		IOS_FrameReport(frame, w, h);
 	}
 	IOS_ScreenTest(frame);
+	IOS_Present(Priv::window, frame); // SDL's swap, with its outcome logged
 	frame++;
-#endif
+#else
 	SDL_GL_SwapWindow(Priv::window);
+#endif
 }
 
 

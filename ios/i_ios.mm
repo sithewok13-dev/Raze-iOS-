@@ -246,3 +246,42 @@ extern "C" void IOS_ScreenTest(int frame)
 	glClearColor(1.f, 0.f, 0.f, 1.f);
 	glClear(GL_COLOR_BUFFER_BIT);
 }
+
+// The frame's hand-over to the screen, done here instead of SDL's swap so
+// that failures show in the log: SDL's colour renderbuffer, its size and
+// attachment, and what presentRenderbuffer says (logged for the first frames
+// and on every change of outcome).
+extern "C" void IOS_Present(SDL_Window* window, int frame)
+{
+	SDL_SysWMinfo info;
+	SDL_VERSION(&info.version);
+	if (!SDL_GetWindowWMInfo(window, &info) || info.subsystem != SDL_SYSWM_UIKIT) { SDL_GL_SwapWindow(window); return; }
+	const GLuint fb = info.info.uikit.framebuffer, rb = info.info.uikit.colorbuffer;
+	static int lastOk = -1;
+	const bool report = frame < 6;
+	if (report)
+	{
+		GLint boundFb = 0, boundRb = 0, att = 0, attType = 0, w = 0, h = 0;
+		glGetIntegerv(GL_FRAMEBUFFER_BINDING, &boundFb);
+		glGetIntegerv(GL_RENDERBUFFER_BINDING, &boundRb);
+		glBindFramebuffer(GL_FRAMEBUFFER, fb);
+		glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE, &attType);
+		glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME, &att);
+		glBindRenderbuffer(GL_RENDERBUFFER, rb);
+		glGetRenderbufferParameteriv(GL_RENDERBUFFER, GL_RENDERBUFFER_WIDTH, &w);
+		glGetRenderbufferParameteriv(GL_RENDERBUFFER, GL_RENDERBUFFER_HEIGHT, &h);
+		printf("Present %d: bound fb %d rb %d; SDL fb %u rb %u (is rb %d, %dx%d); fb colour attachment type 0x%x name %d; GL error before 0x%x\n",
+			frame, boundFb, boundRb, fb, rb, glIsRenderbuffer(rb), w, h, attType, att, glGetError());
+		glBindFramebuffer(GL_FRAMEBUFFER, boundFb);
+	}
+	while (glGetError() != GL_NO_ERROR) {}
+	glBindRenderbuffer(GL_RENDERBUFFER, rb);
+	const BOOL ok = [[EAGLContext currentContext] presentRenderbuffer:GL_RENDERBUFFER];
+	const GLenum err = glGetError();
+	if (report || (int)ok != lastOk)
+	{
+		printf("Present %d: %s, GL error 0x%x\n", frame, ok ? "ok" : "FAILED", err);
+		fflush(stdout);
+	}
+	lastOk = ok;
+}
