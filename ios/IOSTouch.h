@@ -187,6 +187,11 @@ int IOSTouch_TakeLevelPick(void);
 void IOSTouch_CheatLevelFailed(void); /* the level picked couldn't be started */
 /* A line of news over the game for fSeconds */
 void IOSTouch_ShowMessage(const char *str, double fSeconds);
+/* A game controller is being played (1, IOSPad.cpp): the touch controls
+   hide (the line of news still shows), every touch is let go and tilt
+   aiming stops, until a touch (which does nothing else) or 0 (the last
+   controller gone) brings them back */
+void IOSTouch_SetPadHidden(int bHidden);
 
 /* Provided by the game (IOSGame.cpp): the cheat's list of levels (iLevel
    1..ctLevels: its name and its file; 0 if there is none), and the one being

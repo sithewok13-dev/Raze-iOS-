@@ -30,6 +30,9 @@
 **---------------------------------------------------------------------------
 **
 */
+// Added: with RAZE_TOUCH (iOS, and its Linux test rig) game controllers are
+// ios/IOSPad.cpp's (SDL's game controller layout, hot-plugging)
+#ifndef RAZE_TOUCH
 #include <SDL.h>
 
 #include "basics.h"
@@ -366,3 +369,4 @@ IJoystickConfig *I_UpdateDeviceList()
 {
 	return NULL;
 }
+#endif // RAZE_TOUCH

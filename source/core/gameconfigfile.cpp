@@ -444,6 +444,11 @@ void FGameConfigFile::DoKeySetup(const char *gamename)
 			}
 		}
 	}
+#ifdef RAZE_TOUCH
+	// Added: iOS: the game controller's bindings brought up to date, once
+	extern void IOSPad_UpgradeBinds();
+	IOSPad_UpgradeBinds();
+#endif
 	OkayToWrite = true;
 }
 
@@ -667,6 +672,18 @@ void G_ReadConfig(const char* game)
 	FBaseCVar::EnableCallbacks();
 	GameName = game;
 }
+
+#ifdef RAZE_TOUCH
+// Added: iOS: the settings written while the game runs on (the app going to
+// the background, where iOS may end it without a word: ios/IOSPad.cpp)
+void G_WriteConfigNow()
+{
+	if (!GameConfig || GameName.IsEmpty()) return;
+	GameConfig->ArchiveGlobalData();
+	GameConfig->ArchiveGameData(GameName.GetChars());
+	GameConfig->WriteConfigFile();
+}
+#endif
 
 void G_SaveConfig()
 {

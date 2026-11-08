@@ -763,6 +763,11 @@ void C_SetDefaultKeys(const char* baseconfig)
 		else
 			ReadBindings(lump, true);
 	}
+#ifdef RAZE_TOUCH
+	// Added: iOS: the game controller's defaults (ios/IOSPad.cpp)
+	extern void IOSPad_DefaultBinds();
+	IOSPad_DefaultBinds();
+#endif
 }
 
 //=============================================================================

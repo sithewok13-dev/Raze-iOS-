@@ -11,6 +11,7 @@
 
 #include "IOSNet.h"
 #include "IOSGame.h"
+#include "IOSPad.h"
 #include "iosCamera.h"
 
 #include <sys/stat.h>
@@ -312,17 +313,18 @@ static bool CameraBusy()
 	return true;
 }
 
-static void QuickSave()
+static bool QuickSave()
 {
-	if (netgame || CameraBusy()) return;
+	if (netgame || CameraBusy()) return false;
 	auto part = Part();
 	if (!gi->CanSave() || (part && part->Alive && !part->Alive()))
 	{
 		IOSTouch_ShowMessage("Can't save now", 2.0);
-		return;
+		return false;
 	}
 	C_DoCommand("rotatingquicksave");
 	IOSTouch_ShowMessage("Quick save", 1.5);
+	return true;
 }
 
 // The newest of the quick saves in this game's own save folder (the
@@ -346,17 +348,35 @@ static FString NewestQuickSave()
 	return best;
 }
 
-static void QuickLoad()
+static bool QuickLoad()
 {
-	if (netgame || CameraBusy()) return;
+	if (netgame || CameraBusy()) return false;
 	auto name = NewestQuickSave();
 	if (name.IsEmpty())
 	{
 		IOSTouch_ShowMessage("No quick save yet (hold QUICK SAVE)", 3.0);
-		return;
+		return false;
 	}
 	G_LoadGame(name.GetChars());
 	IOSTouch_ShowMessage("Quick load", 1.5);
+	return true;
+}
+
+// The game controller's Back held (ios/IOSPad.cpp): the same quick save and
+// load, while a level is being played (not paused, no console)
+bool IOSGame_PadInLevel()
+{
+	return TouchMode() == IOSTOUCH_GAMEPLAY;
+}
+
+bool IOSGame_PadQuickSave()
+{
+	return IOSGame_PadInLevel() && QuickSave();
+}
+
+bool IOSGame_PadQuickLoad()
+{
+	return IOSGame_PadInLevel() && QuickLoad();
 }
 
 //---------------------------------------------------------------------------
@@ -454,8 +474,11 @@ void IOSGame_Frame()
 	hud.bNoSaves = netgame; // (QUICK SAVE says when it can't save; QUICK LOAD works dead too)
 	hud.bCheatAllowed = CheatAllowed();
 	hud.strCheatRefusal = hud.bCheatAllowed ? nullptr : CheatRefusal();
-	if (hud.bCheatAllowed && cheatLevels.Size() == 0) FindLevels();
-	hud.ctLevels = hud.bCheatAllowed ? cheatLevels.Size() : 0;
+	// The tray's LEVEL: every game's own levels, in single player whether or
+	// not the cheat is on (the owner's choice)
+	const bool levelPick = !netgame && gamestate == GS_LEVEL && currentLevel != nullptr && part != nullptr;
+	if (levelPick && cheatLevels.Size() == 0) FindLevels();
+	hud.ctLevels = levelPick ? cheatLevels.Size() : 0;
 	hud.uWorld = levelStarts;
 	if (part && part->PickTick) part->PickTick();
 	IOSTouch_SetWeapons(&wpn);
@@ -493,7 +516,7 @@ void IOSGame_Frame()
 		cheatOn = false;
 		if (CheatAllowed()) C_DoCommand("godoff");
 	}
-	if (CheatAllowed())
+	if (levelPick)
 	{
 		if (req & IOSTOUCH_REQ_LEVEL)
 		{
@@ -684,6 +707,31 @@ CCMD(ios_cheatsound)
 	auto part = Part();
 	if (part && part->CheatSound) part->CheatSound();
 	C_DoCommand("ios_rigsounds");
+}
+
+// The menu open, how deep, and the item picked in it (the pad's tests)
+CCMD(ios_rigmenu)
+{
+	int depth = 0;
+	for (DMenu* m = CurrentMenu; m; m = m->mParentMenu) depth++;
+	int sel = -99;
+	FString desc;
+	if (CurrentMenu)
+	{
+		auto f = dyn_cast<PField>(CurrentMenu->GetClass()->FindSymbol("mDesc", true));
+		if (f)
+		{
+			auto d = *(DMenuDescriptor**)((uint8_t*)CurrentMenu + f->Offset);
+			if (d)
+			{
+				desc = d->mMenuName.GetChars();
+				if (auto l = dyn_cast<DListMenuDescriptor>(d)) sel = l->mSelectedItem;
+				else if (auto o = dyn_cast<DOptionMenuDescriptor>(d)) sel = o->mSelectedItem;
+			}
+		}
+	}
+	Printf("rigmenu active %d depth %d class %s desc %s sel %d\n", (int)M_Active(), depth,
+		CurrentMenu ? CurrentMenu->GetClass()->TypeName.GetChars() : "-", desc.GetChars(), sel);
 }
 
 CCMD(ios_rigpos)
