@@ -181,7 +181,9 @@ static const char* const* CheatIcon()
 static void CheatSound()
 {
 	static const int lines[] = { 734, 735, 736, 737, 738, 739, 740, 741, 3038, 3049 };
-	sndStartSample(lines[rand() % countof(lines)], 255, -1, false, CHANF_UI);
+	// channel 2, as the game's own lines for Caleb: replaces only an earlier
+	// line (with -1 it would stop every unpositioned sound playing)
+	sndStartSample(lines[rand() % countof(lines)], 255, 2, false, CHANF_UI);
 }
 
 END_BLD_NS

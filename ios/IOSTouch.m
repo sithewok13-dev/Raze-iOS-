@@ -3931,7 +3931,11 @@ static UIBezierPath *IOSTouch_AnkhPath(CGFloat cx, CGFloat cy, CGFloat r)
     [CATransaction commit];
     bPictureNew = 1;
   }
-  const int iEmblem = (_wpn.iMap == IOSTOUCH_WHEEL_EXHUMED && !_cheatIcon.bHave) ? 1 : 0;
+  // Exhumed's drawn ankh: latched once the weapon data says Exhumed (one game
+  // per run; between valid frames _wpn is empty and would flip it back)
+  static int bExhumed = 0;
+  if (_wpn.bValid && _wpn.iMap == IOSTOUCH_WHEEL_EXHUMED) bExhumed = 1;
+  const int iEmblem = (bExhumed && !_cheatIcon.bHave) ? 1 : 0;
   if (iEmblem != iCheatEmblem) {
     iCheatEmblem = iEmblem;
     const CGFloat r = _aButtons[BTN_CHEAT].radius;
