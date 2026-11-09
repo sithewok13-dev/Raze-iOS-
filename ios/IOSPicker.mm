@@ -25,8 +25,7 @@
 extern "C" void IOSGame_WriteConfig(void); // IOSGame.cpp: the settings, written now
 // i_ios.mm: LAN multiplayer's questions, and the command line they make
 extern "C" int IOS_HasLanGames(const char* const* names, int count);
-extern "C" int IOS_ChooseLanSwitch(const char* const* names, int count, char* args, int ctArgs);
-extern "C" void IOS_ApplyNextArgs(const char* joined);
+
 
 // (gamecontrol.h's GAMEFLAG_*)
 enum
@@ -649,8 +648,19 @@ void IOSPicker_Close(void)
 #define KEY_NEXT_FILE @"razeNextGameFile"
 #define KEY_NEXT_NAME @"razeNextGameName"
 #define KEY_NEXT_TIME @"razeNextGameTime"
-#define KEY_NEXT_ARGS @"razeNextGameArgs" // a LAN game's command line, one argument a line
+#define KEY_NEXT_LAN @"razeNextLan" // LAN multiplayer picked in "Switch game": its time
 #define NEXT_GAME_TIME 600.0 // seconds
+
+// LAN multiplayer picked in "Switch game" before the app closed: the start
+// picker goes straight to its questions (IOSPicker_StartsWithLan)
+static bool _bStartWithLan = false;
+
+int IOSPicker_StartsWithLan(void)
+{
+	const bool b = _bStartWithLan;
+	_bStartWithLan = false;
+	return b ? 1 : 0;
+}
 
 int IOSPicker_TakeNext(void)
 {
@@ -658,11 +668,20 @@ int IOSPicker_TakeNext(void)
 	[[UNUserNotificationCenter currentNotificationCenter] removeAllDeliveredNotifications];
 
 	NSUserDefaults* d = NSUserDefaults.standardUserDefaults;
+	const double ageLan = NSDate.timeIntervalSinceReferenceDate - [d doubleForKey:KEY_NEXT_LAN];
+	if ([d objectForKey:KEY_NEXT_LAN])
+	{
+		[d removeObjectForKey:KEY_NEXT_LAN];
+		if (ageLan >= 0 && ageLan <= NEXT_GAME_TIME)
+		{
+			printf("Game picker: LAN multiplayer, as picked before the app closed\n");
+			_bStartWithLan = true;
+			return -1;
+		}
+	}
 	NSString* file = [d stringForKey:KEY_NEXT_FILE];
 	NSString* name = [d stringForKey:KEY_NEXT_NAME];
 	const double age = NSDate.timeIntervalSinceReferenceDate - [d doubleForKey:KEY_NEXT_TIME];
-	NSString* args = [d stringForKey:KEY_NEXT_ARGS];
-	[d removeObjectForKey:KEY_NEXT_ARGS];
 	[d removeObjectForKey:KEY_NEXT_FILE];
 	[d removeObjectForKey:KEY_NEXT_NAME];
 	[d removeObjectForKey:KEY_NEXT_TIME];
@@ -677,29 +696,38 @@ int IOSPicker_TakeNext(void)
 		if ([a isEqualToString:b] && [name isEqualToString:@(_aEntries[i].name)])
 		{
 			printf("Game picker: the game switched to, %s\n", _aEntries[i].name);
-			if (args.length) IOS_ApplyNextArgs(args.UTF8String);
 			return i;
 		}
 	}
 	return -1;
 }
 
-static void CloseForNext(int picked, const char* lanArgs)
+// The pick kept (a game, or picked < 0: LAN multiplayer), the settings
+// written, a "Tap to start" notification asked for, and the app closed
+static void CloseForNext(int picked)
 {
-	const IOSPickEntry* e = &_aEntries[picked];
 	NSUserDefaults* d = NSUserDefaults.standardUserDefaults;
-	if (lanArgs && *lanArgs) [d setObject:@(lanArgs) forKey:KEY_NEXT_ARGS];
-	else [d removeObjectForKey:KEY_NEXT_ARGS];
-	[d setObject:@(e->file) forKey:KEY_NEXT_FILE];
-	[d setObject:@(e->name) forKey:KEY_NEXT_NAME];
-	[d setDouble:NSDate.timeIntervalSinceReferenceDate forKey:KEY_NEXT_TIME];
+	NSString* title;
+	if (picked >= 0)
+	{
+		const IOSPickEntry* e = &_aEntries[picked];
+		[d setObject:@(e->file) forKey:KEY_NEXT_FILE];
+		[d setObject:@(e->name) forKey:KEY_NEXT_NAME];
+		[d setDouble:NSDate.timeIntervalSinceReferenceDate forKey:KEY_NEXT_TIME];
+		[d removeObjectForKey:KEY_NEXT_LAN];
+		title = [NSString stringWithUTF8String:e->name] ?: @"the game";
+	}
+	else
+	{
+		[d setDouble:NSDate.timeIntervalSinceReferenceDate forKey:KEY_NEXT_LAN];
+		[d removeObjectForKey:KEY_NEXT_FILE];
+		title = @"LAN multiplayer";
+	}
 	[d synchronize];
 	IOSGame_WriteConfig();
-	printf("Switch game: %s, the app closes\n", e->name);
+	printf("Switch game: %s, the app closes\n", title.UTF8String);
 	fflush(stdout);
 
-	NSString* title = [NSString stringWithUTF8String:e->name] ?: @"the game";
-	if (lanArgs && *lanArgs) title = [title stringByAppendingString:@" (LAN game)"];
 	UNUserNotificationCenter* center = UNUserNotificationCenter.currentNotificationCenter;
 	[center requestAuthorizationWithOptions:UNAuthorizationOptionAlert | UNAuthorizationOptionSound
 		completionHandler:^(BOOL granted, NSError* err) {
@@ -744,27 +772,22 @@ void IOSPicker_PresentSwitch(void (*pfnDone)(int bPicked))
 	IOSPickerController* menu = [IOSPickerController new];
 	menu.switching = YES;
 	menu.modalPresentationStyle = UIModalPresentationFullScreen;
-	// LAN multiplayer here too: its questions over this picker, then the app
-	// closes for the LAN game as for any other
-	const char** names = (const char**)calloc(_ctEntries, sizeof(char*));
+	// LAN multiplayer here too: the app closes, and its questions come at the
+	// next start (asked here, over a game held mid-frame, they hung)
+	const char** names = (const char**)calloc(_ctEntries > 0 ? _ctEntries : 1, sizeof(char*));
 	for (int i = 0; i < _ctEntries; i++) names[i] = _aEntries[i].name;
 	menu.lan = IOS_HasLanGames(names, _ctEntries) != 0;
+	free(names);
 	__weak IOSPickerController* weakMenu = menu;
 	menu.done = ^(int picked) {
 		if (picked == IOSPICKER_LAN)
 		{
-			// (after the tap has been handled: the questions wait for answers)
-			dispatch_async(dispatch_get_main_queue(), ^{
-				char args[512] = "";
-				const int g = IOS_ChooseLanSwitch(names, _ctEntries, args, sizeof(args));
-				if (g >= 0) CloseForNext(g, args);
-				else [weakMenu reopen]; // Back: the picker again
-			});
-			return;
+			CloseForNext(-1);
+			return; // (the menu stays up until the app closes)
 		}
 		if (picked >= 0 && picked < _ctEntries)
 		{
-			CloseForNext(picked, nullptr);
+			CloseForNext(picked);
 			return; // (the menu stays up until the app closes)
 		}
 		[weakMenu dismissViewControllerAnimated:YES completion:nil];

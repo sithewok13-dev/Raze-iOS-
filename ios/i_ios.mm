@@ -290,60 +290,6 @@ extern "C" int IOS_HasLanGames(const char* const* names, int count)
 	return 0;
 }
 
-// ...which game, then host or join, over "Switch game": the game's index in
-// names (-1: Back) and the command line the next start of the app needs for
-// it, one argument a line
-extern "C" int IOS_ChooseLanSwitch(const char* const* names, int count, char* args, int ctArgs)
-{
-	TArray<int> netGames;
-	for (int i = 0; i < count; i++)
-	{
-		const NetMode* modes = nullptr;
-		int ctModes = 0;
-		NetModes(names[i], &ctModes, &modes);
-		if (ctModes > 0) netGames.Push(i);
-	}
-	if (netGames.Size() == 0) return -1;
-	for (;;)
-	{
-		NSMutableArray<NSString*>* games = [NSMutableArray array];
-		for (unsigned i = 0; i < netGames.Size(); i++)
-		{
-			NSString* name = [NSString stringWithUTF8String:names[netGames[i]]];
-			[games addObject:name ? name : @"?"];
-		}
-		[games addObject:@"Back"];
-		const int g = RunAlert(Sheet(@"LAN multiplayer", @"Which game? (Everyone needs the same game files.)"), games, (int)netGames.Size());
-		if (g < 0 || g >= (int)netGames.Size()) return -1;
-		const int pick = netGames[g];
-		const NetMode* modes = nullptr;
-		int ctModes = 0;
-		NetModes(names[pick], &ctModes, &modes);
-		const int before = Args->NumArgs();
-		if (ChooseNetwork(names[pick], modes, ctModes))
-		{
-			FString joined;
-			for (int a = before; a < Args->NumArgs(); a++)
-			{
-				if (a > before) joined += "\n";
-				joined += Args->GetArg(a);
-			}
-			snprintf(args, ctArgs, "%s", joined.GetChars());
-			return pick;
-		}
-	}
-}
-
-// The next start of the app after "Switch game" to a LAN game: its command line
-extern "C" void IOS_ApplyNextArgs(const char* joined)
-{
-	FString all = joined;
-	auto parts = all.Split("\n");
-	for (auto& a : parts)
-		if (a.Len() > 0) Args->AppendArg(a.GetChars());
-	printf("LAN game, as picked before the app closed:%s%s\n", parts.Size() ? " " : "", all.GetChars());
-}
-
 int I_PickIWad_Cocoa(WadStuff* wads, int numwads, bool showwin, int defaultiwad)
 {
 	if (!showwin) return defaultiwad;
@@ -362,7 +308,8 @@ int I_PickIWad_Cocoa(WadStuff* wads, int numwads, bool showwin, int defaultiwad)
 		// The cards (ios/IOSPicker.mm: a main game each, held for its
 		// add-ons), with "LAN multiplayer" below (Added); the list as it
 		// always was if they can't be shown
-		int chosen = IOSPicker_Run(netGames.Size() > 0);
+		// (LAN multiplayer picked in "Switch game": straight to its questions)
+		int chosen = (netGames.Size() > 0 && IOSPicker_StartsWithLan()) ? IOSPICKER_LAN : IOSPicker_Run(netGames.Size() > 0);
 		const int iLan = IOSPICKER_LAN;
 		if (chosen == -1)
 		{
@@ -643,6 +590,28 @@ extern "C" void IOS_PerfFrame(uint64_t ticsNs, uint64_t drawNs, bool inLevel)
 		frames = calls = 0;
 		sumTics = sumDraw = sumPresent = worst = sumGL = sumAcq = sumGpu = 0;
 	}
+}
+
+// The tray's FPS at 60 on a 120 Hz screen: the screen is asked for 60, but
+// the game's frames would still come at the screen's 120 (vsync), so they
+// are kept at most 1/60 s apart here (the waits are battery saved)
+extern "C" int IOSTouch_MaxFps(void);
+extern "C" void IOS_FrameCap(void)
+{
+	static uint64_t next = 0;
+	const int fps = IOSTouch_MaxFps();
+	if (fps <= 0 || fps >= 120) { next = 0; return; }
+	const uint64_t period = 1000000000ull / (uint64_t)fps;
+	uint64_t now = IOS_Ns();
+	// (far behind, after a pause or a load: from now on)
+	if (next == 0 || now > next + period) next = now;
+	if (now < next)
+	{
+		const uint64_t wait = next - now;
+		struct timespec ts = { (time_t)(wait / 1000000000ull), (long)(wait % 1000000000ull) };
+		nanosleep(&ts, nullptr);
+	}
+	next += period;
 }
 
 // The frame's hand-over to the screen, done here instead of SDL's swap so

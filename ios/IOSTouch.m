@@ -198,6 +198,7 @@ enum {
   KIND_LEVELPICK,// (MENU's tray, the cheat on) opens the list of levels, when the touch lifts on it
   KIND_LOOKSPEED,// (MENU's tray) the next look speed, when the touch lifts on it; held IOSTOUCH_MENU_HOLD, back to 1x
   KIND_GAMES,    // (MENU's tray) "Switch game" (ios/IOSPicker.mm), when the touch lifts on it
+  KIND_OPACITY,  // (MENU's tray) opens or closes its slider under the tray, when the touch lifts on it; held IOSTOUCH_MENU_HOLD, back to 100%
 };
 
 // which modes a button shows in
@@ -241,7 +242,7 @@ enum {
   BTN_CAMERA,
   BTN_CHEAT,
   BTN_RESUME,
-  BTN_TRAYLOOK, BTN_TRAYSENS, BTN_TRAYGYRO, BTN_TRAYFPS, BTN_TRAYCAM, BTN_TRAYCHEAT, BTN_TRAYLEVEL, BTN_TRAYGAMES, BTN_TRAYKEYS, // MENU's tray (left to right), hidden unless it is open
+  BTN_TRAYLOOK, BTN_TRAYSENS, BTN_TRAYGYRO, BTN_TRAYFPS, BTN_TRAYOPACITY, BTN_TRAYCAM, BTN_TRAYCHEAT, BTN_TRAYLEVEL, BTN_TRAYGAMES, BTN_TRAYKEYS, // MENU's tray (left to right), hidden unless it is open
   BTN_COUNT
 };
 static IOSTouchButton _aButtons[] = {
@@ -263,6 +264,7 @@ static IOSTouchButton _aButtons[] = {
   [BTN_TRAYSENS]  = { "SENS",        KIND_GYROSENS, 0,                      20.0, 0, SHOW_ALL },
   [BTN_TRAYGYRO]  = { "GYRO",        KIND_GYRO,     0,                      20.0, 0, SHOW_ALL },
   [BTN_TRAYFPS]   = { "FPS",         KIND_FPS,      0,                      20.0, 0, SHOW_ALL },
+  [BTN_TRAYOPACITY] = { "OPACITY",   KIND_OPACITY,  0,                      20.0, 0, SHOW_ALL },
   [BTN_TRAYCAM]   = { "",            KIND_CAMSWITCH, 0,                     20.0, 0, SHOW_ALL },
   [BTN_TRAYCHEAT] = { "CHEAT",       KIND_CHEATSWITCH, 0,                   20.0, 0, SHOW_ALL },
   [BTN_TRAYLEVEL] = { "LEVEL",       KIND_LEVELPICK, 0,                     20.0, 0, SHOW_PLAY },
@@ -877,6 +879,31 @@ static int _bShowFps = 0;                  // the FPS readout (the view keeps it
 // (smoother, more battery). The tray's FPS held switches it, with a ring;
 // the view keeps it in the app's settings and asks the screen for it
 static int _iMaxFps = 60;
+// The tray's OPACITY: how strongly the touch controls show in play
+// (IOSTOUCH_OPACITY_MIN to 1, IOSTOUCH_OPACITY_STEP steps; 1, the default,
+// as they always were), with its slider under the tray (tapped open), held
+// back to 1 (a ring). The tray itself, and the wheels, stay at full. The
+// view keeps it in the app's settings.
+#define IOSTOUCH_OPACITY_MIN 0.10f
+#define IOSTOUCH_OPACITY_STEP 0.05f
+static float _fOpacity = 1.0f;
+static int _bOpacityOpen = 0;
+static float _fOpacityRing = 0.0f;
+static int _ctOpacityResets = 0;
+
+// The frame rate asked for in the tray (FPS held): 60 or 120
+int IOSTouch_MaxFps(void)
+{
+  return _iMaxFps;
+}
+
+static float IOSTouch_OpacityStep(float k)
+{
+  if (!(k == k)) return 1.0f;
+  if (k < IOSTOUCH_OPACITY_MIN) return IOSTOUCH_OPACITY_MIN;
+  if (k > 1.0f) return 1.0f;
+  return roundf(k / IOSTOUCH_OPACITY_STEP) * IOSTOUCH_OPACITY_STEP;
+}
 static float _fFpsRing = 0.0f;
 static int _ctMaxFpsChanges = 0;
 // CAMERA: whether it shows (the view keeps it in the app's settings), its
@@ -1086,6 +1113,7 @@ static void IOSTouch_SetTrayOpen(int bOpen)
   bOpen = bOpen != 0;
   if (_bTrayOpen == bOpen) return;
   _bTrayOpen = bOpen;
+  if (!bOpen) _bOpacityOpen = 0;
   if (!bOpen) {
     for (int i = 0; i < IOSTOUCH_MAX_TOUCHES; i++) {
       IOSTouchSlot *s = &_aSlots[i];
@@ -1136,7 +1164,7 @@ static void IOSTouch_DropTouches(const IOSTouchSlot *s)
     }
     o->role = ROLE_IGNORED;
   }
-  _fSaveRing = _fLoadRing = _fMenuRing = _fLookRing = _fFpsRing = 0.0f;
+  _fSaveRing = _fLoadRing = _fMenuRing = _fLookRing = _fFpsRing = _fOpacityRing = 0.0f;
   IOSTouch_SetMoveFromStick();
   IOSTouch_SetHeld(IOSTouch_HeldButtons(), 0);
 }
@@ -1198,6 +1226,10 @@ static void IOSTouch_UseTrayButton(int button)
   }
   else if (kind == KIND_GAMES) {
     _iRequests |= _aButtons[button].ulAction; // "Switch game", over the game
+  }
+  else if (kind == KIND_OPACITY) {
+    _bOpacityOpen = !_bOpacityOpen; // its slider (the tray stays)
+    return;
   }
   else if (kind == KIND_FPS) {
     IOSTouch_SetShowFps(!_bShowFps);
@@ -2847,7 +2879,7 @@ static void IOSTouch_TouchEnded(const void *touch, double x, double y, int bCanc
       else if (b->kind == KIND_ITEM && !s->bFired) {
         ulLifted |= b->ulAction; // never held, so the game gets it as one press
       }
-      else if (IOSTouch_IsTrayButton(s->button) && !((s->button == BTN_TRAYCAM || s->button == BTN_TRAYLOOK || s->button == BTN_TRAYFPS) && s->bFired)) {
+      else if (IOSTouch_IsTrayButton(s->button) && !((s->button == BTN_TRAYCAM || s->button == BTN_TRAYLOOK || s->button == BTN_TRAYFPS || s->button == BTN_TRAYOPACITY) && s->bFired)) {
         IOSTouch_UseTrayButton(s->button); // (not the tray's CAMERA, LOOK or FPS once held: that opened its options, set 1x, or switched 60/120)
       }
       else if (b->kind == KIND_MENU && !s->bFired) {
@@ -2864,6 +2896,7 @@ static void IOSTouch_TouchEnded(const void *touch, double x, double y, int bCanc
     if (s->button == BTN_TRAYCAM) _fCamSwitchRing = 0.0f;
     if (s->button == BTN_TRAYLOOK) _fLookRing = 0.0f;
     if (s->button == BTN_TRAYFPS) _fFpsRing = 0.0f;
+    if (s->button == BTN_TRAYOPACITY) _fOpacityRing = 0.0f;
     // MENU held until its tray opened, then slid onto one of its buttons
     if (!bCancelled && s->button == BTN_MENU && s->bFired && _bTrayOpen) {
       const int tb = IOSTouch_ButtonAt(x, y);
@@ -2929,6 +2962,7 @@ static void IOSTouch_TickHolds(double now)
   // the furthest along of QUICK SAVE's and of QUICK LOAD's holds (a touch each)
   _fLookRing = 0.0f; // (set again below while LOOK is held)
   _fFpsRing = 0.0f; // (...and FPS)
+  _fOpacityRing = 0.0f; // (...and OPACITY)
   float fSaveRing = 0.0f, fLoadRing = 0.0f;
   int iDone = -1; // the quick hold that completed: BTN_QUICKSAVE or BTN_QUICKLOAD
   for (int i = 0; i < IOSTOUCH_MAX_TOUCHES; i++) {
@@ -2988,6 +3022,27 @@ static void IOSTouch_TickHolds(double now)
       }
       else {
         _fCamSwitchRing = (float)progress;
+      }
+    }
+    else if (s->button == BTN_TRAYOPACITY) {
+      // the tray's OPACITY held: back to 100%, as the controls always were
+      // (the lift then does nothing)
+      if (!IOSTouch_LiftsOnButton(s->x, s->y, BTN_TRAYOPACITY)) {
+        s->bFired = 1;
+        _fOpacityRing = 0.0f;
+        continue;
+      }
+      const double progress = (now - s->tDown) / IOSTOUCH_MENU_HOLD;
+      if (progress >= 1.0) {
+        s->bFired = 1;
+        _fOpacityRing = 0.0f;
+        _fOpacity = 1.0f;
+        _bOpacityOpen = 0;
+        _ctOpacityResets++;
+        IOS_ShowCameraMessage("Opacity back to the default, 100%");
+      }
+      else {
+        _fOpacityRing = (float)progress;
       }
     }
     else if (s->button == BTN_TRAYFPS) {
@@ -3314,6 +3369,7 @@ static void IOSTouch_ResetTouches(int bReading)
   _bLevelListOpen = 0;
   _fLookRing = 0.0f;
   _fFpsRing = 0.0f;
+  _fOpacityRing = 0.0f;
   IOSTouch_ResetShared(bReading);
 }
 
@@ -3425,6 +3481,9 @@ void IOSTouch_TakeGyro(float *pfYaw, float *pfPitch)
 // ...and the look speed (MENU's tray's LOOK; never set: 1x)
 #define IOSTOUCH_LOOKSCALE_DEFAULTS_KEY @"iosTouchLookScale"
 #define IOSTOUCH_MAXFPS_DEFAULTS_KEY @"iosTouchMaxFps"
+#define IOSTOUCH_OPACITY_DEFAULTS_KEY @"iosTouchOpacity"
+#define IOSTOUCH_OPACITY_W 260.0
+#define IOSTOUCH_OPACITY_H 44.0
 
 // The app's version as its Info.plist says (source/CMakeLists.txt sets
 // both from RAZE_IOS_VERSION): "v0.1.57", with the build number after it,
@@ -3641,6 +3700,11 @@ typedef struct {
   // The tray's FPS: its hold's ring, the frame rate its label says, the
   // app's settings have and the screen was asked for (a display link)
   CAShapeLayer *fpsRing;
+  CAShapeLayer *opacityRing; // the tray's OPACITY: held back to 100%...
+  UIView *opacityBack;       // ...its slider's backing, a row under the tray...
+  UISlider *opacitySlider;   // ...and the slider
+  float fOpacityLabel;
+  int ctOpacityResetsFelt;
   int iMaxFpsLabel;
   int iMaxFpsSaved;
   int ctMaxFpsFelt;
@@ -3786,7 +3850,7 @@ static CAShapeLayer *IOSTouch_MakeHoldRing(CGFloat r)
     iGyroModeSaved = _iGyroMode;
     iGyroSensSaved = _iGyroSens;
     iGyroLabels = -1;
-    for (int i = BTN_TRAYLOOK; i <= BTN_TRAYFPS; i++) { // (FPS too: "FPS\n120")
+    for (int i = BTN_TRAYLOOK; i <= BTN_TRAYOPACITY; i++) { // (FPS and OPACITY too: "FPS\n120")
       aButtonViews[i].font = IOSTouch_TrayFont(IOSTouch_FontSize("GYRO\nALWAYS", _aButtons[i].radius));
     }
     // LOOK says the look speed on its second line too (set in
@@ -3809,6 +3873,29 @@ static CAShapeLayer *IOSTouch_MakeHoldRing(CGFloat r)
     ctMaxFpsFelt = _ctMaxFpsChanges;
     fpsRing = IOSTouch_MakeHoldRing(_aButtons[BTN_TRAYFPS].radius);
     [aButtonViews[BTN_TRAYFPS].layer addSublayer:fpsRing];
+    // The tray's OPACITY: the strength kept (100% unless changed), its ring,
+    // and its slider under the tray (hidden until a tap on OPACITY)
+    if ([dLook objectForKey:IOSTOUCH_OPACITY_DEFAULTS_KEY]) _fOpacity = IOSTouch_OpacityStep([dLook floatForKey:IOSTOUCH_OPACITY_DEFAULTS_KEY]);
+    fOpacityLabel = -1.0f;
+    ctOpacityResetsFelt = _ctOpacityResets;
+    opacityRing = IOSTouch_MakeHoldRing(_aButtons[BTN_TRAYOPACITY].radius);
+    [aButtonViews[BTN_TRAYOPACITY].layer addSublayer:opacityRing];
+    opacityBack = [[UIView alloc] initWithFrame:CGRectMake(0, 0, IOSTOUCH_OPACITY_W, IOSTOUCH_OPACITY_H)];
+    opacityBack.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.55];
+    opacityBack.layer.cornerRadius = IOSTOUCH_OPACITY_H * 0.5;
+    opacityBack.layer.borderWidth = 1.5;
+    opacityBack.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:0.4].CGColor;
+    opacityBack.hidden = YES;
+    opacitySlider = [[UISlider alloc] initWithFrame:CGRectMake(16, 7, IOSTOUCH_OPACITY_W - 32, 30)];
+    opacitySlider.minimumValue = IOSTOUCH_OPACITY_MIN;
+    opacitySlider.maximumValue = 1.0;
+    opacitySlider.value = _fOpacity;
+    opacitySlider.minimumTrackTintColor = [UIColor colorWithRed:1.0 green:0.75 blue:0.3 alpha:0.95];
+    [opacitySlider addTarget:self action:@selector(opacitySlid:) forControlEvents:UIControlEventValueChanged];
+    [opacitySlider addTarget:self action:@selector(opacityLifted:)
+            forControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside | UIControlEventTouchCancel];
+    [opacityBack addSubview:opacitySlider];
+    [self addSubview:opacityBack];
     [self applyMaxFps];
     UIImageSymbolConfiguration *cfg = [UIImageSymbolConfiguration configurationWithPointSize:14 weight:UIImageSymbolWeightSemibold];
     UIImage *kb = [UIImage systemImageNamed:@"keyboard" withConfiguration:cfg];
@@ -4167,6 +4254,7 @@ static UIBezierPath *IOSTouch_AnkhPath(CGFloat cx, CGFloat cy, CGFloat r)
     stickKnob.hidden = YES;
     return;
   }
+  stickBase.alpha = stickKnob.alpha = _fOpacity; // (OPACITY's)
   stickBase.center = CGPointMake(_fStickOriginX, _fStickOriginY);
   stickKnob.center = CGPointMake(_fStickOriginX + _fStickX * IOSTOUCH_STICK_RADIUS,
                                  _fStickOriginY + _fStickY * IOSTOUCH_STICK_RADIUS);
@@ -4220,6 +4308,26 @@ static UIBezierPath *IOSTouch_AnkhPath(CGFloat cx, CGFloat cy, CGFloat r)
   }
 }
 
+// OPACITY's slider: the controls follow it as it slides, the strength is
+// kept as it lifts
+- (void)opacitySlid:(UISlider *)slider
+{
+  if (!_bOpacityOpen || !_bTrayOpen) {
+    slider.value = _fOpacity;
+    return;
+  }
+  _fOpacity = IOSTouch_OpacityStep(slider.value);
+  [self refreshButtonLooks];
+  [self refreshStick];
+}
+
+- (void)opacityLifted:(UISlider *)slider
+{
+  [self opacitySlid:slider];
+  slider.value = _fOpacity;
+  [[NSUserDefaults standardUserDefaults] setFloat:_fOpacity forKey:IOSTOUCH_OPACITY_DEFAULTS_KEY];
+}
+
 // What the tray's FPS says: the frame rate asked for ("FPS\n60")
 - (void)refreshMaxFpsLabel
 {
@@ -4242,6 +4350,23 @@ static UIBezierPath *IOSTouch_AnkhPath(CGFloat cx, CGFloat cy, CGFloat r)
   [self refreshGyroLabels];
   [self refreshLookLabel];
   [self refreshMaxFpsLabel];
+  if (fOpacityLabel != _fOpacity) {
+    fOpacityLabel = _fOpacity;
+    aButtonViews[BTN_TRAYOPACITY].text = [NSString stringWithFormat:@"OPACITY\n%d%%", (int)lroundf(_fOpacity * 100.0f)];
+  }
+  // OPACITY's slider: a row under the tray, under OPACITY (kept on screen),
+  // while it's open
+  {
+    const int bShow = _bOpacityOpen && _bTrayOpen;
+    if (bShow) {
+      const CGFloat w = IOSTOUCH_OPACITY_W, h = IOSTOUCH_OPACITY_H;
+      const CGFloat cx = fmax(fmin(_aButtons[BTN_TRAYOPACITY].x, self.bounds.size.width - self.safeAreaInsets.right - 8 - w * 0.5),
+                              self.safeAreaInsets.left + 8 + w * 0.5);
+      opacityBack.frame = CGRectMake(round(cx - w * 0.5), round(_aButtons[BTN_TRAYOPACITY].y + 52 - h * 0.5), w, h);
+      [self bringSubviewToFront:opacityBack];
+    }
+    if (opacityBack.hidden == bShow) opacityBack.hidden = !bShow;
+  }
   const int bGyro = IOSTouch_GyroAvailable();
   for (int i = 0; i < IOSTOUCH_NUM_BUTTONS; i++) {
     UILabel *l = aButtonViews[i];
@@ -4272,6 +4397,7 @@ static UIBezierPath *IOSTouch_AnkhPath(CGFloat cx, CGFloat cy, CGFloat r)
     if (i == BTN_TRAYGYRO && !bGyro) alpha *= 0.45;                                       // no gyro here
     if (i == BTN_TRAYSENS && (!bGyro || _iGyroMode == IOSTOUCH_GYRO_OFF)) alpha *= 0.45; // ...or it's off
     if (i == BTN_CAMERA && IOSTouch_CameraBusy()) alpha *= 0.45;                         // the camera is busy
+    if (!bTray) alpha *= _fOpacity; // (OPACITY: the controls in play; the tray at full)
     l.alpha = alpha;
     if (bCheatLit) {
       l.layer.borderColor = [UIColor colorWithRed:1.0 green:0.75 blue:0.2 alpha:1.0].CGColor;
@@ -4332,6 +4458,7 @@ static UIBezierPath *IOSTouch_AnkhPath(CGFloat cx, CGFloat cy, CGFloat r)
   [self setRing:menuRing progress:_fMenuRing];
   [self setRing:lookRing progress:_fLookRing];
   [self setRing:fpsRing progress:_fFpsRing];
+  [self setRing:opacityRing progress:_fOpacityRing];
   [self setRing:aWheelRings[0] progress:_afWheelRing[0]];
   [self setRing:aWheelRings[1] progress:_afWheelRing[1]];
   [self syncWheel];
@@ -4898,6 +5025,7 @@ static void IOSTouch_DrawWheelTheme(const IOSTouchWheelTheme *t, CGPoint c, doub
   [self setRing:menuRing progress:_fMenuRing];
   [self setRing:lookRing progress:_fLookRing];
   [self setRing:fpsRing progress:_fFpsRing];
+  [self setRing:opacityRing progress:_fOpacityRing];
   [self setRing:aWheelRings[0] progress:_afWheelRing[0]];
   [self setRing:aWheelRings[1] progress:_afWheelRing[1]];
   [self syncWheel]; // (a hold may have opened the weapon wheel, or the game closed it)
@@ -4907,6 +5035,15 @@ static void IOSTouch_DrawWheelTheme(const IOSTouchWheelTheme *t, CGPoint c, doub
     ctLookResetsFelt = _ctLookResets;
     [lookThump impactOccurred];
     [self refreshButtonLooks];
+  }
+  // OPACITY held: back to 100% (a thump, the controls, the slider)
+  if (ctOpacityResetsFelt != _ctOpacityResets) {
+    ctOpacityResetsFelt = _ctOpacityResets;
+    [lookThump impactOccurred];
+    opacitySlider.value = _fOpacity;
+    [[NSUserDefaults standardUserDefaults] setFloat:_fOpacity forKey:IOSTOUCH_OPACITY_DEFAULTS_KEY];
+    [self refreshButtonLooks];
+    [self refreshStick];
   }
   // FPS held: 60 or 120 (a thump, its label, the screen asked)
   if (ctMaxFpsFelt != _ctMaxFpsChanges) {
@@ -4929,7 +5066,8 @@ static void IOSTouch_DrawWheelTheme(const IOSTouchWheelTheme *t, CGPoint c, doub
   const int iCamNow = _bShowCamera * 8 + (_hud.bNoSaves != 0) * 16 + _bShowCheat * 32;
   if (aButtonViews[BTN_SECONDARY].hidden == IOSTouch_IsShown(BTN_SECONDARY) || aButtonViews[BTN_ITEM].hidden == IOSTouch_IsShown(BTN_ITEM)
       || aButtonViews[BTN_TRAYLEVEL].hidden == IOSTouch_IsShown(BTN_TRAYLEVEL)
-      || _bTrayOpen != bTrayWasOpen || _iFpsShown != iFpsWas || iCamNow != iCamWas) {
+      || _bTrayOpen != bTrayWasOpen || _iFpsShown != iFpsWas || iCamNow != iCamWas
+      || opacityBack.hidden == (_bOpacityOpen && _bTrayOpen)) {
     [self refreshButtonLooks];
   }
 }

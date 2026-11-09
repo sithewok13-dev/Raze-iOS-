@@ -69,6 +69,7 @@
 #include "menu.h"
 #ifdef RAZE_IOS
 extern "C" void IOS_PerfFrame(uint64_t ticsNs, uint64_t drawNs, bool inLevel); // ios/i_ios.mm
+extern "C" void IOS_FrameCap(void); // ios/i_ios.mm
 #endif
 #include "d_net.h"
 #include "gamecontrol.h"
@@ -846,6 +847,7 @@ void MainLoop ()
 			{
 				// Added: the frame's times, for the log (ios/i_ios.mm)
 				IOS_PerfFrame(tFrame1 - tFrame0, I_nsTime() - tFrame1, gamestate == GS_LEVEL && !M_Active() && !paused);
+				IOS_FrameCap(); // (the tray's 60 FPS: a frame at most every 1/60 s)
 			}
 #endif
 			Mus_UpdateMusic();		// must be at the end.

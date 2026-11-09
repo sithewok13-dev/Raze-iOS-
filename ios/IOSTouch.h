@@ -155,6 +155,9 @@ int IOSTouch_Update(void *pSDLWindow, int iMode, const IOSTouchHud *pHud, unsign
    home indicator and a notch, as x0, y0, x1, y1 fractions of the screen. The
    whole screen until IOSTouch_Update has seen SDL's view. */
 void IOSTouch_GetHudFrame(float afFrame[4]);
+/* The frame rate asked for in the tray (FPS held): 60 or 120. The screen is
+   asked for it; the game keeps to it too (i_ios.mm: IOS_FrameCap) */
+int IOSTouch_MaxFps(void);
 /* Hide now (a level is loading, or the app is going to the background), and
    stop tilt aiming's motion updates; the next update shows it again */
 void IOSTouch_Hide(void);
