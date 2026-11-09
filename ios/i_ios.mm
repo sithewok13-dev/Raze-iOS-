@@ -325,7 +325,11 @@ int I_PickIWad_Cocoa(WadStuff* wads, int numwads, bool showwin, int defaultiwad)
 		const NetMode* modes = nullptr;
 		int ctModes = 0;
 		NetModes(wads[pick].Name.GetChars(), &ctModes, &modes);
-		if (ChooseNetwork(wads[pick].Name.GetChars(), modes, ctModes)) return pick;
+		if (ChooseNetwork(wads[pick].Name.GetChars(), modes, ctModes))
+		{
+			IOSPicker_Close(); // (it stayed up under the questions)
+			return pick;
+		}
 	}
 }
 

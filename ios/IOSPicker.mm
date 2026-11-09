@@ -57,20 +57,33 @@ void IOSPicker_SetEntries(const IOSPickEntry* aEntries, int ctEntries, int iLast
 
 // ---------------------------------------------------------------- the look
 
+// The five cards: a family each (Duke Nukem 3D with NAM and WWII GI, Blood,
+// Redneck Rampage with Rides Again, Shadow Warrior, PowerSlave)
+enum { FAM_DUKE, FAM_BLOOD, FAM_RR, FAM_SW, FAM_PS, FAM_COUNT };
+
 typedef struct
 {
+	const char* title;	// the card's name
 	const char* symbol;	// an SF Symbol, the card's emblem
 	CGFloat top[3], bottom[3];	// the card's gradient
 } Family;
 
-static Family FamilyOf(int flags)
+static const Family families[FAM_COUNT] =
 {
-	if (flags & PF_BLOOD) return { "drop.fill", { 0.62, 0.02, 0.06 }, { 0.14, 0.00, 0.02 } };
-	if (flags & PF_SW) return { "flame.fill", { 0.05, 0.47, 0.36 }, { 0.02, 0.12, 0.10 } };
-	if (flags & (PF_RR | PF_RRRA)) return { "hare.fill", { 0.70, 0.42, 0.12 }, { 0.20, 0.10, 0.03 } };
-	if (flags & (PF_POWERSLAVE | PF_EXHUMED)) return { "sun.max.fill", { 0.82, 0.62, 0.20 }, { 0.30, 0.17, 0.04 } };
-	if (flags & (PF_NAM | PF_NAPALM | PF_WW2GI)) return { "shield.fill", { 0.38, 0.45, 0.20 }, { 0.10, 0.13, 0.05 } };
-	return { "bolt.fill", { 0.88, 0.27, 0.05 }, { 0.30, 0.05, 0.02 } }; // Duke Nukem 3D
+	{ "Duke Nukem 3D", "bolt.fill", { 0.88, 0.27, 0.05 }, { 0.30, 0.05, 0.02 } },
+	{ "Blood", "drop.fill", { 0.62, 0.02, 0.06 }, { 0.14, 0.00, 0.02 } },
+	{ "Redneck Rampage", "hare.fill", { 0.70, 0.42, 0.12 }, { 0.20, 0.10, 0.03 } },
+	{ "Shadow Warrior", "flame.fill", { 0.05, 0.47, 0.36 }, { 0.02, 0.12, 0.10 } },
+	{ "PowerSlave", "sun.max.fill", { 0.82, 0.62, 0.20 }, { 0.30, 0.17, 0.04 } },
+};
+
+static int FamilyOf(int flags)
+{
+	if (flags & PF_BLOOD) return FAM_BLOOD;
+	if (flags & PF_SW) return FAM_SW;
+	if (flags & (PF_RR | PF_RRRA)) return FAM_RR;
+	if (flags & (PF_POWERSLAVE | PF_EXHUMED)) return FAM_PS;
+	return FAM_DUKE; // (and NAM, Napalm, WWII GI: Duke's engine)
 }
 
 static UIColor* RGB(const CGFloat c[3], CGFloat a = 1.0)
@@ -96,23 +109,35 @@ static void SplitName(const char* name, NSString** title, NSString** edition)
 	}
 }
 
-static NSArray<NSNumber*>* AddonsOf(int iMain)
+// A family's games: its main games first, then the add-ons (each after the
+// main games, in the order found)
+static NSArray<NSNumber*>* GamesOf(int fam)
 {
 	NSMutableArray<NSNumber*>* a = [NSMutableArray array];
-	for (int i = 0; i < _ctEntries; i++)
-		if (_aEntries[i].bAddon && _aEntries[i].iBase == iMain) [a addObject:@(i)];
+	for (int pass = 0; pass < 2; pass++)
+		for (int i = 0; i < _ctEntries; i++)
+			if (FamilyOf(_aEntries[i].flags) == fam && (_aEntries[i].bAddon != 0) == (pass == 1)) [a addObject:@(i)];
 	return a;
+}
+
+// What a tap on a family's card starts: the one of its games played last,
+// else its first main game
+static int TapTarget(int fam)
+{
+	if (_iLast >= 0 && _iLast < _ctEntries && FamilyOf(_aEntries[_iLast].flags) == fam) return _iLast;
+	NSArray<NSNumber*>* g = GamesOf(fam);
+	return g.count ? g[0].intValue : -1;
 }
 
 // ---------------------------------------------------------------- a card
 
 #define HOLD_TIME 0.5
+#define TAP_SLOP 12.0 // points a finger may move and still tap
 
 @interface IOSGameCard : UIControl
-@property (nonatomic) int index;
-@property (nonatomic, copy) void (^onTap)(int index);
-@property (nonatomic, copy) void (^onHold)(int index);
-@property (nonatomic) BOOL hasHold;
+@property (nonatomic) int family;
+@property (nonatomic, copy) void (^onTap)(int family);
+@property (nonatomic, copy) void (^onHold)(int family);
 @end
 
 @implementation IOSGameCard
@@ -120,19 +145,20 @@ static NSArray<NSNumber*>* AddonsOf(int iMain)
 	CAGradientLayer* gradient;
 	CAShapeLayer* ring;
 	NSTimer* holdTimer;
-	BOOL held;
+	CGPoint down;
+	BOOL fired;	// held long enough: its games opened
+	BOOL moved;	// slid: no tap
 }
 
-- (instancetype)initWithEntry:(int)index
+- (instancetype)initWithFamily:(int)fam
 {
 	if (!(self = [super initWithFrame:CGRectZero])) return nil;
-	_index = index;
-	const IOSPickEntry* e = &_aEntries[index];
-	const Family f = FamilyOf(e->flags);
+	_family = fam;
+	const Family* f = &families[fam];
+	const int target = TapTarget(fam);
 	NSString *title, *edition;
-	SplitName(e->name, &title, &edition);
-	NSArray* addons = AddonsOf(index);
-	_hasHold = addons.count > 0;
+	SplitName(_aEntries[target].name, &title, &edition);
+	const int ctMore = (int)GamesOf(fam).count - 1;
 
 	self.layer.cornerRadius = 18;
 	self.layer.borderWidth = 1.5;
@@ -140,30 +166,28 @@ static NSArray<NSNumber*>* AddonsOf(int iMain)
 	self.clipsToBounds = YES;
 
 	gradient = [CAGradientLayer layer];
-	gradient.colors = @[ (id)RGB(f.top).CGColor, (id)RGB(f.bottom).CGColor ];
+	gradient.colors = @[ (id)RGB(f->top).CGColor, (id)RGB(f->bottom).CGColor ];
 	gradient.startPoint = CGPointMake(0.2, 0.0);
 	gradient.endPoint = CGPointMake(0.8, 1.0);
 	[self.layer addSublayer:gradient];
 
-	// the emblem, big and faint behind the name
+	// the emblem, big and faint behind the name, and small and bright above it
 	UIImageSymbolConfiguration* big = [UIImageSymbolConfiguration configurationWithPointSize:120 weight:UIImageSymbolWeightBold];
-	UIImageView* emblem = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@(f.symbol) withConfiguration:big]];
+	UIImageView* emblem = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@(f->symbol) withConfiguration:big]];
 	emblem.tintColor = [UIColor colorWithWhite:1.0 alpha:0.10];
 	emblem.contentMode = UIViewContentModeScaleAspectFit;
 	emblem.translatesAutoresizingMaskIntoConstraints = NO;
 	[self addSubview:emblem];
-
-	// and small and bright above it
 	UIImageSymbolConfiguration* small = [UIImageSymbolConfiguration configurationWithPointSize:22 weight:UIImageSymbolWeightSemibold];
-	UIImageView* badge = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@(f.symbol) withConfiguration:small]];
+	UIImageView* badge = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@(f->symbol) withConfiguration:small]];
 	badge.tintColor = [UIColor colorWithWhite:1.0 alpha:0.9];
 	badge.translatesAutoresizingMaskIntoConstraints = NO;
 	[self addSubview:badge];
 
 	UILabel* name = [[UILabel alloc] init];
-	name.text = [title uppercaseString];
+	name.text = [@(f->title) uppercaseString];
 	name.textColor = UIColor.whiteColor;
-	name.font = [UIFont systemFontOfSize:22 weight:UIFontWeightHeavy];
+	name.font = [UIFont systemFontOfSize:21 weight:UIFontWeightHeavy];
 	name.numberOfLines = 3;
 	name.adjustsFontSizeToFitWidth = YES;
 	name.minimumScaleFactor = 0.55;
@@ -172,17 +196,17 @@ static NSArray<NSNumber*>* AddonsOf(int iMain)
 	name.layer.shadowRadius = 3;
 	name.layer.shadowOffset = CGSizeMake(0, 1);
 
+	// what a tap starts
 	UILabel* sub = [[UILabel alloc] init];
-	sub.text = edition;
-	sub.textColor = [UIColor colorWithWhite:1.0 alpha:0.78];
-	sub.font = [UIFont systemFontOfSize:14 weight:UIFontWeightSemibold];
+	sub.text = edition.length ? edition : title;
+	sub.textColor = [UIColor colorWithWhite:1.0 alpha:0.8];
+	sub.font = [UIFont systemFontOfSize:13 weight:UIFontWeightSemibold];
 	sub.numberOfLines = 2;
 	sub.adjustsFontSizeToFitWidth = YES;
 	sub.minimumScaleFactor = 0.7;
 
 	UILabel* foot = [[UILabel alloc] init];
-	foot.text = addons.count == 0 ? @"" :
-		[NSString stringWithFormat:@"+%d ADD-ON%@ · HOLD", (int)addons.count, addons.count == 1 ? @"" : @"S"];
+	foot.text = ctMore <= 0 ? @"" : [NSString stringWithFormat:@"HOLD · %d MORE", ctMore];
 	foot.textColor = [UIColor colorWithRed:1.0 green:0.82 blue:0.45 alpha:1.0];
 	foot.font = [UIFont systemFontOfSize:12 weight:UIFontWeightBold];
 	foot.adjustsFontSizeToFitWidth = YES;
@@ -196,23 +220,21 @@ static NSArray<NSNumber*>* AddonsOf(int iMain)
 	[self addSubview:text];
 
 	NSMutableArray* cons = [NSMutableArray arrayWithArray:@[
-		[badge.leadingAnchor constraintEqualToAnchor:self.leadingAnchor constant:16],
-		[badge.topAnchor constraintEqualToAnchor:self.topAnchor constant:16],
-		[emblem.trailingAnchor constraintEqualToAnchor:self.trailingAnchor constant:28],
-		[emblem.bottomAnchor constraintEqualToAnchor:self.bottomAnchor constant:22],
+		[badge.leadingAnchor constraintEqualToAnchor:self.leadingAnchor constant:14],
+		[badge.topAnchor constraintEqualToAnchor:self.topAnchor constant:14],
+		[emblem.trailingAnchor constraintEqualToAnchor:self.trailingAnchor constant:24],
+		[emblem.bottomAnchor constraintEqualToAnchor:self.bottomAnchor constant:20],
 		[emblem.widthAnchor constraintEqualToAnchor:self.widthAnchor multiplier:0.85],
 		[emblem.heightAnchor constraintEqualToAnchor:emblem.widthAnchor],
-		[text.leadingAnchor constraintEqualToAnchor:self.leadingAnchor constant:16],
-		[text.trailingAnchor constraintEqualToAnchor:self.trailingAnchor constant:-14],
-		[text.topAnchor constraintEqualToAnchor:badge.bottomAnchor constant:12],
-		[text.bottomAnchor constraintEqualToAnchor:self.bottomAnchor constant:-14],
+		[text.leadingAnchor constraintEqualToAnchor:self.leadingAnchor constant:14],
+		[text.trailingAnchor constraintEqualToAnchor:self.trailingAnchor constant:-12],
+		[text.topAnchor constraintEqualToAnchor:badge.bottomAnchor constant:10],
+		[text.bottomAnchor constraintEqualToAnchor:self.bottomAnchor constant:-12],
 	]];
-
-	// the one played last
-	if (index == _iLast)
+	if (_iLast >= 0 && _iLast < _ctEntries && FamilyOf(_aEntries[_iLast].flags) == fam)
 	{
 		UILabel* last = [[UILabel alloc] init];
-		last.text = @" LAST PLAYED ";
+		last.text = @" LAST ";
 		last.font = [UIFont systemFontOfSize:10 weight:UIFontWeightHeavy];
 		last.textColor = UIColor.blackColor;
 		last.backgroundColor = [UIColor colorWithRed:1.0 green:0.82 blue:0.35 alpha:1.0];
@@ -221,7 +243,7 @@ static NSArray<NSNumber*>* AddonsOf(int iMain)
 		last.translatesAutoresizingMaskIntoConstraints = NO;
 		[self addSubview:last];
 		[cons addObjectsFromArray:@[
-			[last.trailingAnchor constraintEqualToAnchor:self.trailingAnchor constant:-12],
+			[last.trailingAnchor constraintEqualToAnchor:self.trailingAnchor constant:-10],
 			[last.centerYAnchor constraintEqualToAnchor:badge.centerYAnchor],
 			[last.heightAnchor constraintEqualToConstant:18],
 		]];
@@ -254,7 +276,7 @@ static NSArray<NSNumber*>* AddonsOf(int iMain)
 {
 	[super setHighlighted:highlighted];
 	[UIView animateWithDuration:0.12 animations:^{
-		self.transform = highlighted ? CGAffineTransformMakeScale(0.96, 0.96) : CGAffineTransformIdentity;
+		self.transform = (highlighted && !self->moved) ? CGAffineTransformMakeScale(0.97, 0.97) : CGAffineTransformIdentity;
 	}];
 }
 
@@ -268,46 +290,52 @@ static NSArray<NSNumber*>* AddonsOf(int iMain)
 
 - (BOOL)beginTrackingWithTouch:(UITouch*)touch withEvent:(UIEvent*)event
 {
-	held = NO;
-	if (_hasHold)
-	{
-		CABasicAnimation* a = [CABasicAnimation animationWithKeyPath:@"strokeEnd"];
-		a.fromValue = @0;
-		a.toValue = @1;
-		a.duration = HOLD_TIME;
-		a.fillMode = kCAFillModeForwards;
-		a.removedOnCompletion = NO;
-		[ring addAnimation:a forKey:@"hold"];
-		__weak IOSGameCard* weakSelf = self;
-		holdTimer = [NSTimer scheduledTimerWithTimeInterval:HOLD_TIME repeats:NO block:^(NSTimer* t) {
-			IOSGameCard* card = weakSelf;
-			if (!card) return;
-			card->held = YES;
-			[card stopRing];
-			[[[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleMedium] impactOccurred];
-			if (card.onHold) card.onHold(card.index);
-		}];
-	}
+	fired = NO;
+	moved = NO;
+	down = [touch locationInView:self];
+	CABasicAnimation* a = [CABasicAnimation animationWithKeyPath:@"strokeEnd"];
+	a.fromValue = @0;
+	a.toValue = @1;
+	a.duration = HOLD_TIME;
+	a.fillMode = kCAFillModeForwards;
+	a.removedOnCompletion = NO;
+	[ring addAnimation:a forKey:@"hold"];
+	__weak IOSGameCard* weakSelf = self;
+	holdTimer = [NSTimer scheduledTimerWithTimeInterval:HOLD_TIME repeats:NO block:^(NSTimer* t) {
+		IOSGameCard* card = weakSelf;
+		if (!card) return;
+		card->holdTimer = nil;
+		card->fired = YES;
+		[card stopRing];
+		[[[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleMedium] impactOccurred];
+		if (card.onHold) card.onHold(card.family);
+	}];
 	return YES;
 }
 
 - (BOOL)continueTrackingWithTouch:(UITouch*)touch withEvent:(UIEvent*)event
 {
-	// slid off the card: nothing (the ring stops)
-	if (!CGRectContainsPoint(CGRectInset(self.bounds, -20, -20), [touch locationInView:self])) [self stopRing];
-	return YES;
+	// slid: neither a tap nor a hold
+	const CGPoint p = [touch locationInView:self];
+	if (!moved && hypot(p.x - down.x, p.y - down.y) > TAP_SLOP)
+	{
+		moved = YES;
+		[self stopRing];
+		self.highlighted = NO;
+	}
+	return !moved;
 }
 
 - (void)endTrackingWithTouch:(UITouch*)touch withEvent:(UIEvent*)event
 {
-	const BOOL inside = touch && CGRectContainsPoint(CGRectInset(self.bounds, -20, -20), [touch locationInView:self]);
-	const BOOL wasHolding = holdTimer != nil || !_hasHold;
+	const BOOL tap = !fired && !moved && holdTimer != nil;
 	[self stopRing];
-	if (!held && inside && wasHolding && self.onTap) self.onTap(self.index);
+	if (tap && self.onTap) self.onTap(self.family);
 }
 
 - (void)cancelTrackingWithEvent:(UIEvent*)event
 {
+	moved = YES;
 	[self stopRing];
 }
 @end
@@ -318,11 +346,12 @@ static NSArray<NSNumber*>* AddonsOf(int iMain)
 @property (nonatomic, copy) void (^done)(int picked); // an index, IOSPICKER_LAN, or -1 (Cancel)
 @property (nonatomic) BOOL switching;	// "Switch game", with Cancel
 @property (nonatomic) BOOL lan;		// "LAN multiplayer" shows
+- (void)reopen;
 @end
 
 @implementation IOSPickerController
 {
-	UIView* addonsBack;
+	UIView* gamesBack;
 	BOOL finished;
 }
 
@@ -335,6 +364,12 @@ static NSArray<NSNumber*>* AddonsOf(int iMain)
 	if (finished) return;
 	finished = YES;
 	if (self.done) self.done(picked);
+}
+
+// (shown again after LAN multiplayer's questions, Back)
+- (void)reopen
+{
+	finished = NO;
 }
 
 - (void)viewDidLoad
@@ -357,8 +392,7 @@ static NSArray<NSNumber*>* AddonsOf(int iMain)
 	heading.text = self.switching ? @"Switch game" : @"Choose a game";
 	heading.textColor = [UIColor colorWithWhite:1.0 alpha:0.9];
 	heading.font = [UIFont systemFontOfSize:20 weight:UIFontWeightSemibold];
-	UIView* gap = [UIView new];
-	UIStackView* top = [[UIStackView alloc] initWithArrangedSubviews:@[ logo, heading, gap ]];
+	UIStackView* top = [[UIStackView alloc] initWithArrangedSubviews:@[ logo, heading, [UIView new] ]];
 	top.alignment = UIStackViewAlignmentLastBaseline;
 	top.spacing = 16;
 	if (self.switching)
@@ -371,35 +405,28 @@ static NSArray<NSNumber*>* AddonsOf(int iMain)
 		[top addArrangedSubview:cancel];
 	}
 
-	// the cards: one for each main game, side by side
+	// the cards: one for each family with a game here, side by side, all on
+	// the screen (no scrolling)
 	UIStackView* row = [[UIStackView alloc] init];
 	row.axis = UILayoutConstraintAxisHorizontal;
-	row.spacing = 14;
-	row.translatesAutoresizingMaskIntoConstraints = NO;
-	int ctCards = 0;
+	row.spacing = 12;
+	row.distribution = UIStackViewDistributionFillEqually;
 	__weak IOSPickerController* weakSelf = self;
-	for (int i = 0; i < _ctEntries; i++)
+	for (int fam = 0; fam < FAM_COUNT; fam++)
 	{
-		// (an add-on without its main game here: a card of its own)
-		if (_aEntries[i].bAddon && _aEntries[i].iBase >= 0) continue;
-		IOSGameCard* card = [[IOSGameCard alloc] initWithEntry:i];
-		card.onTap = ^(int index) { [weakSelf finish:index]; };
-		card.onHold = ^(int index) { [weakSelf showAddons:index]; };
+		if (TapTarget(fam) < 0) continue;
+		IOSGameCard* card = [[IOSGameCard alloc] initWithFamily:fam];
+		card.onTap = ^(int f) { [weakSelf finish:TapTarget(f)]; };
+		card.onHold = ^(int f) { [weakSelf showGames:f]; };
 		[row addArrangedSubview:card];
-		[card.widthAnchor constraintEqualToConstant:190].active = YES;
-		ctCards++;
 	}
-	UIScrollView* scroll = [[UIScrollView alloc] init];
-	scroll.showsHorizontalScrollIndicator = NO;
-	scroll.alwaysBounceHorizontal = YES;
-	scroll.clipsToBounds = NO;
-	scroll.delaysContentTouches = NO;
-	[scroll addSubview:row];
 
 	UILabel* hint = [[UILabel alloc] init];
-	hint.text = @"Tap a game to play  ·  Hold one for its add-ons";
+	hint.text = @"Tap a game to play  ·  Hold it for the other editions and add-ons";
 	hint.textColor = [UIColor colorWithWhite:1.0 alpha:0.5];
 	hint.font = [UIFont systemFontOfSize:13 weight:UIFontWeightMedium];
+	hint.adjustsFontSizeToFitWidth = YES;
+	hint.minimumScaleFactor = 0.7;
 	UIStackView* bottom = [[UIStackView alloc] initWithArrangedSubviews:@[ hint, [UIView new] ]];
 	bottom.alignment = UIStackViewAlignmentCenter;
 	bottom.spacing = 12;
@@ -414,11 +441,12 @@ static NSArray<NSNumber*>* AddonsOf(int iMain)
 		lanButton.layer.borderWidth = 1;
 		lanButton.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:0.25].CGColor;
 		[lanButton.heightAnchor constraintEqualToConstant:34].active = YES;
+		[lanButton setContentHuggingPriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
 		[lanButton addTarget:self action:@selector(lanTapped) forControlEvents:UIControlEventTouchUpInside];
 		[bottom addArrangedSubview:lanButton];
 	}
 
-	UIStackView* page = [[UIStackView alloc] initWithArrangedSubviews:@[ top, scroll, bottom ]];
+	UIStackView* page = [[UIStackView alloc] initWithArrangedSubviews:@[ top, row, bottom ]];
 	page.axis = UILayoutConstraintAxisVertical;
 	page.spacing = 14;
 	page.translatesAutoresizingMaskIntoConstraints = NO;
@@ -430,78 +458,78 @@ static NSArray<NSNumber*>* AddonsOf(int iMain)
 		[page.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-20],
 		[page.topAnchor constraintEqualToAnchor:safe.topAnchor constant:14],
 		[page.bottomAnchor constraintEqualToAnchor:safe.bottomAnchor constant:-10],
-		// the row fills the scroll view's height and centres when it fits
-		[row.topAnchor constraintEqualToAnchor:scroll.contentLayoutGuide.topAnchor],
-		[row.bottomAnchor constraintEqualToAnchor:scroll.contentLayoutGuide.bottomAnchor],
-		[row.leadingAnchor constraintEqualToAnchor:scroll.contentLayoutGuide.leadingAnchor],
-		[row.trailingAnchor constraintEqualToAnchor:scroll.contentLayoutGuide.trailingAnchor],
-		[row.heightAnchor constraintEqualToAnchor:scroll.frameLayoutGuide.heightAnchor],
-		[row.widthAnchor constraintGreaterThanOrEqualToAnchor:scroll.frameLayoutGuide.widthAnchor],
 	]];
-	row.distribution = UIStackViewDistributionEqualSpacing;
-	if (ctCards <= 1) row.alignment = UIStackViewAlignmentFill;
 }
 
 - (void)cancelTapped { [self finish:-1]; }
 - (void)lanTapped { [self finish:IOSPICKER_LAN]; }
 
-// A main game's add-ons over the picker: the game itself, then each add-on
-- (void)showAddons:(int)iMain
+// A family's games over the picker: its main games, then its add-ons
+- (void)showGames:(int)fam
 {
-	[addonsBack removeFromSuperview];
-	addonsBack = [[UIView alloc] initWithFrame:self.view.bounds];
-	addonsBack.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-	addonsBack.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.7];
-	addonsBack.alpha = 0;
-	[addonsBack addGestureRecognizer:[[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(closeAddons)]];
-	[self.view addSubview:addonsBack];
+	[gamesBack removeFromSuperview];
+	gamesBack = [[UIView alloc] initWithFrame:self.view.bounds];
+	gamesBack.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+	gamesBack.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.7];
+	gamesBack.alpha = 0;
+	UITapGestureRecognizer* away = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(backTapped:)];
+	[gamesBack addGestureRecognizer:away];
+	[self.view addSubview:gamesBack];
 
-	const Family f = FamilyOf(_aEntries[iMain].flags);
-	NSString *title, *edition;
-	SplitName(_aEntries[iMain].name, &title, &edition);
-
+	const Family* f = &families[fam];
 	UIView* panel = [[UIView alloc] init];
 	panel.backgroundColor = [UIColor colorWithRed:0.09 green:0.08 blue:0.08 alpha:0.98];
 	panel.layer.cornerRadius = 20;
 	panel.layer.borderWidth = 1.5;
-	panel.layer.borderColor = RGB(f.top, 0.9).CGColor;
+	panel.layer.borderColor = RGB(f->top, 0.9).CGColor;
+	panel.tag = 7;
 	panel.translatesAutoresizingMaskIntoConstraints = NO;
-	[addonsBack addSubview:panel];
+	[gamesBack addSubview:panel];
 
 	UILabel* head = [[UILabel alloc] init];
-	head.text = [title uppercaseString];
+	head.text = [@(f->title) uppercaseString];
 	head.font = [UIFont systemFontOfSize:20 weight:UIFontWeightHeavy];
 	head.textColor = UIColor.whiteColor;
 	UIButton* close = [UIButton buttonWithType:UIButtonTypeClose];
-	[close addTarget:self action:@selector(closeAddons) forControlEvents:UIControlEventTouchUpInside];
+	[close addTarget:self action:@selector(closeGames) forControlEvents:UIControlEventTouchUpInside];
 	UIStackView* headRow = [[UIStackView alloc] initWithArrangedSubviews:@[ head, [UIView new], close ]];
 	headRow.alignment = UIStackViewAlignmentCenter;
 
 	UIStackView* list = [[UIStackView alloc] init];
 	list.axis = UILayoutConstraintAxisVertical;
 	list.spacing = 8;
-	NSMutableArray<NSNumber*>* rows = [NSMutableArray arrayWithObject:@(iMain)];
-	[rows addObjectsFromArray:AddonsOf(iMain)];
-	for (NSNumber* n in rows)
+	NSArray<NSNumber*>* games = GamesOf(fam);
+	BOOL addonsHeader = NO;
+	for (NSNumber* n in games)
 	{
 		const int i = n.intValue;
+		const BOOL addon = _aEntries[i].bAddon != 0;
+		if (addon && !addonsHeader)
+		{
+			addonsHeader = YES;
+			UILabel* h = [[UILabel alloc] init];
+			h.text = @"ADD-ONS";
+			h.font = [UIFont systemFontOfSize:12 weight:UIFontWeightHeavy];
+			h.textColor = [UIColor colorWithRed:1.0 green:0.82 blue:0.45 alpha:1.0];
+			[list addArrangedSubview:h];
+		}
 		NSString *t, *ed;
 		SplitName(_aEntries[i].name, &t, &ed);
+		NSString* label = ed.length ? ed : t;
+		if (i == _iLast) label = [label stringByAppendingString:@"  ·  last played"];
 		UIButton* b = [UIButton buttonWithType:UIButtonTypeSystem];
-		NSString* label = (i == iMain) ? [NSString stringWithFormat:@"%@  ·  the main game", ed.length ? ed : t]
-		                               : (ed.length ? ed : t);
 		[b setTitle:label forState:UIControlStateNormal];
 		b.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeft;
-		b.titleLabel.font = [UIFont systemFontOfSize:17 weight:(i == iMain ? UIFontWeightSemibold : UIFontWeightBold)];
+		b.titleLabel.font = [UIFont systemFontOfSize:17 weight:UIFontWeightBold];
 		b.titleLabel.adjustsFontSizeToFitWidth = YES;
 		b.titleLabel.minimumScaleFactor = 0.7;
 		b.tintColor = UIColor.whiteColor;
-		b.backgroundColor = (i == iMain) ? [UIColor colorWithWhite:1.0 alpha:0.08] : RGB(f.top, 0.35);
+		b.backgroundColor = addon ? [UIColor colorWithWhite:1.0 alpha:0.08] : RGB(f->top, 0.4);
 		b.layer.cornerRadius = 12;
 		b.contentEdgeInsets = UIEdgeInsetsMake(0, 16, 0, 16);
 		b.tag = i;
 		[b.heightAnchor constraintEqualToConstant:44].active = YES;
-		[b addTarget:self action:@selector(addonTapped:) forControlEvents:UIControlEventTouchUpInside];
+		[b addTarget:self action:@selector(gameTapped:) forControlEvents:UIControlEventTouchUpInside];
 		[list addArrangedSubview:b];
 	}
 	UIScrollView* scroll = [[UIScrollView alloc] init];
@@ -515,14 +543,13 @@ static NSArray<NSNumber*>* AddonsOf(int iMain)
 	stack.translatesAutoresizingMaskIntoConstraints = NO;
 	[panel addSubview:stack];
 
-	const CGFloat listHeight = rows.count * 52.0;
-	NSLayoutConstraint* tall = [scroll.heightAnchor constraintEqualToConstant:listHeight];
+	NSLayoutConstraint* tall = [scroll.heightAnchor constraintEqualToConstant:(games.count + (addonsHeader ? 1 : 0)) * 52.0];
 	tall.priority = UILayoutPriorityDefaultHigh;
 	[NSLayoutConstraint activateConstraints:@[
-		[panel.centerXAnchor constraintEqualToAnchor:addonsBack.centerXAnchor],
-		[panel.centerYAnchor constraintEqualToAnchor:addonsBack.centerYAnchor],
-		[panel.widthAnchor constraintEqualToConstant:440],
-		[panel.heightAnchor constraintLessThanOrEqualToAnchor:addonsBack.safeAreaLayoutGuide.heightAnchor constant:-24],
+		[panel.centerXAnchor constraintEqualToAnchor:gamesBack.centerXAnchor],
+		[panel.centerYAnchor constraintEqualToAnchor:gamesBack.centerYAnchor],
+		[panel.widthAnchor constraintEqualToConstant:460],
+		[panel.heightAnchor constraintLessThanOrEqualToAnchor:gamesBack.safeAreaLayoutGuide.heightAnchor constant:-24],
 		[stack.leadingAnchor constraintEqualToAnchor:panel.leadingAnchor constant:18],
 		[stack.trailingAnchor constraintEqualToAnchor:panel.trailingAnchor constant:-18],
 		[stack.topAnchor constraintEqualToAnchor:panel.topAnchor constant:14],
@@ -534,19 +561,25 @@ static NSArray<NSNumber*>* AddonsOf(int iMain)
 		[list.trailingAnchor constraintEqualToAnchor:scroll.contentLayoutGuide.trailingAnchor],
 		[list.widthAnchor constraintEqualToAnchor:scroll.frameLayoutGuide.widthAnchor],
 	]];
-	// (a tap on the panel itself doesn't close it)
-	[panel addGestureRecognizer:[[UITapGestureRecognizer alloc] initWithTarget:nil action:nil]];
-	[UIView animateWithDuration:0.18 animations:^{ self->addonsBack.alpha = 1; }];
+	[UIView animateWithDuration:0.18 animations:^{ self->gamesBack.alpha = 1; }];
 }
 
-- (void)closeAddons
+// a tap off the panel closes it (one on the panel does nothing)
+- (void)backTapped:(UITapGestureRecognizer*)g
 {
-	UIView* v = addonsBack;
-	addonsBack = nil;
+	UIView* panel = [gamesBack viewWithTag:7];
+	if (panel && CGRectContainsPoint(panel.bounds, [g locationInView:panel])) return;
+	[self closeGames];
+}
+
+- (void)closeGames
+{
+	UIView* v = gamesBack;
+	gamesBack = nil;
 	[UIView animateWithDuration:0.15 animations:^{ v.alpha = 0; } completion:^(BOOL f) { [v removeFromSuperview]; }];
 }
 
-- (void)addonTapped:(UIButton*)b
+- (void)gameTapped:(UIButton*)b
 {
 	[self finish:(int)b.tag];
 }
@@ -561,18 +594,30 @@ static UIWindowScene* Scene()
 	return nil;
 }
 
+// The picker's window at start: kept up while LAN multiplayer asks its
+// questions over it (IOSPicker_Close takes it away)
+static UIWindow* _pickerWindow = nil;
+static IOSPickerController* _pickerMenu = nil;
+
 int IOSPicker_Run(int bLan)
 {
 	if (_ctEntries <= 0) return -1;
 	__block int picked = -100;
-	UIWindowScene* scene = Scene();
-	UIWindow* window = scene ? [[UIWindow alloc] initWithWindowScene:scene] : [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
-	IOSPickerController* menu = [IOSPickerController new];
-	menu.lan = bLan != 0;
-	menu.done = ^(int p) { picked = p; };
-	window.rootViewController = menu;
-	window.windowLevel = UIWindowLevelNormal + 1;
-	[window makeKeyAndVisible];
+	if (!_pickerWindow)
+	{
+		UIWindowScene* scene = Scene();
+		_pickerWindow = scene ? [[UIWindow alloc] initWithWindowScene:scene] : [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
+		_pickerMenu = [IOSPickerController new];
+		_pickerMenu.lan = bLan != 0;
+		_pickerWindow.rootViewController = _pickerMenu;
+		_pickerWindow.windowLevel = UIWindowLevelNormal + 1;
+	}
+	else
+	{
+		[_pickerMenu reopen];
+	}
+	_pickerMenu.done = ^(int p) { picked = p; };
+	[_pickerWindow makeKeyAndVisible];
 	while (picked == -100)
 	{
 		@autoreleasepool
@@ -580,10 +625,19 @@ int IOSPicker_Run(int bLan)
 			[[NSRunLoop mainRunLoop] runMode:NSDefaultRunLoopMode beforeDate:[NSDate dateWithTimeIntervalSinceNow:0.05]];
 		}
 	}
-	window.hidden = YES;
-	window.rootViewController = nil;
 	printf("Game picker: chose %d of %d\n", picked, _ctEntries);
+	// (LAN multiplayer: kept up, its questions come over it)
+	if (picked != IOSPICKER_LAN) IOSPicker_Close();
 	return picked;
+}
+
+void IOSPicker_Close(void)
+{
+	if (!_pickerWindow) return;
+	_pickerWindow.hidden = YES;
+	_pickerWindow.rootViewController = nil;
+	_pickerWindow = nil;
+	_pickerMenu = nil;
 }
 
 // ---------------------------------------------------------------- switching
