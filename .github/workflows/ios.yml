@@ -32,6 +32,8 @@ permissions:
 jobs:
   build:
     runs-on: macos-15
+    outputs:
+      build_date: ${{ steps.stamp.outputs.date }}
     steps:
     - uses: actions/checkout@v4
       with:
@@ -115,6 +117,12 @@ jobs:
         grep -E "(ios/|ios_[a-z]+\.cpp).*warning:" build.log | sort -u | head -60 || true
         tail -3 build.log
 
+    # The build stamp (the run number and the UTC date), shown under the
+    # open MENU tray as "build 80 · Nov 9" and on the release's first line
+    - name: Build stamp
+      id: stamp
+      run: echo "date=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+
     - name: Package .ipa
       run: |
         set -e
@@ -122,7 +130,14 @@ jobs:
         echo "App bundle: $APP"
         ls -la "$APP"
         test -f "$APP/raze.pk3"
-        plutil -lint "$APP/Info.plist"
+        PL="$APP/Info.plist"
+        /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${{ github.run_number }}" "$PL"
+        /usr/libexec/PlistBuddy -c "Delete :SWBuildNumber" "$PL" 2>/dev/null || true
+        /usr/libexec/PlistBuddy -c "Delete :SWBuildDate" "$PL" 2>/dev/null || true
+        /usr/libexec/PlistBuddy -c "Add :SWBuildNumber string ${{ github.run_number }}" "$PL"
+        /usr/libexec/PlistBuddy -c "Add :SWBuildDate string ${{ steps.stamp.outputs.date }}" "$PL"
+        plutil -lint "$PL"
+        plutil -p "$PL" | grep -E "CFBundle(Short)?Version|SWBuild"
         # MoltenVK (Vulkan on Metal), Khronos's own build for iOS, in the
         # app's Frameworks folder (the game loads it at start: ios/i_ios.mm)
         curl -sSfL -o mvk.tar "https://github.com/KhronosGroup/MoltenVK/releases/download/$MOLTENVK_TAG/MoltenVK-ios.tar"
@@ -166,6 +181,7 @@ jobs:
         prerelease: true
         make_latest: false
         body: |
+          Build ${{ github.run_number }} · ${{ needs.build.outputs.build_date }}
           Development build of Raze for iPhone and iPad, rebuilt after every push to the `ios` branch (run ${{ github.run_number }}, commit ${{ github.sha }}). It may not have been tried yet.
           Raze.ipa is unsigned: sideload it, then copy your own game folders (Duke Nukem 3D, Blood, Shadow Warrior, Redneck Rampage) into Files > On My iPhone > Raze. No game data is included.
         files: out/Raze.ipa
