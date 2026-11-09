@@ -276,6 +276,74 @@ static bool ChooseNetwork(const char* gameName, const NetMode* modes, int ctMode
 	}
 }
 
+// LAN multiplayer from "Switch game" (ios/IOSPicker.mm): the games here
+// that have network games
+extern "C" int IOS_HasLanGames(const char* const* names, int count)
+{
+	for (int i = 0; i < count; i++)
+	{
+		const NetMode* modes = nullptr;
+		int ctModes = 0;
+		NetModes(names[i], &ctModes, &modes);
+		if (ctModes > 0) return 1;
+	}
+	return 0;
+}
+
+// ...which game, then host or join, over "Switch game": the game's index in
+// names (-1: Back) and the command line the next start of the app needs for
+// it, one argument a line
+extern "C" int IOS_ChooseLanSwitch(const char* const* names, int count, char* args, int ctArgs)
+{
+	TArray<int> netGames;
+	for (int i = 0; i < count; i++)
+	{
+		const NetMode* modes = nullptr;
+		int ctModes = 0;
+		NetModes(names[i], &ctModes, &modes);
+		if (ctModes > 0) netGames.Push(i);
+	}
+	if (netGames.Size() == 0) return -1;
+	for (;;)
+	{
+		NSMutableArray<NSString*>* games = [NSMutableArray array];
+		for (unsigned i = 0; i < netGames.Size(); i++)
+		{
+			NSString* name = [NSString stringWithUTF8String:names[netGames[i]]];
+			[games addObject:name ? name : @"?"];
+		}
+		[games addObject:@"Back"];
+		const int g = RunAlert(Sheet(@"LAN multiplayer", @"Which game? (Everyone needs the same game files.)"), games, (int)netGames.Size());
+		if (g < 0 || g >= (int)netGames.Size()) return -1;
+		const int pick = netGames[g];
+		const NetMode* modes = nullptr;
+		int ctModes = 0;
+		NetModes(names[pick], &ctModes, &modes);
+		const int before = Args->NumArgs();
+		if (ChooseNetwork(names[pick], modes, ctModes))
+		{
+			FString joined;
+			for (int a = before; a < Args->NumArgs(); a++)
+			{
+				if (a > before) joined += "\n";
+				joined += Args->GetArg(a);
+			}
+			snprintf(args, ctArgs, "%s", joined.GetChars());
+			return pick;
+		}
+	}
+}
+
+// The next start of the app after "Switch game" to a LAN game: its command line
+extern "C" void IOS_ApplyNextArgs(const char* joined)
+{
+	FString all = joined;
+	auto parts = all.Split("\n");
+	for (auto& a : parts)
+		if (a.Len() > 0) Args->AppendArg(a.GetChars());
+	printf("LAN game, as picked before the app closed:%s%s\n", parts.Size() ? " " : "", all.GetChars());
+}
+
 int I_PickIWad_Cocoa(WadStuff* wads, int numwads, bool showwin, int defaultiwad)
 {
 	if (!showwin) return defaultiwad;
