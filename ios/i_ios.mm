@@ -33,13 +33,17 @@ static UIViewController* TopViewController()
 	for (UIScene* scene in UIApplication.sharedApplication.connectedScenes)
 	{
 		if (![scene isKindOfClass:UIWindowScene.class]) continue;
+		// (never a hidden window: HideOwnWindow's can stay key, and an alert
+		// put on it is never seen: a black screen)
 		for (UIWindow* w in ((UIWindowScene*)scene).windows)
 		{
-			if (w.isKeyWindow) { key = w; break; }
+			if (w.isKeyWindow && !w.hidden) { key = w; break; }
 		}
+		if (!key)
+			for (UIWindow* w in ((UIWindowScene*)scene).windows)
+				if (!w.hidden && w.rootViewController) key = w; // (the frontmost shown)
 		if (key) break;
 	}
-	if (!key) key = UIApplication.sharedApplication.windows.firstObject;
 	UIViewController* vc = key.rootViewController;
 	while (vc.presentedViewController) vc = vc.presentedViewController;
 	return vc;
@@ -309,7 +313,13 @@ int I_PickIWad_Cocoa(WadStuff* wads, int numwads, bool showwin, int defaultiwad)
 		// add-ons), with "LAN multiplayer" below (Added); the list as it
 		// always was if they can't be shown
 		// (LAN multiplayer picked in "Switch game": straight to its questions)
-		int chosen = (netGames.Size() > 0 && IOSPicker_StartsWithLan()) ? IOSPICKER_LAN : IOSPicker_Run(netGames.Size() > 0);
+		int chosen;
+		if (netGames.Size() > 0 && IOSPicker_StartsWithLan())
+		{
+			IOSPicker_Show(1); // (under the questions, as when LAN is tapped in it)
+			chosen = IOSPICKER_LAN;
+		}
+		else chosen = IOSPicker_Run(netGames.Size() > 0);
 		const int iLan = IOSPICKER_LAN;
 		if (chosen == -1)
 		{

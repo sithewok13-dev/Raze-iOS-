@@ -602,10 +602,9 @@ static UIWindowScene* Scene()
 static UIWindow* _pickerWindow = nil;
 static IOSPickerController* _pickerMenu = nil;
 
-int IOSPicker_Run(int bLan)
+void IOSPicker_Show(int bLan)
 {
-	if (_ctEntries <= 0) return -1;
-	__block int picked = -100;
+	if (_ctEntries <= 0) return;
 	if (!_pickerWindow)
 	{
 		UIWindowScene* scene = Scene();
@@ -615,12 +614,19 @@ int IOSPicker_Run(int bLan)
 		_pickerWindow.rootViewController = _pickerMenu;
 		_pickerWindow.windowLevel = UIWindowLevelNormal + 1;
 	}
-	else
-	{
-		[_pickerMenu reopen];
-	}
-	_pickerMenu.done = ^(int p) { picked = p; };
 	[_pickerWindow makeKeyAndVisible];
+	// (drawn before what comes over it)
+	[[NSRunLoop mainRunLoop] runMode:NSDefaultRunLoopMode beforeDate:[NSDate dateWithTimeIntervalSinceNow:0.05]];
+}
+
+int IOSPicker_Run(int bLan)
+{
+	if (_ctEntries <= 0) return -1;
+	__block int picked = -100;
+	const bool wasUp = _pickerWindow != nil;
+	IOSPicker_Show(bLan);
+	if (wasUp) [_pickerMenu reopen];
+	_pickerMenu.done = ^(int p) { picked = p; };
 	while (picked == -100)
 	{
 		@autoreleasepool
