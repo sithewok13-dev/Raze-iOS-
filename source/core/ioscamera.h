@@ -72,6 +72,7 @@ int iosCam_IsFrozen(void);
 void iosCam_FreezeOrbit(float yawDeg, float pitchDeg);
 void iosCam_FreezePan(float right, float down);
 void iosCam_FreezeZoom(float factor);
+float iosCam_FreezeZoomNow(void); // the lens's zoom (1: none)
 void iosCam_FreezeEnd(void);
 // What the camera is doing (0: nothing, 1: selfie, 2: freeze, 3: cinema)
 int iosCam_Stage(void);

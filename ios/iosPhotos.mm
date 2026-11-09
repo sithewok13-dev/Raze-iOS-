@@ -606,6 +606,7 @@ extern "C" void iosCamera_ShowOptions(void)
 @implementation IOSCamFreeze
 {
 	UIButton *close, *shutter;
+	UILabel *zoomLabel; // "2.5×" while the lens is zoomed in
 	CGPoint lastOne, lastMid;
 	CGFloat lastSpan;
 	int lastCount;
@@ -632,6 +633,16 @@ extern "C" void iosCamera_ShowOptions(void)
 	shutter.layer.borderColor = [UIColor colorWithWhite:0 alpha:0.35].CGColor;
 	[shutter addTarget:self action:@selector(shoot) forControlEvents:UIControlEventTouchUpInside];
 	[self addSubview:shutter];
+	zoomLabel = [[UILabel alloc] init];
+	zoomLabel.textAlignment = NSTextAlignmentCenter;
+	zoomLabel.textColor = [UIColor colorWithRed:1.0 green:0.85 blue:0.35 alpha:1.0];
+	zoomLabel.font = [UIFont monospacedDigitSystemFontOfSize:15 weight:UIFontWeightBold];
+	zoomLabel.backgroundColor = [UIColor colorWithWhite:0 alpha:0.45];
+	zoomLabel.layer.cornerRadius = 13;
+	zoomLabel.clipsToBounds = YES;
+	zoomLabel.userInteractionEnabled = NO;
+	zoomLabel.hidden = YES;
+	[self addSubview:zoomLabel];
 	return self;
 }
 
@@ -641,6 +652,7 @@ extern "C" void iosCamera_ShowOptions(void)
 	const UIEdgeInsets in = self.safeAreaInsets;
 	close.frame = CGRectMake(self.bounds.size.width - in.right - 16 - 44, in.top + 12, 44, 44);
 	shutter.frame = CGRectMake(self.bounds.size.width - in.right - 24 - 60, self.bounds.size.height / 2 - 30, 60, 60);
+	zoomLabel.frame = CGRectMake(CGRectGetMidX(shutter.frame) - 32, CGRectGetMaxY(shutter.frame) + 12, 64, 26);
 }
 
 - (void)end
@@ -676,7 +688,13 @@ extern "C" void iosCamera_ShowOptions(void)
 		{
 			const CGFloat hgt = fmax(self.bounds.size.height, 1);
 			iosCam_FreezePan((float)((mid.x - lastMid.x) / hgt), (float)((mid.y - lastMid.y) / hgt));
-			if (lastSpan > 10 && span > 10) iosCam_FreezeZoom((float)(span / lastSpan));
+			if (lastSpan > 10 && span > 10)
+			{
+				iosCam_FreezeZoom((float)(span / lastSpan));
+				const float z = iosCam_FreezeZoomNow();
+				zoomLabel.hidden = z < 1.05f;
+				zoomLabel.text = [NSString stringWithFormat:@"%.1f×", z];
+			}
 		}
 		lastMid = mid;
 		lastSpan = span;

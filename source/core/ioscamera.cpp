@@ -505,6 +505,18 @@ static DVector3 _vFocus;
 static sectortype *_pFocusSect;
 static double _fYaw, _fPitch, _fDist, _fDistNow;
 static bool _bSmooth = true;
+// The pinch: spread, the lens zooms in (up to IOSCAM_FREEZE_ZOOM); pinched
+// back to 1x and on, the camera backs off as before (from _fDistStart)
+#define IOSCAM_FREEZE_ZOOM 8.0
+static double _fZoom = 1.0, _fDistStart = 3.0;
+
+// The view's field of view through the lens zoomed _fZoom times
+static float ZoomedFov(float fov)
+{
+	if (_fZoom <= 1.0) return fov;
+	const double half = fov * 0.5 * pi::pi() / 180.0;
+	return (float)(2.0 * atan(tan(half) / _fZoom) * 180.0 / pi::pi());
+}
 
 // The camera where the orbit puts it, kept out of walls
 static bool PlaceOrbit(bool bSnap)
@@ -521,6 +533,7 @@ static bool PlaceOrbit(bool bSnap)
 	sectortype *s = SectorAt(pos, _pFocusSect);
 	if (!s) return false;
 	CamOn(pos, s, ang);
+	_cam.fov = ZoomedFov(_game.fov);
 	return true;
 }
 
@@ -558,6 +571,8 @@ static bool FreezeBegin()
 	_fYaw = _game.angles.Yaw.Degrees();
 	_fPitch = clamp(_game.angles.Pitch.Degrees(), -IOSCAM_PITCH_LIMIT, IOSCAM_PITCH_LIMIT);
 	_fDistNow = _fDist;
+	_fDistStart = _fDist;
+	_fZoom = 1.0;
 	return PlaceOrbit(true);
 }
 
@@ -565,8 +580,10 @@ extern "C" void iosCam_FreezeOrbit(float yawDeg, float pitchDeg)
 {
 	if (_iStage != STAGE_FREEZE) return;
 	double y0 = _fYaw, p0 = _fPitch;
-	_fYaw += yawDeg;
-	_fPitch = clamp(_fPitch + pitchDeg, -IOSCAM_PITCH_LIMIT, IOSCAM_PITCH_LIMIT);
+	// (zoomed in, a finger's slide turns less: the view follows it)
+	const double k = 1.0 / std::max(_fZoom, 1.0);
+	_fYaw += yawDeg * k;
+	_fPitch = clamp(_fPitch + pitchDeg * k, -IOSCAM_PITCH_LIMIT, IOSCAM_PITCH_LIMIT);
 	if (!PlaceOrbit(false)) { _fYaw = y0; _fPitch = p0; PlaceOrbit(true); }
 }
 
@@ -575,7 +592,7 @@ extern "C" void iosCam_FreezePan(float right, float down)
 	if (_iStage != STAGE_FREEZE) return;
 	// what is seen follows the fingers: the focus moves across the view, by
 	// fractions of its height at the focus
-	double span = 2.0 * _fDistNow * _fUnit * tan(IOSCAM_HALF_V * pi::pi() / 180.0);
+	double span = 2.0 * _fDistNow * _fUnit * tan(IOSCAM_HALF_V * pi::pi() / 180.0) / std::max(_fZoom, 1.0);
 	DVector2 fwd = DAngle::fromDeg(_fYaw).ToVector();
 	DVector2 rgt(-fwd.Y, fwd.X);
 	DVector3 up = DVector3(DRotator(DAngle::fromDeg(_fPitch - 90.0), DAngle::fromDeg(_fYaw), nullAngle));
@@ -593,10 +610,29 @@ extern "C" void iosCam_FreezePan(float right, float down)
 	PlaceOrbit(false);
 }
 
+// The lens's zoom now (1: none), for the freeze screen's readout
+extern "C" float iosCam_FreezeZoomNow(void)
+{
+	return _iStage == STAGE_FREEZE ? (float)_fZoom : 1.0f;
+}
+
 extern "C" void iosCam_FreezeZoom(float factor)
 {
 	if (_iStage != STAGE_FREEZE || factor <= 0) return;
-	_fDist = clamp(_fDist / factor, IOSCAM_FREEZE_NEAR, IOSCAM_FREEZE_FAR);
+	// one scale for both: above 1, the lens's zoom; below, how far the
+	// camera has backed off from where the freeze began
+	double z = _fZoom > 1.0 ? _fZoom : _fDistStart / std::max(_fDist, 0.01);
+	z = clamp(z * factor, _fDistStart / IOSCAM_FREEZE_FAR, IOSCAM_FREEZE_ZOOM);
+	if (z >= 1.0)
+	{
+		_fZoom = z;
+		_fDist = _fDistStart;
+	}
+	else
+	{
+		_fZoom = 1.0;
+		_fDist = _fDistStart / z;
+	}
 	PlaceOrbit(false);
 }
 
