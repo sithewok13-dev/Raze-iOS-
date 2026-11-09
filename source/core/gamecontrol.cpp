@@ -25,6 +25,9 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <stdexcept>
 #include "ioscamera.h"
 #include "gamecontrol.h"
+#ifdef RAZE_IOS
+#include "../../ios/IOSPicker.h"
+#endif
 #include "tarray.h"
 #include "zstring.h"
 #include "name.h"
@@ -788,6 +791,34 @@ static TArray<GrpEntry> SetupGame()
 			g++;
 		}
 	}
+
+#ifdef RAZE_IOS
+	// Added: iOS: the games found, for the picker's cards (add-ons under their
+	// main game) and "Switch game"; and the game picked with "Switch game"
+	// before the app closed, straight away (ios/IOSPicker.mm)
+	{
+		TArray<IOSPickEntry> entries;
+		int iLast = -1;
+		for (unsigned i = 0; i < groups.Size(); i++)
+		{
+			const auto& fi = groups[i].FileInfo;
+			int base = -1;
+			if (fi.isAddon)
+			{
+				for (unsigned j = 0; j < groups.Size() && base < 0; j++)
+					if (!groups[j].FileInfo.isAddon && fi.dependencyCRC != 0 && groups[j].FileInfo.CRC == fi.dependencyCRC) base = j;
+				// (no exact match: the first main game of the same family)
+				const int family = GAMEFLAG_DUKECOMPAT | GAMEFLAG_BLOOD | GAMEFLAG_SW | GAMEFLAG_PSEXHUMED;
+				for (unsigned j = 0; j < groups.Size() && base < 0; j++)
+					if (!groups[j].FileInfo.isAddon && (groups[j].FileInfo.flags & fi.flags & family)) base = j;
+			}
+			if (defaultiwad[0] != '\0' && stricmp(fi.name.GetChars(), defaultiwad) == 0) iLast = i;
+			entries.Push({ fi.name.GetChars(), groups[i].FileName.GetChars(), fi.isAddon ? 1 : 0, base, fi.flags });
+		}
+		IOSPicker_SetEntries(entries.Data(), (int)entries.Size(), iLast);
+		if (groupno == -1) groupno = IOSPicker_TakeNext();
+	}
+#endif
 
 	if (groupno == -1)
 	{

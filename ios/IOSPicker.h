@@ -1,0 +1,36 @@
+// The game picker (ios/IOSPicker.mm): a card for each main game found, held
+// 0.5 s (a ring) for its add-ons; and "Switch game" from MENU's tray, which
+// closes the app with a notification to tap to start the game picked.
+#pragma once
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef struct
+{
+	const char* name;	// as Raze names it ("Duke Nukem 3D: Atomic Edition")
+	const char* file;	// its main file, the full path (tells it apart at the next start)
+	int bAddon;		// an add-on: shown under its main game (iBase)
+	int iBase;		// the main game it adds to (-1: none found)
+	int flags;		// GAMEFLAG_* (the game's family: colours and emblem)
+} IOSPickEntry;
+
+#define IOSPICKER_LAN (-2)	// "LAN multiplayer" tapped
+
+// The games found this run (copied), and the one played last (-1: none)
+void IOSPicker_SetEntries(const IOSPickEntry* aEntries, int ctEntries, int iLast);
+// The game picked with "Switch game" before the app closed, if it was in the
+// last 10 minutes and is still there; -1 otherwise. Clears the notification.
+int IOSPicker_TakeNext(void);
+// At start: the picker until a game is picked. Returns its index, or
+// IOSPICKER_LAN (bLan: the button shows), or -1 if it couldn't be shown.
+int IOSPicker_Run(int bLan);
+// "Switch game" over the game being played. Cancel: pfnDone(0). A pick: the
+// settings are written, the pick kept and the app closes (with a "Tap to
+// start" notification); pfnDone isn't called.
+void IOSPicker_PresentSwitch(void (*pfnDone)(int bPicked));
+
+#ifdef __cplusplus
+}
+#endif

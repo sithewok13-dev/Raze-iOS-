@@ -23,6 +23,7 @@
 #include "m_argv.h"
 #include "c_cvars.h"
 #include "IOSNet.h"
+#include "IOSPicker.h"
 
 
 
@@ -290,26 +291,24 @@ int I_PickIWad_Cocoa(WadStuff* wads, int numwads, bool showwin, int defaultiwad)
 
 	for (;;)
 	{
-		// The picker as it always was (a game: single player straight away),
-		// with one more entry at the end: LAN multiplayer (Added)
-		NSMutableArray<NSString*>* titles = [NSMutableArray array];
-		for (int i = 0; i < numwads; i++)
+		// The cards (ios/IOSPicker.mm: a main game each, held for its
+		// add-ons), with "LAN multiplayer" below (Added); the list as it
+		// always was if they can't be shown
+		int chosen = IOSPicker_Run(netGames.Size() > 0);
+		const int iLan = IOSPICKER_LAN;
+		if (chosen == -1)
 		{
-			NSString* name = [NSString stringWithUTF8String:wads[i].Name.GetChars()];
-			if (name == nil) name = @"?";
-			if (i == defaultiwad) name = [name stringByAppendingString:@"  ✓"];
-			[titles addObject:name];
+			NSMutableArray<NSString*>* titles = [NSMutableArray array];
+			for (int i = 0; i < numwads; i++)
+			{
+				NSString* name = [NSString stringWithUTF8String:wads[i].Name.GetChars()];
+				[titles addObject:name ? name : @"?"];
+			}
+			[titles addObject:@"Quit"];
+			chosen = RunAlert(Sheet(@"Raze", @"Choose a game"), titles, numwads);
+			printf("Game picker: chose %d of %d\n", chosen, numwads);
+			if (chosen < 0 || chosen == numwads) return -1;
 		}
-		const int iLan = netGames.Size() > 0 ? numwads : -1;
-		if (iLan >= 0) [titles addObject:@"LAN multiplayer…"];
-		const int iQuit = (int)titles.count;
-		[titles addObject:@"Quit"];
-
-		const int chosen = numwads > 1 || iLan >= 0
-			? RunAlert(Sheet(@"Raze", @"Choose a game"), titles, iQuit)
-			: defaultiwad;
-		printf("Game picker: chose %d of %d\n", chosen, numwads);
-		if (chosen < 0 || chosen == iQuit) return -1;
 		if (chosen != iLan) return chosen;
 
 		// LAN multiplayer: which game, then host or join (Back: the picker again)

@@ -84,6 +84,7 @@ enum {
   IOSTOUCH_REQ_FLY       = 1 << 9, /* the cheat: toggle flying (Shadow Warrior) */
   IOSTOUCH_REQ_INVPREV   = 1 << 10, /* ITEM slid left: the previous inventory item */
   IOSTOUCH_REQ_INVNEXT   = 1 << 11, /* ITEM slid right: the next one */
+  IOSTOUCH_REQ_GAMES     = 1 << 12, /* MENU's tray: GAMES, "Switch game" (ios/IOSPicker.mm) */
 };
 
 /* Buttons as the game reads them (IOSTouchInput.ulButtons) */

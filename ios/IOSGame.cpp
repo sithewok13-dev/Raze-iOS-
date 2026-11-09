@@ -12,6 +12,7 @@
 #include "IOSNet.h"
 #include "IOSGame.h"
 #include "IOSPad.h"
+#include "IOSPicker.h"
 #include "iosCamera.h"
 
 #include <sys/stat.h>
@@ -69,6 +70,13 @@ static const IOSGamePart* Part()
 // What the overlay shows: the game being played (no menu, no console, no
 // typing a message), the console over it, the game paused with the pause
 // key, or nothing (menus, cutscenes, the title screen, loading)
+// "Switch game" is over the game (GAMES in MENU's tray): it holds still
+static bool switchingGame = false;
+static void SwitchClosed(int bPicked)
+{
+	switchingGame = false;
+}
+
 static int TouchMode()
 {
 	if (gamestate != GS_LEVEL || M_Active()) return IOSTOUCH_HIDDEN;
@@ -509,6 +517,16 @@ void IOSGame_Frame()
 		else PostKey(KEY_ESCAPE);
 	}
 	if (req & IOSTOUCH_REQ_CONSOLE) C_ToggleConsole();
+	// GAMES: "Switch game" over the game, held still behind it (Cancel: back)
+	if ((req & IOSTOUCH_REQ_GAMES) && !switchingGame)
+	{
+		switchingGame = true;
+#ifdef RAZE_IOS
+		IOSPicker_PresentSwitch(SwitchClosed);
+#else
+		SwitchClosed(0); // (the Linux rig: no picker)
+#endif
+	}
 	if ((req & IOSTOUCH_REQ_QUICKSAVE) && mode == IOSTOUCH_GAMEPLAY) QuickSave();
 	else if ((req & IOSTOUCH_REQ_QUICKLOAD) && mode == IOSTOUCH_GAMEPLAY) QuickLoad();
 	if ((req & IOSTOUCH_REQ_RESUME) && pausedWithKey) C_DoCommand("pause");
@@ -633,7 +651,14 @@ void IOSGame_TakeGyro(double* pYaw, double* pPitch)
 
 bool IOSGame_HoldsGame()
 {
-	return IOSTouch_HoldsGame() != 0;
+	return IOSTouch_HoldsGame() != 0 || switchingGame;
+}
+
+// The settings written now: "Switch game" closes the app (ios/IOSPicker.mm)
+void G_WriteConfigNow(); // gameconfigfile.cpp (C++: declared out here, not in the C function)
+extern "C" void IOSGame_WriteConfig(void)
+{
+	G_WriteConfigNow();
 }
 
 void IOSGame_HudFrame(double w, double h, double* pFrame)

@@ -197,6 +197,7 @@ enum {
   KIND_CHEATSWITCH, // (MENU's tray) shows CHEAT and switches the cheat on, or leaves cheat mode, when the touch lifts on it
   KIND_LEVELPICK,// (MENU's tray, the cheat on) opens the list of levels, when the touch lifts on it
   KIND_LOOKSPEED,// (MENU's tray) the next look speed, when the touch lifts on it; held IOSTOUCH_MENU_HOLD, back to 1x
+  KIND_GAMES,    // (MENU's tray) "Switch game" (ios/IOSPicker.mm), when the touch lifts on it
 };
 
 // which modes a button shows in
@@ -240,7 +241,7 @@ enum {
   BTN_CAMERA,
   BTN_CHEAT,
   BTN_RESUME,
-  BTN_TRAYLOOK, BTN_TRAYSENS, BTN_TRAYGYRO, BTN_TRAYFPS, BTN_TRAYCAM, BTN_TRAYCHEAT, BTN_TRAYLEVEL, BTN_TRAYKEYS, // MENU's tray (left to right), hidden unless it is open
+  BTN_TRAYLOOK, BTN_TRAYSENS, BTN_TRAYGYRO, BTN_TRAYFPS, BTN_TRAYCAM, BTN_TRAYCHEAT, BTN_TRAYLEVEL, BTN_TRAYGAMES, BTN_TRAYKEYS, // MENU's tray (left to right), hidden unless it is open
   BTN_COUNT
 };
 static IOSTouchButton _aButtons[] = {
@@ -265,6 +266,7 @@ static IOSTouchButton _aButtons[] = {
   [BTN_TRAYCAM]   = { "",            KIND_CAMSWITCH, 0,                     20.0, 0, SHOW_ALL },
   [BTN_TRAYCHEAT] = { "CHEAT",       KIND_CHEATSWITCH, 0,                   20.0, 0, SHOW_ALL },
   [BTN_TRAYLEVEL] = { "LEVEL",       KIND_LEVELPICK, 0,                     20.0, 0, SHOW_PLAY },
+  [BTN_TRAYGAMES] = { "GAMES",       KIND_GAMES,    IOSTOUCH_REQ_GAMES,     20.0, 0, SHOW_ALL },
   [BTN_TRAYKEYS]  = { "",            KIND_KEYBOARD, IOSTOUCH_REQ_CONSOLE,   20.0, 0, SHOW_ALL },
 };
 #define IOSTOUCH_NUM_BUTTONS ((int)(sizeof(_aButtons) / sizeof(_aButtons[0])))
@@ -455,7 +457,7 @@ static void IOSTouch_WheelGeometry(double W, double H, double inLeft, double inT
 }
 
 // MENU's tray along its row (IOSTouch_LayoutButtons found where): the
-// keyboard under MENU, then LEVEL (if it shows: bLevel), CHEAT, CAMERA, FPS,
+// keyboard under MENU, then GAMES, LEVEL (if it shows: bLevel), CHEAT, CAMERA, FPS,
 // GYRO, SENS and LOOK to the left, IOSTOUCH_TRAY_STEP apart. LEVEL hidden
 // sits under CHEAT (nothing finds it there: IOSTouch_ButtonAt passes over
 // hidden buttons).
@@ -465,13 +467,17 @@ static void IOSTouch_PlaceTray(int bLevel)
   int ctLeft = 0; // buttons right of the one being placed
   for (int i = BTN_TRAYKEYS; i >= BTN_TRAYLOOK; i--) {
     if (i == BTN_TRAYLEVEL && !bLevel) {
-      _aButtons[i].x = _fTrayKeysX - IOSTOUCH_TRAY_STEP;
+      continue; // (placed under CHEAT below)
     }
     else {
       _aButtons[i].x = _fTrayKeysX - ctLeft * IOSTOUCH_TRAY_STEP;
       ctLeft++;
     }
     _aButtons[i].y = _fTrayY;
+  }
+  if (!bLevel) {
+    _aButtons[BTN_TRAYLEVEL].x = _aButtons[BTN_TRAYCHEAT].x;
+    _aButtons[BTN_TRAYLEVEL].y = _fTrayY;
   }
   _rTrayBack.bValid = 1;
   _rTrayBack.x0 = _aButtons[BTN_TRAYLOOK].x - 26;
@@ -1189,6 +1195,9 @@ static void IOSTouch_UseTrayButton(int button)
   }
   else if (kind == KIND_KEYBOARD) {
     _iRequests |= _aButtons[button].ulAction; // the console, with the iOS keyboard
+  }
+  else if (kind == KIND_GAMES) {
+    _iRequests |= _aButtons[button].ulAction; // "Switch game", over the game
   }
   else if (kind == KIND_FPS) {
     IOSTouch_SetShowFps(!_bShowFps);
@@ -4043,11 +4052,11 @@ static UIBezierPath *IOSTouch_AnkhPath(CGFloat cx, CGFloat cy, CGFloat r)
     [CATransaction begin];
     [CATransaction setDisableActions:YES];
     if (_cheatIcon.bHave) cheatPicture.contents = cheatImages[bLookOn ? 0 : 1];
+    cheatPicture.opacity = bLookOn ? 1.0f : 0.45f; // (off: grey and faded)
     cheatBody.fillColor = c.CGColor;
     cheatFuse.strokeColor = cFuse.CGColor;
-    aButtonViews[BTN_CHEAT].layer.borderColor = bLookOn ? [UIColor colorWithRed:1.0 green:0.6 blue:0.15 alpha:0.8].CGColor
-                                                        : [UIColor colorWithWhite:1.0 alpha:0.4].CGColor;
     [CATransaction commit];
+    [self refreshButtonLooks]; // (the gold fill, border and glow: there)
   }
   // a tick felt for each flight or noclip started or ended
   if (ctCheatTicksFelt != _ctCheatTicks) {
@@ -4244,7 +4253,11 @@ static UIBezierPath *IOSTouch_AnkhPath(CGFloat cx, CGFloat cy, CGFloat r)
       const IOSTouchSlot *s = &_aSlots[t];
       bHeld = s->touch && s->role == ROLE_BUTTON && s->button == BTN_MENU && s->bFired && s->trayButton == i;
     }
-    l.backgroundColor = [UIColor colorWithWhite:(bHeld ? 1.0 : 0.0) alpha:(bHeld ? 0.30 : 0.22)];
+    // CHEAT on: filled with gold, with a thick gold border (and its picture in
+    // full colour, refreshCheat), so on and off can't be mistaken in any game
+    const int bCheatLit = (i == BTN_CHEAT) && _bCheatOn && _hud.bCheatAllowed;
+    l.backgroundColor = bCheatLit ? [UIColor colorWithRed:1.0 green:0.62 blue:0.12 alpha:(bHeld ? 0.55 : 0.38)]
+                                  : [UIColor colorWithWhite:(bHeld ? 1.0 : 0.0) alpha:(bHeld ? 0.30 : 0.22)];
     // The open console (on MENU and the tray's keyboard), the FPS readout
     // being on (on the tray's FPS) and tilt aiming being on (on the tray's
     // GYRO) stand out in yellow, at full strength (and the tray's CAMERA
@@ -4255,14 +4268,19 @@ static UIBezierPath *IOSTouch_AnkhPath(CGFloat cx, CGFloat cy, CGFloat r)
                     || (i == BTN_TRAYCAM && _bShowCamera)
                     || (i == BTN_TRAYCHEAT && _bShowCheat);
     const int bTray = IOSTouch_IsTrayButton(i); // only there while the tray is open
-    CGFloat alpha = (bHeld || bOn || bTray) ? 1.0 : IOSTOUCH_IDLE_ALPHA;
+    CGFloat alpha = (bHeld || bOn || bTray || bCheatLit) ? 1.0 : IOSTOUCH_IDLE_ALPHA;
     if (i == BTN_TRAYGYRO && !bGyro) alpha *= 0.45;                                       // no gyro here
     if (i == BTN_TRAYSENS && (!bGyro || _iGyroMode == IOSTOUCH_GYRO_OFF)) alpha *= 0.45; // ...or it's off
     if (i == BTN_CAMERA && IOSTouch_CameraBusy()) alpha *= 0.45;                         // the camera is busy
     l.alpha = alpha;
-    if (i != BTN_FIRE) {
+    if (bCheatLit) {
+      l.layer.borderColor = [UIColor colorWithRed:1.0 green:0.75 blue:0.2 alpha:1.0].CGColor;
+      l.layer.borderWidth = 3.0;
+    }
+    else if (i != BTN_FIRE) {
       l.layer.borderColor = bOn ? [UIColor colorWithRed:1.0 green:0.85 blue:0.3 alpha:0.95].CGColor
                                 : [UIColor colorWithWhite:1.0 alpha:0.4].CGColor;
+      if (i == BTN_CHEAT) l.layer.borderWidth = 1.5;
     }
   }
   if (trayBack.hidden == _bTrayOpen) trayBack.hidden = !_bTrayOpen;

@@ -488,6 +488,7 @@ elseif( APPLE )
 			set( PLAT_OSX_SOURCES
 				common/platform/posix/osx/i_specialpaths.mm
 				../ios/i_ios.mm
+				../ios/IOSPicker.mm
 				../ios/iosPhotos.mm )
 		else()
 			set( PLAT_OSX_SOURCES ${PLAT_OSX_SOURCES} common/platform/posix/sdl/i_system.mm )
@@ -499,6 +500,7 @@ elseif( APPLE )
 
 	if( RAZE_IOS )
 		set_source_files_properties( ../ios/iosPhotos.mm PROPERTIES COMPILE_FLAGS -fobjc-arc )
+		set_source_files_properties( ../ios/IOSPicker.mm PROPERTIES COMPILE_FLAGS -fobjc-arc )
 	endif()
 	if( NOT RAZE_IOS )
 		set_source_files_properties( platform/posix/osx/${PROJECT_NAME}.icns PROPERTIES MACOSX_PACKAGE_LOCATION Resources )
@@ -1528,7 +1530,7 @@ if( RAZE_IOS )
 	# What SDL2, OpenAL Soft and the GLES renderer need on iOS
 	set( IOS_FRAMEWORKS UIKit Foundation OpenGLES QuartzCore CoreGraphics CoreFoundation
 		AVFoundation AudioToolbox CoreAudio CoreMotion GameController Metal CoreHaptics CoreBluetooth
-		Photos ImageIO )
+		Photos ImageIO UserNotifications )
 	foreach( fw ${IOS_FRAMEWORKS} )
 		target_link_libraries( ${PROJECT_NAME} "-framework ${fw}" )
 	endforeach()
