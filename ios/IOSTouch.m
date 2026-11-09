@@ -3636,6 +3636,8 @@ typedef struct {
   int iMaxFpsSaved;
   int ctMaxFpsFelt;
   CADisplayLink *frameRateLink;
+  int ctRefreshTicks;
+  double tRefreshStart;
   float fLookLabel;
   float fLookSaved;
   int ctLookResetsFelt;
@@ -4188,10 +4190,25 @@ static UIBezierPath *IOSTouch_AnkhPath(CGFloat cx, CGFloat cy, CGFloat r)
   }
   const float f = (float)_iMaxFps;
   frameRateLink.preferredFrameRateRange = CAFrameRateRangeMake(_iMaxFps == 120 ? 80.0f : 60.0f, f, f);
+  // (for the log: what the screen can do, and whether Low Power Mode caps it)
+  printf("iOS: asked the screen for %d Hz (it can do %ld; Low Power Mode %s)\n", _iMaxFps,
+         (long)[UIScreen mainScreen].maximumFramesPerSecond, [NSProcessInfo processInfo].lowPowerModeEnabled ? "on: 60 at most" : "off");
+  fflush(stdout);
+  ctRefreshTicks = 0;
+  tRefreshStart = 0.0;
 }
 
+// (for the log: the rate the screen really runs at, once after each change)
 - (void)frameRateTick:(CADisplayLink *)link
 {
+  if (tRefreshStart == 0.0) { tRefreshStart = link.timestamp; return; }
+  if (ctRefreshTicks < 0) return;
+  ctRefreshTicks++;
+  if (link.timestamp - tRefreshStart >= 5.0) {
+    printf("iOS: the screen runs at %.0f Hz\n", ctRefreshTicks / (link.timestamp - tRefreshStart));
+    fflush(stdout);
+    ctRefreshTicks = -1;
+  }
 }
 
 // What the tray's FPS says: the frame rate asked for ("FPS\n60")

@@ -29,6 +29,13 @@
 #include "vulkan/renderer/vk_postprocess.h"
 #include "hw_clock.h"
 #include "v_video.h"
+#ifdef RAZE_IOS
+// Added: the frame's waits, for the log's frame times (ios/i_ios.mm): for a
+// screen image, and for the GPU to finish the frame
+#include <time.h>
+uint64_t iosVkAcquireNs = 0, iosVkGpuWaitNs = 0;
+static uint64_t IOSVkNs() { return clock_gettime_nsec_np(CLOCK_UPTIME_RAW); }
+#endif
 
 extern int rendered_commandbuffers;
 int current_rendered_commandbuffers;
@@ -166,7 +173,13 @@ void VkCommandBufferManager::WaitForCommands(bool finish, bool uploadOnly)
 		Finish.Reset();
 		Finish.Clock();
 
+#ifdef RAZE_IOS
+		const uint64_t tAcquire = IOSVkNs();
+#endif
 		fb->GetFramebufferManager()->AcquireImage();
+#ifdef RAZE_IOS
+		iosVkAcquireNs += IOSVkNs() - tAcquire;
+#endif
 	}
 
 	FlushCommands(finish, true, uploadOnly);
@@ -182,7 +195,13 @@ void VkCommandBufferManager::WaitForCommands(bool finish, bool uploadOnly)
 
 	if (numWaitFences > 0)
 	{
+#ifdef RAZE_IOS
+		const uint64_t tWait = IOSVkNs();
+#endif
 		vkWaitForFences(fb->device->device, numWaitFences, mSubmitWaitFences, VK_TRUE, std::numeric_limits<uint64_t>::max());
+#ifdef RAZE_IOS
+		iosVkGpuWaitNs += IOSVkNs() - tWait;
+#endif
 		vkResetFences(fb->device->device, numWaitFences, mSubmitWaitFences);
 	}
 
