@@ -5258,6 +5258,15 @@ static UIView *IOSTouch_GetHostView(SDL_Window *pWindow)
   return w.rootViewController.view ? w.rootViewController.view : w;
 }
 
+// The keyboard comes up for the key window's text field: the game's window
+// (SDL's, holding its text field and the overlay) made key again, should a
+// window shown over it at some point (the picker, an alert) have kept that
+static void IOSTouch_GameWindowKey(void)
+{
+  UIWindow *w = _pOverlay.window;
+  if (w && !w.isKeyWindow) [w makeKeyWindow];
+}
+
 // Switches what shows; every change starts clean (touches on a hidden view
 // never end, and MENU's tray closes)
 static void IOSTouch_SetMode(int iMode)
@@ -5274,6 +5283,7 @@ static void IOSTouch_SetMode(int iMode)
   // The console gets the iOS keyboard (SDL's text input shows it); it goes
   // again as the console closes
   if (iMode == IOSTOUCH_CONSOLE && iOld != IOSTOUCH_CONSOLE) {
+    IOSTouch_GameWindowKey();
     SDL_StartTextInput();
   }
   else if (iOld == IOSTOUCH_CONSOLE && iMode != IOSTOUCH_CONSOLE) {
@@ -5294,7 +5304,20 @@ static void IOSTouch_KeepConsoleKeyboard(SDL_Window *pWindow)
   const double now = CACurrentMediaTime();
   if (now - tAsked < 0.5) return;
   tAsked = now;
+  IOSTouch_GameWindowKey();
   SDL_StartTextInput();
+  // (SDL asks only its keyboard-focus window, none at times: then its view
+  // controller is asked straight, its text field still feeding SDL)
+  if (!SDL_IsScreenKeyboardShown(pWindow)) {
+    UIViewController *vc = _pOverlay.window.rootViewController;
+    SEL show = NSSelectorFromString(@"showKeyboard");
+    if ([vc respondsToSelector:show]) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+      [vc performSelector:show];
+#pragma clang diagnostic pop
+    }
+  }
 }
 
 static int IOSTouch_UpdateOverlay(void *pSDLWindow, int iMode, const IOSTouchHud *pHud, unsigned int ulFramesDrawn)

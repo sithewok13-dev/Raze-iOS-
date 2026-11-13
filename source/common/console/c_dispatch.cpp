@@ -308,6 +308,12 @@ void C_DoCommand (const char *cmd, int keynum)
 		}
 		else
 		{ // We don't know how to handle this command
+#ifdef RAZE_TOUCH
+			// Added (iOS): the game's own typed cheats (DNITEMS...) work typed
+			// in the console too, the on-screen keyboard's only place
+			extern bool PlaybackCheat(const char* p);
+			if (PlaybackCheat(FString(beg, len).GetChars())) return;
+#endif
 			Printf ("Unknown command \"%.*s\"\n", (int)len, beg);
 		}
 	}

@@ -972,6 +972,19 @@ static bool C_HandleKey (event_t *ev, FCommandBuffer &buffer)
 			if (bufferText.Len() == 0)
 			{
 				// Command line is empty, so do nothing to the history
+#ifdef RAZE_TOUCH
+				// Added (iOS): Return on an empty line closes the console over
+				// a level, a sure way out with the on-screen keyboard
+				if (gamestate == GS_LEVEL)
+				{
+					buffer.SetString("");
+					HistPos = NULL;
+					TabbedLast = false;
+					TabbedList = false;
+					C_ToggleConsole();
+					break;
+				}
+#endif
 			}
 			else if (HistHead && HistHead->String.CompareNoCase(bufferText) == 0)
 			{

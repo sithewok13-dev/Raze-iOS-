@@ -138,6 +138,18 @@ static void CheatSound()
 	PlaySound(lines[rand() % countof(lines)], v3df_none, CHAN_VOICE, CHANF_UI);
 }
 
+#ifndef RAZE_IOS
+// The Linux test rig's: the player's items, for its log (ITEM)
+CCMD(ios_riginv_sw)
+{
+	auto pp = getPlayer(myconnectindex);
+	if (!pp || !pp->GetActor()) return;
+	FString s;
+	for (int i = 0; i < MAX_INVENTORY; i++) s.AppendFormat(" %d:%d/%d%s", i, pp->InventoryAmount[i], pp->InventoryPercent[i], pp->InventoryActive[i] ? "on" : "");
+	Printf("riginv item %d health %d%s\n", pp->InventoryNum, pp->GetActor()->user.Health, s.GetChars());
+}
+#endif
+
 END_SW_NS
 
 const IOSGamePart iosSWPart = { SW_NS::Weapons, SW_NS::Pick, nullptr, SW_NS::State, SW_NS::FillAmmo, false,

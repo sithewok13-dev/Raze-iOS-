@@ -210,6 +210,19 @@ static void CheatSound()
 	S_PlaySound(id, CHAN_VOICE, CHANF_UI, 1.f);
 }
 
+#ifndef RAZE_IOS
+// The Linux test rig's: the player's items, for its log (ITEM)
+CCMD(ios_riginv_duke)
+{
+	auto p = getPlayer(myconnectindex);
+	if (!p || !p->GetActor()) return;
+	Printf("riginv icon %d health %d firstaid %d steroids %d holoduke %d (on %d) jetpack %d (on %d) heat %d (on %d) scuba %d boots %d\n",
+		(int)p->inven_icon, (int)p->GetActor()->spr.extra, (int)p->firstaid_amount, (int)p->steroids_amount, (int)p->holoduke_amount,
+		p->holoduke_on != nullptr, (int)p->jetpack_amount, (int)p->jetpack_on, (int)p->heat_amount, (int)p->heat_on, (int)p->scuba_amount,
+		(int)p->boot_amount);
+}
+#endif
+
 END_DUKE_NS
 
 const IOSGamePart iosDukePart = { DUKE_NS::Weapons, DUKE_NS::Pick, DUKE_NS::PickTick, DUKE_NS::State, DUKE_NS::FillAmmo, false,

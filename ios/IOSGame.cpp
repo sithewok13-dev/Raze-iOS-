@@ -79,8 +79,12 @@ static void SwitchClosed(int bPicked)
 
 static int TouchMode()
 {
-	if (gamestate != GS_LEVEL || M_Active()) return IOSTOUCH_HIDDEN;
+	// (Raze's M_Active() is also true while the console is down: the menu
+	// itself is CurrentMenu, the console comes before M_Active() here, or the
+	// open console hid the overlay, MENU and the keyboard with it)
+	if (gamestate != GS_LEVEL || CurrentMenu != nullptr) return IOSTOUCH_HIDDEN;
 	if (ConsoleState == c_down || ConsoleState == c_falling) return IOSTOUCH_CONSOLE;
+	if (M_Active()) return IOSTOUCH_HIDDEN;
 	if (chatmodeon) return IOSTOUCH_HIDDEN;
 	if (pausedWithKey) return IOSTOUCH_PAUSED;
 	return IOSTOUCH_GAMEPLAY;

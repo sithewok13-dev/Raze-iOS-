@@ -101,6 +101,18 @@ static void CheatSound()
 	PlayLocalSound(StaticSound[kSoundItemSpecial], 0, false, CHANF_UI);
 }
 
+#ifndef RAZE_IOS
+// The Linux test rig's: the player's items, for its log (ITEM)
+CCMD(ios_riginv_exhumed)
+{
+	auto pPlayer = getPlayer(myconnectindex);
+	if (!pPlayer || !pPlayer->GetActor()) return;
+	FString s;
+	for (int i = 0; i < 8; i++) s.AppendFormat(" %d:%d", i, pPlayer->items[i]);
+	Printf("riginv item %d health %d%s\n", pPlayer->nItem, pPlayer->nHealth, s.GetChars());
+}
+#endif
+
 END_PS_NS
 
 const IOSGamePart iosExhumedPart = { PS_NS::Weapons, PS_NS::Pick, nullptr, PS_NS::State, PS_NS::FillAmmo, true,

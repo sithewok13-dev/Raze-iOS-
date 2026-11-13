@@ -186,6 +186,18 @@ static void CheatSound()
 	sndStartSample(lines[rand() % countof(lines)], 255, 2, false, CHANF_UI);
 }
 
+#ifndef RAZE_IOS
+// The Linux test rig's: the player's items, for its log (ITEM)
+CCMD(ios_riginv_blood)
+{
+	auto pPlayer = getPlayer(myconnectindex);
+	if (!pPlayer || !pPlayer->GetActor()) return;
+	FString s;
+	for (int i = 0; i < 5; i++) s.AppendFormat(" %d:%d%s", i, pPlayer->packSlots[i].curAmount, pPlayer->packSlots[i].isActive ? "on" : "");
+	Printf("riginv item %d (shown %d) health %d%s\n", pPlayer->packItemId, pPlayer->packItemTime, pPlayer->GetActor()->xspr.health >> 4, s.GetChars());
+}
+#endif
+
 END_BLD_NS
 
 const IOSGamePart iosBloodPart = { BLD_NS::Weapons, BLD_NS::Pick, BLD_NS::PickTick, BLD_NS::State, BLD_NS::FillAmmo, true,
