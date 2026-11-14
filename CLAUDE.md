@@ -142,9 +142,10 @@ classic bars always show their face. Remembered (`iosTouchHud`,
   standard, from the DOOM port): dark, rounded, a 1.5 pt white border at
   40%, up to 560 pt wide inside the safe area, 40 pt rows, the row's name
   at the left (78 pt): LOOK (six chips), SIZE (not for CLASSIC or NONE),
-  FACE (ON / OFF: the pills, in Redneck), HUD (the HUD's opacity) and
-  BUTTONS (the controls'), each a slider, 20-100% in 5% steps, live, kept
-  on lift, the value at its right. Hidden rows close up. Chips: radius 15,
+  FACE (ON / OFF: the pills, in Redneck), HUD (the HUD's opacity;
+  not for CLASSIC, always at full, the owner's call, nor NONE) and
+  BUTTONS (the controls', always shown), each a slider, 20-100% in 5%
+  steps, live, kept on lift, the value at its right. Hidden rows close up. Chips: radius 15,
   the chosen gold (fill 1, 0.75, 0.24 at 45%, a solid gold border), the
   others white 10% with a 45% white border; a tap applies at once (a light
   haptic, the buttons laid out again). A row's name tapped = that row back
@@ -184,8 +185,9 @@ classic bars always show their face. Remembered (`iosTouchHud`,
   on the magic pool, so nothing is left out). FIRE keeps 10 pt above the pieces' real top. SIZE small: the status bar's scale
   times 0.75 while it is drawn (`Raze.IOSBarScale`, `iosBarScale` in
   `base_sbar.cpp`). Its top as drawn goes to the overlay
-  (`Raze.IOSBarTop`, `IOSGame_SetBarTop`). The HUD slider fades it (the
-  status bar's `Alpha`).
+  (`Raze.IOSBarTop`, `IOSGame_SetBarTop`). The HUD slider fades it, numbers
+  and all (the status bar's `Alpha`; its text follows it too:
+  `DStatusBarCore::DrawString`). Plain CLASSIC is always at full.
 - The pills: MEDIUM (the owner's earlier LARGE) 39.8 pt high on a 440 pt screen (83 px at
   2000x921; SMALL 30.6, LARGE 51.7), scaled with the screen's height (0.8-1.25x), the bottom 16.3
   pt above the screen's bottom (where the mockups' was), 2.4 pt inside the
