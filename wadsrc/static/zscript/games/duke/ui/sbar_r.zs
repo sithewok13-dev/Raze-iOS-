@@ -493,16 +493,18 @@ class RedneckStatusBar : DukeCommonStatusBar
 			IOSIcon(1, ammo_sprites[weapon], 30);
 			IOSNum(1, ammo, "font:digi", 34, IOSLowAmmo(ammo, Duke.MaxAmmoAmount(weapon)));
 		}
-		// the keys: blue, red, yellow, as its full-screen HUD has them
+		// the keys: blue, red, yellow, as its full-screen HUD has them (the
+		// key's picture is grey: coloured here)
 		static const int keyOf[] = { 1, 2, 3 };
 		static const int remaps[] = { 0, 21, 23 };
+		static const int tints[] = { IOSF_KEYBLUE, IOSF_KEYRED, IOSF_KEYYELLOW };
 		bool any = false;
 		for (int i = 0; i < 3; i++)
 		{
 			if (!p.keys[keyOf[i]]) continue;
 			if (!any) IOSGap(1);
 			any = true;
-			IOSIcon(1, "ACCESS_ICON", 26, 0, Translation.MakeID(Translation_Remap, remaps[i]));
+			IOSIcon(1, "ACCESS_ICON", 26, tints[i], Translation.MakeID(Translation_Remap, remaps[i]));
 		}
 	}
 

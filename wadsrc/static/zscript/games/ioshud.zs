@@ -27,6 +27,9 @@ enum EIOSHudPart
 	IOSF_RED = 2,	// (a number) the ammo warning: red
 	IOSF_GOLD = 4,	// (a number in a font) gold
 	IOSF_BRIGHT = 8,// (a picture) brighter
+	IOSF_KEYBLUE = 16,	// (a picture: a key the game draws grey) coloured
+	IOSF_KEYRED = 32,
+	IOSF_KEYYELLOW = 64,
 }
 
 extend class RazeStatusBar
@@ -291,7 +294,15 @@ extend class RazeStatusBar
 			{
 				Screen.DrawTexture(tex, false, x * u, y0 * u, DTA_DestWidthF, w * u, DTA_DestHeightF, h * u,
 					DTA_LeftOffset, 0, DTA_TopOffset, 0, DTA_Alpha, mIOSA, DTA_TranslationIndex, mIOSTrans[i]);
-				if (mIOSFlags[i] & IOSF_BRIGHT)
+				int fl = mIOSFlags[i];
+				if (fl & (IOSF_KEYBLUE | IOSF_KEYRED | IOSF_KEYYELLOW))
+				{
+					// a grey key in its colour: the colour added over it
+					Color c = (fl & IOSF_KEYBLUE) ? Color(255, 60, 120, 255) : (fl & IOSF_KEYRED) ? Color(255, 255, 50, 40) : Color(255, 255, 210, 40);
+					Screen.DrawTexture(tex, false, x * u, y0 * u, DTA_DestWidthF, w * u, DTA_DestHeightF, h * u,
+						DTA_LeftOffset, 0, DTA_TopOffset, 0, DTA_Alpha, 0.75 * mIOSA, DTA_FillColor, c, DTA_LegacyRenderStyle, STYLE_AddShaded);
+				}
+				if (fl & IOSF_BRIGHT)
 				{
 					Screen.DrawTexture(tex, false, x * u, y0 * u, DTA_DestWidthF, w * u, DTA_DestHeightF, h * u,
 						DTA_LeftOffset, 0, DTA_TopOffset, 0, DTA_Alpha, 0.35 * mIOSA, DTA_LegacyRenderStyle, STYLE_Add,
