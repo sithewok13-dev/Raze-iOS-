@@ -17,8 +17,9 @@
 // CLASSIC STRIP and CLASSIC SPLIT: the game's own status bar (as CLASSIC
 // draws it) over the full-screen view, clipped to its 320 wide core (no
 // side filler), whole in the middle at the bottom, or cut in two (each
-// game says where: IOSBarCut) to the bottom corners, at the HUD frame's
-// edges as SPLIT's pills; SIZE small 0.75 of the game's own scale.
+// game says where: IOSBarPieces, parts of the bar put side by side, the
+// weapons' list left out) to the bottom corners, at the HUD frame's edges
+// as SPLIT's pills; SIZE small 0.75 of the game's own scale.
 //
 //============================================================================
 
@@ -70,6 +71,21 @@ extend class RazeStatusBar
 	virtual double IOSBarHeight() { return 0; }
 	virtual double, double IOSBarSpan() { return 0, 320; }
 	virtual double IOSBarCut() { return 160; }
+
+	// CLASSIC SPLIT's two corner pieces, each one or more parts of the bar
+	// (side 0 left, 1 right; from a to b across, from top down to the
+	// bar's bottom: IOSBarPiece), put side by side; the default cuts the
+	// bar in two at IOSBarCut
+	virtual void IOSBarPieces()
+	{
+		double x0, x1;
+		[x0, x1] = IOSBarSpan();
+		double cut = clamp(IOSBarCut(), x0, x1);
+		IOSBarPiece(0, x0, cut);
+		IOSBarPiece(1, cut, x1);
+	}
+	Array<double> mIOSCut;
+	void IOSBarPiece(int side, double a, double b, double top = 0) { mIOSCut.Push(side); mIOSCut.Push(a); mIOSCut.Push(b); mIOSCut.Push(top); }
 
 	int IOSHudSize()
 	{
@@ -512,24 +528,44 @@ extend class RazeStatusBar
 		{
 			double sx = bw / (x1 - x0), sy = bh / H;
 			double dy = (Raze.IOSHud(3) - (by + bh)) / sy;
-			Raze.IOSBarTop((Raze.IOSHud(3) - bh) / Screen.GetHeight());
 			Alpha = mIOSA;
 			mIOSBar = true;
 			if (!split)
 			{
+				Raze.IOSBarTop((Raze.IOSHud(3) - bh) / Screen.GetHeight());
 				drawOffset = (0, dy);
 				SetClipRect(x0, 0, x1 - x0, 200);
 				IOSBarDraw();
 			}
 			else
 			{
-				double cut = clamp(IOSBarCut(), x0, x1);
-				drawOffset = ((Raze.IOSHud(4) - bx) / sx, dy);
-				SetClipRect(x0, 0, cut - x0, 200);
-				IOSBarDraw();
-				drawOffset = ((Raze.IOSHud(5) - (bx + bw)) / sx, dy);
-				SetClipRect(cut, 0, x1 - cut, 200);
-				IOSBarDraw();
+				// each side's parts side by side in whole pixels (a part's
+				// clip ends where the next starts), the left side from the
+				// HUD frame's left edge, the right to its right edge
+				mIOSCut.Clear();
+				IOSBarPieces();
+				double top = 200;
+				for (int side = 0; side < 2; side++)
+				{
+					double total = 0;
+					for (int i = 0; i + 3 < mIOSCut.Size(); i += 4)
+						if (mIOSCut[i] == side) total += int((mIOSCut[i + 2] - mIOSCut[i + 1]) * sx);
+					double X = side == 0 ? int(Raze.IOSHud(4) + 0.5) : int(Raze.IOSHud(5) + 0.5) - total;
+					for (int i = 0; i + 3 < mIOSCut.Size(); i += 4)
+					{
+						if (mIOSCut[i] != side) continue;
+						double a = mIOSCut[i + 1], b = mIOSCut[i + 2], t = mIOSCut[i + 3];
+						if (b <= a) continue;
+						top = min(top, t);
+						drawOffset = ((X - bx) / sx - (a - x0), dy);
+						SetClipRect(a, t, b - a, 200 - t);
+						IOSBarDraw();
+						X += int((b - a) * sx);
+					}
+				}
+				// FIRE keeps above the pieces' real top
+				top = max(top, 200 - H);
+				Raze.IOSBarTop((Raze.IOSHud(3) - (200 - top) * sy) / Screen.GetHeight());
 			}
 			mIOSBar = false;
 		}

@@ -478,7 +478,15 @@ class RedneckStatusBar : DukeCommonStatusBar
 	override void IOSBarDraw() { Statusbar(Duke.GetViewPlayer()); }
 	override double IOSBarHeight() { return max(IOSBarH("BOTTOMSTATUSBAR", scale), 200 - 158); } // (the weapon bar from 158 down)
 	override double, double IOSBarSpan() { double a, b; [a, b] = IOSBarCentred("BOTTOMSTATUSBAR", scale); return a, b; }
-	override double IOSBarCut() { return 174; }
+	// SPLIT leaves out the weapon bar along the top: the bar itself, cut
+	// between KEYS and YER STUFF
+	override void IOSBarPieces()
+	{
+		double x0, x1;
+		[x0, x1] = IOSBarSpan();
+		double t = 200 - IOSBarH("BOTTOMSTATUSBAR", scale);
+		IOSBarPiece(0, x0, 174, t); IOSBarPiece(1, 174, x1, t);
+	}
 
 	override void IOSHudParts(bool face)
 	{

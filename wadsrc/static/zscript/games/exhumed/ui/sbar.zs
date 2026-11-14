@@ -823,7 +823,7 @@ class ExhumedStatusBar : RazeStatusBar
 	override void IOSBarDraw() { DrawStatus(Exhumed.GetViewPlayer()); }
 	override double IOSBarHeight() { return IOSBarH("TileStatusBar"); }
 	override double, double IOSBarSpan() { double a, b; [a, b] = IOSBarCentred("TileStatusBar"); return a, b; }
-	override double IOSBarCut() { return 177; }
+	override double IOSBarCut() { return 145; } // (before the compass: 145 and 175 wide)
 
 	override TextureID IOSDigit(String src, int d)
 	{
