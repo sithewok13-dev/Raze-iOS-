@@ -214,6 +214,9 @@ static void RigDump(const char *name)
   RigLog("dump %s", name);
 }
 
+static unsigned _rigUpdates = 0; // (the frames count: IOSTouch_Update calls)
+static double _rigUpdatesAt = 0.0;
+
 static void RigRun(double t)
 {
   while (_rigNext < _rigCount) {
@@ -235,6 +238,18 @@ static void RigRun(double t)
     }
     else if (!strcmp(cmd, "log")) {
       RigState(a);
+    }
+    else if (!strcmp(cmd, "frames")) {
+      // frames a second since the last "frames" (the held game's pace)
+      RigLog("frames: %u in %.2f s: %.1f a second", _rigUpdates, now - _rigUpdatesAt,
+             _rigUpdates / (now - _rigUpdatesAt > 0 ? now - _rigUpdatesAt : 1.0));
+      _rigUpdates = 0;
+      _rigUpdatesAt = now;
+    }
+    else if (!strcmp(cmd, "lookstats")) {
+      char line[512];
+      if (IOSTouch_LookStats(line, sizeof(line))) RigLog("%s", line);
+      else RigLog("look: no drag");
     }
     else if (!strcmp(cmd, "buttons")) {
       for (int i = 0; i < BTN_COUNT; i++) RigLog("button %-10s %4.0f,%4.0f r%2.0f shown %d", _rigNames[i], _aButtons[i].x, _aButtons[i].y,
@@ -381,6 +396,7 @@ int IOSTouch_Update(void *pSDLWindow, int iMode, const IOSTouchHud *pHud, unsign
 {
   (void)pSDLWindow;
   if (!_rigInit) RigInit();
+  _rigUpdates++;
   const int iRequests = _iRequests;
   _iRequests = 0;
   if (iRequests) RigLog("requests 0x%x", iRequests);

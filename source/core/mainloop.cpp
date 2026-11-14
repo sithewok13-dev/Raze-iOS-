@@ -68,8 +68,8 @@
 #include "i_time.h"
 #include "menu.h"
 #ifdef RAZE_IOS
-extern "C" void IOS_PerfFrame(uint64_t ticsNs, uint64_t drawNs, bool inLevel); // ios/i_ios.mm
-extern "C" void IOS_FrameCap(void); // ios/i_ios.mm
+extern "C" void IOS_PerfFrame(uint64_t capNs, uint64_t ticsNs, uint64_t inputNs, uint64_t drawNs, bool inLevel); // ios/i_ios.mm
+extern "C" uint64_t IOS_FrameCap(void); // ios/i_ios.mm
 #endif
 #include "d_net.h"
 #include "gamecontrol.h"
@@ -614,6 +614,14 @@ void TryRunTics (void)
 	// moves with the fingers: every frame drawn, not one per tic
 	if (iosCam_IsFrozen()) doWait = false;
 #endif
+#ifdef RAZE_TOUCH
+	// Added: nor while the game is held still (the weapon wheel, the level
+	// list, a selfie, "Switch game") or paused: the games then stop
+	// interpolating (r_NoInterpolate), which made frames wait for a tic (30
+	// a second); the still frame is drawn at the screen's pace, so the
+	// overlay and the FPS readout stay smooth
+	if (!netgame && gamestate == GS_LEVEL && (IOSGame_HoldsGame() || paused)) doWait = false;
+#endif
 
 	// get real tics
 	if (doWait)
@@ -797,6 +805,12 @@ void MainLoop ()
 	{
 		try
 		{
+#ifdef RAZE_IOS
+			// Added: the frames' pace (the tray's FPS 60: a frame every 1/60 s,
+			// steered onto the screen's refreshes), before the frame's time is
+			// read for the interpolation and the touches come in
+			const uint64_t iosCap = IOS_FrameCap();
+#endif
 			// frame syncronous IO operations
 			if (gametic > lasttic)
 			{
@@ -842,13 +856,14 @@ void MainLoop ()
 #ifdef RAZE_TOUCH
 			IOSGame_Frame(); // Added: the iOS touch controls (after the frame's touches came in)
 #endif
+#ifdef RAZE_IOS
+			const uint64_t tFrame2 = I_nsTime();
+#endif
 			Display();
 #ifdef RAZE_IOS
-			{
-				// Added: the frame's times, for the log (ios/i_ios.mm)
-				IOS_PerfFrame(tFrame1 - tFrame0, I_nsTime() - tFrame1, gamestate == GS_LEVEL && !M_Active() && !paused);
-				IOS_FrameCap(); // (the tray's 60 FPS: a frame at most every 1/60 s)
-			}
+			// Added: the frame's times, for the log (ios/i_ios.mm)
+			IOS_PerfFrame(iosCap, tFrame1 - tFrame0, tFrame2 - tFrame1, I_nsTime() - tFrame2,
+				gamestate == GS_LEVEL && !M_Active() && !paused);
 #endif
 			Mus_UpdateMusic();		// must be at the end.
 		}

@@ -22,8 +22,30 @@ repository or anywhere public.
   Blood and Shadow Warrior. No saving or loading in a network game.
 - **Game controllers** (`ios/IOSPad.cpp`): through the engine's own pad
   bindings; a pad hides the touch controls until a touch.
+- **Frame rate** (all five games: one main loop, `source/core/mainloop.cpp`,
+  and one Vulkan present): FPS in the tray (held: 60 <-> 120). The games
+  tick at 30 Hz and the renderer interpolates. The pace (`ios/IOSPacer.h`,
+  from the DOOM port, called as `IOS_FrameCap` at the top of the loop,
+  before `I_SetFrameTime` and the touches are read): at 60 a frame starts
+  every 1/60 s and asks the screen to show it one period later
+  (VK_GOOGLE_display_timing: MoltenVK's presentAtTime, in
+  `vk_framebuffer.cpp`), the starts steered onto the screen's refreshes by
+  the real shown times; at 120 plain vsync; OpenGL ES only sleeps. Build 86
+  slept at the bottom of the loop, after the time and the touches were
+  read, and vsync on a 120 Hz screen showed a frame at one refresh or the
+  next: choppy turning at "60.0 fps". The look is resampled by the
+  touches' own timestamps (`IOSTouch_LookTake`). While the game is held
+  still (wheel, LEVEL, CAMERA, GAMES) or paused, frames don't wait for a
+  tic (`TryRunTics`). Log every 5 s of play (`IOS_PerfFrame`, `i_ios.mm`):
+  fps and a frame's ms (its turn's wait, tics, input, drawing, Vulkan's
+  waits), "shown every ... ms (min, max, spread): n uneven, n late", the
+  screen's real present times, and a look line while dragging.
+  `ios/rig/IOSPacerSim.cpp` runs the pacer against a pretend screen; the
+  rig's `frames` and `lookstats` commands print its frame rate and the
+  look line. (The display link's ticks can't measure the screen: build
+  86's "the screen runs at 5 Hz" was that.)
 - **iOS code:** `ios/`: `i_ios.mm` (main, paths, the log, alerts, the frame
-  cap `IOS_FrameCap`), `IOSPicker.mm`, `IOSTouch.m`/`.h` (the overlay: a C
+  pace `IOS_FrameCap`), `IOSPacer.h`, `IOSPicker.mm`, `IOSTouch.m`/`.h` (the overlay: a C
   core plus a UIKit view), `IOSGame.cpp`/`.h` (the game side for every
   game), `IOSPad.cpp`, `IOSNet.c`, `iosCamera.h`, `iosCapture.cpp`,
   `iosPhotos.mm`, `Info.plist.in`, `build_deps.sh`, `rig/IOSTouchRig.c`.
@@ -171,7 +193,7 @@ the owner's call). Remembered (`iosTouchHud`, `iosTouchHudFace`,
   `cmd give all` or an `xshot` (it takes over a second). Commands: `down /
   move / up <id> <x|@BUTTON> <y|@BUTTON>` (`@QUICKSAVE`, `@MENU`,
   `@TRAYHUD`, `@ITEM0`...), `log`, `buttons`, `items`, `hud <style> [face]`,
-  `hudopacity`, `opacity`, `dump <name>`, `xshot <png>`, `cmd <console
+  `hudopacity`, `opacity`, `frames`, `lookstats`, `dump <name>`, `xshot <png>`, `cmd <console
   command>` (`give all`, `ios_rigpos`, `ios_riginv_duke`, `ios_rigset_duke
   health|ammo <n>`), `picklevel`, `quit`.
 - The rig draws no overlay: `dump` writes its state (buttons, items, HUD)

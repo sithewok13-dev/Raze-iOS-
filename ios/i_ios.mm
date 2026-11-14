@@ -547,9 +547,12 @@ extern "C" void* IOS_VulkanGetInstanceProcAddr()
 }
 
 // Frame times for the log: every 5 seconds of play, the frames drawn and
-// where each one's time went (the game's tics; drawing it, which is mostly
-// the CPU handing GL its work; and presentRenderbuffer, which waits while
-// the GPU is behind), and GL's draw calls per frame
+// where each one's time went (the wait for its turn: FPS 60's pace; the
+// game's tics, with the input they read; the touch controls and the events;
+// drawing, which is mostly the CPU handing GL or Vulkan its work, and its
+// waits for the screen and the GPU), and how evenly the screen really showed
+// them (Vulkan with VK_GOOGLE_display_timing)
+#include "IOSPacer.h"
 static uint64_t IOS_Ns()
 {
 	return clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
@@ -558,10 +561,13 @@ static uint64_t iosPresentNs = 0;
 extern int iosDrawCalls;
 extern uint64_t iosDrawNs;
 extern uint64_t iosVkAcquireNs, iosVkGpuWaitNs; // (Vulkan: vk_commandbuffer.cpp)
+extern "C" int IOSTouch_MaxFps(void);
+extern "C" int IOSTouch_LookStats(char* str, int size);
+static IOSPacer iosPacer;
 
-extern "C" void IOS_PerfFrame(uint64_t ticsNs, uint64_t drawNs, bool inLevel)
+extern "C" void IOS_PerfFrame(uint64_t capNs, uint64_t ticsNs, uint64_t inputNs, uint64_t drawNs, bool inLevel)
 {
-	static uint64_t tStart = 0, sumTics = 0, sumDraw = 0, sumPresent = 0, worst = 0, sumGL = 0, sumAcq = 0, sumGpu = 0;
+	static uint64_t tStart = 0, sumCap = 0, sumTics = 0, sumInput = 0, sumDraw = 0, sumPresent = 0, worst = 0, sumGL = 0, sumAcq = 0, sumGpu = 0;
 	static int frames = 0, calls = 0;
 	const uint64_t now = IOS_Ns();
 	const uint64_t present = iosPresentNs;
@@ -573,55 +579,104 @@ extern "C" void IOS_PerfFrame(uint64_t ticsNs, uint64_t drawNs, bool inLevel)
 	const uint64_t acq = iosVkAcquireNs, gpu = iosVkGpuWaitNs;
 	iosVkAcquireNs = iosVkGpuWaitNs = 0;
 	if (!inLevel) { tStart = 0; return; }
-	if (tStart == 0) { tStart = now; frames = calls = 0; sumTics = sumDraw = sumPresent = worst = sumGL = sumAcq = sumGpu = 0; return; }
+	if (tStart == 0)
+	{
+		char unused[512];
+		tStart = now; frames = calls = 0;
+		sumCap = sumTics = sumInput = sumDraw = sumPresent = worst = sumGL = sumAcq = sumGpu = 0;
+		IOSPacer_TakeStats(iosPacer);
+		IOSTouch_LookStats(unused, sizeof(unused)); // (the look line starts with the window too)
+		return;
+	}
 	frames++;
 	calls += dc;
+	sumCap += capNs;
 	sumTics += ticsNs;
+	sumInput += inputNs;
 	sumDraw += drawNs - (present < drawNs ? present : drawNs);
 	sumPresent += present;
 	sumGL += gl;
 	sumAcq += acq;
 	sumGpu += gpu;
-	if (ticsNs + drawNs > worst) worst = ticsNs + drawNs;
+	if (capNs + ticsNs + inputNs + drawNs > worst) worst = capNs + ticsNs + inputNs + drawNs;
 	if (now - tStart >= 5000000000ull && frames > 0)
 	{
 		const double ms = 1e-6 / frames;
+		const double fps = frames * 1e9 / (now - tStart);
+		const uint64_t all = sumCap + sumTics + sumInput + sumDraw + sumPresent;
 		if (sumAcq + sumGpu > 0)
 			// Vulkan: drawing's own work (the CPU), and its waits for a screen
 			// image (the screen's pace) and for the GPU
-			printf("iOS: frames %.1f fps; per frame %.1f ms (worst %.1f): tics %.1f, drawing %.1f (CPU work %.1f, waiting for the screen %.1f, for the GPU %.1f)\n",
-				frames * 1e9 / (now - tStart), (sumTics + sumDraw + sumPresent) * ms, worst * 1e-6, sumTics * ms, sumDraw * ms,
+			printf("iOS: frames %.1f fps (FPS %d); per frame %.1f ms (worst %.1f): waiting for its turn %.1f, tics %.1f, input %.1f, "
+				"drawing %.1f (CPU work %.1f, waiting for the screen %.1f, for the GPU %.1f)\n",
+				fps, IOSTouch_MaxFps(), all * ms, worst * 1e-6, sumCap * ms, sumTics * ms, sumInput * ms, sumDraw * ms,
 				(sumDraw > sumAcq + sumGpu ? sumDraw - sumAcq - sumGpu : 0) * ms, sumAcq * ms, sumGpu * ms);
 		else
-			printf("iOS: frames %.1f fps; per frame %.1f ms (worst %.1f): tics %.1f, drawing %.1f (in GL's draw calls %.1f), present %.1f; %d draw calls\n",
-				frames * 1e9 / (now - tStart), (sumTics + sumDraw + sumPresent) * ms, worst * 1e-6, sumTics * ms, sumDraw * ms, sumGL * ms, sumPresent * ms, calls / frames);
+			printf("iOS: frames %.1f fps (FPS %d); per frame %.1f ms (worst %.1f): waiting for its turn %.1f, tics %.1f, input %.1f, "
+				"drawing %.1f (in GL's draw calls %.1f), present %.1f; %d draw calls\n",
+				fps, IOSTouch_MaxFps(), all * ms, worst * 1e-6, sumCap * ms, sumTics * ms, sumInput * ms, sumDraw * ms,
+				sumGL * ms, sumPresent * ms, calls / frames);
+		// the screen's side: how evenly the frames were really shown (the
+		// times the screen showed them; "uneven": off the frame period by
+		// half a refresh or more, seen as judder; "late": not ready in time)
+		const IOSPacerStats st = IOSPacer_TakeStats(iosPacer);
+		if (st.shown > 0)
+			printf("iOS: shown every %.2f ms (min %.2f, max %.2f, spread %.2f): %d uneven, %d late of %d; refresh %.2f ms, off plan %.2f ms\n",
+				st.meanMs, st.minMs, st.maxMs, st.sdMs, st.uneven, st.late, st.shown, iosPacer.refresh * 1e-6, st.errMs);
+		else
+			printf("iOS: shown: no presentation times (OpenGL ES, or no VK_GOOGLE_display_timing)\n");
+		// the look's timing, when there was a drag (IOSTouch.m)
+		char look[512];
+		if (IOSTouch_LookStats(look, sizeof(look))) printf("%s\n", look);
 		fflush(stdout);
 		tStart = now;
 		frames = calls = 0;
-		sumTics = sumDraw = sumPresent = worst = sumGL = sumAcq = sumGpu = 0;
+		sumCap = sumTics = sumInput = sumDraw = sumPresent = worst = sumGL = sumAcq = sumGpu = 0;
 	}
 }
 
-// The tray's FPS at 60 on a 120 Hz screen: the screen is asked for 60, but
-// the game's frames would still come at the screen's 120 (vsync), so they
-// are kept at most 1/60 s apart here (the waits are battery saved)
-extern "C" int IOSTouch_MaxFps(void);
-extern "C" void IOS_FrameCap(void)
+// The frames' pace (ios/IOSPacer.h, from the DOOM port). At the tray's FPS
+// 60 a frame starts every 1/60 s and (Vulkan) asks the screen to show it a
+// frame period later, on a refresh the starts are steered onto; at 120 the
+// frames go at vsync's pace. Called at the top of the game loop, before the
+// frame's time is read for the interpolation and before the touches come
+// in, so both follow the steady pace (build 86 slept after reading them, at
+// the bottom of the loop: frames moved unevenly). Returns the ns slept, for
+// the log.
+extern "C" uint64_t IOS_FrameCap(void)
 {
-	static uint64_t next = 0;
 	const int fps = IOSTouch_MaxFps();
-	if (fps <= 0 || fps >= 120) { next = 0; return; }
-	const uint64_t period = 1000000000ull / (uint64_t)fps;
-	uint64_t now = IOS_Ns();
-	// (far behind, after a pause or a load: from now on)
-	if (next == 0 || now > next + period) next = now;
-	if (now < next)
+	const uint64_t period = (fps > 0 && fps < 120) ? 1000000000ull / (uint64_t)fps : 0;
+	const uint64_t wait = IOSPacer_Wake(iosPacer, IOS_Ns(), period);
+	if (wait > 0)
 	{
-		const uint64_t wait = next - now;
 		struct timespec ts = { (time_t)(wait / 1000000000ull), (long)(wait % 1000000000ull) };
 		nanosleep(&ts, nullptr);
 	}
-	next += period;
+	return wait;
+}
+
+// (vk_framebuffer.cpp, at each present, with VK_GOOGLE_display_timing:) the
+// screen's refresh, the presents shown so far and when, and the time this one
+// asks to be shown at (0: as soon as it can) with its id
+extern "C" void IOS_PresentRefresh(uint64_t refreshNs)
+{
+	if (refreshNs != iosPacer.refresh)
+	{
+		printf("iOS: the screen refreshes every %.2f ms (VK_GOOGLE_display_timing): frames shown on time\n", refreshNs * 1e-6);
+		fflush(stdout);
+	}
+	iosPacer.refresh = refreshNs;
+}
+
+extern "C" void IOS_PresentShown(uint32_t id, uint64_t actualNs)
+{
+	IOSPacer_Shown(iosPacer, id, actualNs);
+}
+
+extern "C" uint64_t IOS_PresentPlan(uint32_t* pId)
+{
+	return IOSPacer_Present(iosPacer, pId);
 }
 
 // The frame's hand-over to the screen, done here instead of SDL's swap so

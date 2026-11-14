@@ -223,6 +223,11 @@ void IOSTouch_ReadInput(IOSTouchInput *pInput);
 void IOSTouch_ReadMove(float *pfMoveX, float *pfMoveY);
 /* Look movement since the last call, in mouse counts (+x right, +y down) */
 void IOSTouch_TakeLook(float *pfDX, float *pfDY);
+/* The look's timing since the last call, as a line for the play log (the
+   drag frames, frames with no new touches or no turn, touches per frame,
+   the newest touch's age, the lag, the longest gap between touches); 0 if
+   there was no drag in that time */
+int IOSTouch_LookStats(char *str, int size);
 /* Tilt aiming since the last call, in degrees for the view to turn (+ left)
    and tilt (+ up), straight into the player's view angles */
 void IOSTouch_TakeGyro(float *pfYaw, float *pfPitch);
