@@ -1,6 +1,6 @@
 // Added: the iOS touch controls' part for Exhumed / PowerSlave
 // (ios/IOSGame.h): the player's weapons for the weapon wheel, a pick from
-// it, ITEM and the cheat's noclip.
+// it, the item buttons and the cheat's noclip.
 
 #include "ns.h"
 #include "build.h"
@@ -11,6 +11,8 @@
 #include "aistuff.h"
 #include "gameinput.h"
 #include "sound.h"
+#include "sequence.h"
+#include "texturemanager.h"
 #include "../../../../ios/IOSGame.h"
 
 BEGIN_PS_NS
@@ -49,8 +51,54 @@ static void State(IOSTouchHud* pHud)
 	auto pPlayer = getPlayer(myconnectindex);
 	if (!pPlayer || !pPlayer->GetActor()) return;
 	pHud->iSecondary = IOSTOUCH_SEC_NONE;
-	pHud->bItem = pPlayer->nItem >= 0 && pPlayer->nItem < 8 && pPlayer->items[pPlayer->nItem] > 0;
 	pHud->bNoclip = bSlipMode;
+}
+
+// (an item button: its useitem number, a charge (0..1) or a count, on, dimmed)
+static void AddItem(IOSTouchItems* pi, int iUse, int iKind, double fCharge, int iCount, bool bOn, bool bDim)
+{
+	if (pi->ctItems >= IOSTOUCH_ITEM_MAX) return;
+	IOSTouchItem& it = pi->aItems[pi->ctItems++];
+	it.iUse = iUse;
+	it.iKind = iKind;
+	it.fCharge = (float)clamp(fCharge, 0.0, 1.0);
+	it.iCount = iCount;
+	it.bOn = bOn;
+	it.bDim = bDim;
+}
+
+// The item buttons: the heart (dimmed at full health), scarab, torch, hand,
+// eye and Sobek mask, each a count (up to 5), dimmed without the mana it
+// takes, glowing while its effect runs
+static void Items(IOSTouchItems* pi)
+{
+	auto pPlayer = getPlayer(myconnectindex);
+	if (!pPlayer || !pPlayer->GetActor()) return;
+	const bool running[6] = { false, pPlayer->invincibility > 0, pPlayer->nTorch > 0, pPlayer->nDouble > 0, pPlayer->nInvisible > 0,
+	                          pPlayer->nMaskAmount > 0 };
+	for (int i = 0; i < 6; i++)
+	{
+		if (pPlayer->items[i] <= 0) continue;
+		bool dim = nItemMagic[i] > pPlayer->nMagic;
+		if (i == 0 && pPlayer->nHealth >= kMaxHealth) dim = true;
+		AddItem(pi, i + 1, IOSTOUCH_ITEM_COUNT, 0, pPlayer->items[i], running[i], dim);
+	}
+}
+
+// ...their pictures: the status bar's (the item shown on the magic pool)
+static const char* const* ItemIcon(int iUse)
+{
+	static const int seqOf[] = { 91, 72, 76, 79, 68, 87 };
+	static FString names[6];
+	static const char* list[2] = { nullptr, nullptr };
+	if (iUse < 1 || iUse > 6) return nullptr;
+	auto seq = getSequence("status", seqOf[iUse - 1]);
+	if (!seq || seq->frames.Size() == 0) return nullptr;
+	auto tex = TexMan.GetGameTexture(seq->getFirstFrameTexture());
+	if (!tex) return nullptr;
+	names[iUse - 1] = tex->GetName();
+	list[0] = names[iUse - 1].GetChars();
+	return list;
 }
 
 // The cheat's ammo kept full: as the game's own weapons cheat fills it (300)
@@ -116,4 +164,5 @@ CCMD(ios_riginv_exhumed)
 END_PS_NS
 
 const IOSGamePart iosExhumedPart = { PS_NS::Weapons, PS_NS::Pick, nullptr, PS_NS::State, PS_NS::FillAmmo, true,
-                                     PS_NS::Alive, PS_NS::GodOn, nullptr, PS_NS::Icon, PS_NS::CheatIcon, PS_NS::CheatSound };
+                                     PS_NS::Alive, PS_NS::GodOn, nullptr, PS_NS::Icon, PS_NS::CheatIcon, PS_NS::CheatSound,
+                                     PS_NS::Items, PS_NS::ItemIcon };

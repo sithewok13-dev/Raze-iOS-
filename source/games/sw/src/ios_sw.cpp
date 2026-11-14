@@ -81,11 +81,53 @@ static void State(IOSTouchHud* pHud)
 	auto pp = getPlayer(myconnectindex);
 	if (!pp || !pp->GetActor()) return;
 	pHud->iSecondary = IOSTOUCH_SEC_NONE;
-	const int i = pp->InventoryNum;
-	pHud->bItem = i >= 0 && i < MAX_INVENTORY && pp->InventoryAmount[i] > 0;
 	pHud->bNoclip = (pp->Flags & PF_CLIP_CHEAT) != 0;
 	pHud->bFlying = (pp->Flags & PF_FLYING) != 0;
 	pHud->bCanFly = 1;
+}
+
+// (an item button: its useitem number, a charge (0..1) or a count, on, dimmed)
+static void AddItem(IOSTouchItems* pi, int iUse, int iKind, double fCharge, int iCount, bool bOn, bool bDim)
+{
+	if (pi->ctItems >= IOSTOUCH_ITEM_MAX) return;
+	IOSTouchItem& it = pi->aItems[pi->ctItems++];
+	it.iUse = iUse;
+	it.iKind = iKind;
+	it.fCharge = (float)clamp(fCharge, 0.0, 1.0);
+	it.iCount = iCount;
+	it.bOn = bOn;
+	it.bDim = bDim;
+}
+
+// The item buttons: the medkit (dimmed at full health), the smoke bomb
+// (running: it can't be stopped), night vision (on and off), each its
+// charge; the gas bomb, flash bombs and caltrops, counts. The repair kit
+// works by itself: no button.
+static void Items(IOSTouchItems* pi)
+{
+	auto pp = getPlayer(myconnectindex);
+	auto act = pp ? pp->GetActor() : nullptr;
+	if (!act || !act->hasU()) return;
+	const bool climbing = (pp->Flags & PF_CLIMBING) != 0;
+	for (int i = 0; i < MAX_INVENTORY; i++)
+	{
+		if (i == INVENTORY_REPAIR_KIT || pp->InventoryAmount[i] <= 0) continue;
+		const bool count = (InventoryData[i].Flags & INVF_COUNT) != 0;
+		const bool on = pp->InventoryActive[i];
+		bool dim = climbing;
+		if (i == INVENTORY_MEDKIT && act->user.Health >= 100) dim = true;
+		if (i == INVENTORY_CLOAK && on) dim = false; // (running: it glows)
+		AddItem(pi, i + 1, count ? IOSTOUCH_ITEM_COUNT : IOSTOUCH_ITEM_CHARGE, pp->InventoryPercent[i] / 100.0,
+		        pp->InventoryAmount[i], on, dim);
+	}
+}
+
+// ...their pictures: the status bar's inventory icons
+static const char* const* ItemIcon(int iUse)
+{
+	static const char* const icons[][2] = { { "PanelMedkit" }, { "PanelRepairKit" }, { "PanelCloak" }, { "PanelNightVision" },
+	                                        { "PanelChemBomb" }, { "PanelFlashBomb" }, { "PanelCaltrops" } };
+	return (iUse >= 1 && iUse <= 7) ? icons[iUse - 1] : nullptr;
 }
 
 static void FillAmmo()
@@ -153,4 +195,5 @@ CCMD(ios_riginv_sw)
 END_SW_NS
 
 const IOSGamePart iosSWPart = { SW_NS::Weapons, SW_NS::Pick, nullptr, SW_NS::State, SW_NS::FillAmmo, false,
-                                SW_NS::Alive, SW_NS::GodOn, nullptr, SW_NS::Icon, SW_NS::CheatIcon, SW_NS::CheatSound };
+                                SW_NS::Alive, SW_NS::GodOn, nullptr, SW_NS::Icon, SW_NS::CheatIcon, SW_NS::CheatSound,
+                                SW_NS::Items, SW_NS::ItemIcon };

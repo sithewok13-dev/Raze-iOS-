@@ -1,6 +1,6 @@
 // Added: the iOS touch controls' part for Duke Nukem 3D and Redneck Rampage
 // (ios/IOSGame.h): the player's weapons for the weapon wheel, a pick from
-// it, ITEM, the cheat's noclip and its ammo kept full.
+// it, the item buttons, the cheat's noclip and its ammo kept full.
 
 #include "ns.h"
 #include "duke3d.h"
@@ -130,15 +130,61 @@ static void State(IOSTouchHud* pHud)
 	auto p = getPlayer(myconnectindex);
 	if (!p || !p->GetActor()) return;
 	pHud->iSecondary = isRR() ? IOSTOUCH_SEC_NONE : IOSTOUCH_SEC_KICK;
-	// ITEM: the item the HUD shows. With items but none chosen (after a
-	// cheat gave them all) one is chosen, as the game does when one runs out.
-	const bool bAny = p->firstaid_amount > 0 || p->steroids_amount > 0 || p->holoduke_amount > 0 || p->jetpack_amount > 0
-	                  || p->heat_amount > 0 || p->scuba_amount > 0 || p->boot_amount > 0;
-	if (bAny && p->inven_icon == ICON_NONE && !paused && !netgame) checkavailinven(p);
-	pHud->bItem = p->inven_icon > ICON_NONE;
 	pHud->bNoclip = ud.clipping != 0;
 	pHud->bCanFly = 0;
 	pHud->bFlying = 0;
+}
+
+// (an item button: its useitem number, a charge (0..1) or a count, on, dimmed)
+static void AddItem(IOSTouchItems* pi, int iUse, int iKind, double fCharge, int iCount, bool bOn, bool bDim)
+{
+	if (pi->ctItems >= IOSTOUCH_ITEM_MAX) return;
+	IOSTouchItem& it = pi->aItems[pi->ctItems++];
+	it.iUse = iUse;
+	it.iKind = iKind;
+	it.fCharge = (float)clamp(fCharge, 0.0, 1.0);
+	it.iCount = iCount;
+	it.bOn = bOn;
+	it.bDim = bDim;
+}
+
+// The item buttons: Duke's medkit, steroids (only whole: then they run),
+// HoloDuke, jetpack and night vision (switched on and off); Redneck
+// Rampage's whiskey, moonshine (as the steroids), beer and cow pies (counts:
+// a can of beer is 400 of it, a pie 100). The scuba gear and boots, the
+// snorkel and hip waders, work by themselves: no button; nor Redneck
+// Rampage's slot 5, its "Yeehaa".
+static void Items(IOSTouchItems* pi)
+{
+	auto p = getPlayer(myconnectindex);
+	auto act = p ? p->GetActor() : nullptr;
+	if (!act) return;
+	const bool full = act->spr.extra >= gs.max_player_health;
+	const bool steroidsOn = p->steroids_amount > 0 && p->steroids_amount < 400;
+	if (!isRR())
+	{
+		if (p->firstaid_amount > 0) AddItem(pi, ICON_FIRSTAID, IOSTOUCH_ITEM_CHARGE, p->firstaid_amount / 100.0, 0, false, full);
+		if (p->steroids_amount > 0) AddItem(pi, ICON_STEROIDS, IOSTOUCH_ITEM_CHARGE, p->steroids_amount / 400.0, 0, steroidsOn, false);
+		if (p->holoduke_amount > 0) AddItem(pi, ICON_HOLODUKE, IOSTOUCH_ITEM_CHARGE, p->holoduke_amount / 2400.0, 0, p->holoduke_on != nullptr, false);
+		if (p->jetpack_amount > 0) AddItem(pi, ICON_JETPACK, IOSTOUCH_ITEM_CHARGE, p->jetpack_amount / 1600.0, 0, p->jetpack_on != 0, false);
+		if (p->heat_amount > 0) AddItem(pi, ICON_HEATS, IOSTOUCH_ITEM_CHARGE, p->heat_amount / 1200.0, 0, p->heat_on != 0, false);
+	}
+	else
+	{
+		if (p->firstaid_amount > 0) AddItem(pi, ICON_FIRSTAID, IOSTOUCH_ITEM_CHARGE, p->firstaid_amount / 100.0, 0, false, full);
+		if (p->steroids_amount > 0) AddItem(pi, ICON_STEROIDS, IOSTOUCH_ITEM_CHARGE, p->steroids_amount / 400.0, 0, steroidsOn, false);
+		if (p->holoduke_amount > 0) AddItem(pi, ICON_HOLODUKE, IOSTOUCH_ITEM_COUNT, 0, (p->holoduke_amount + 399) / 400, false, full);
+		if (p->jetpack_amount > 0) AddItem(pi, ICON_JETPACK, IOSTOUCH_ITEM_COUNT, 0, (p->jetpack_amount + 99) / 100, false, full);
+	}
+}
+
+// ...their pictures: the status bar's own item icons
+static const char* const* ItemIcon(int iUse)
+{
+	static const char* const duke[][2] = { { "FIRSTAID_ICON" }, { "STEROIDS_ICON" }, { "HOLODUKE_ICON" }, { "JETPACK_ICON" }, { "HEAT_ICON" } };
+	static const char* const rr[][2] = { { "WHISKEY_ICON" }, { "MOONSHINE_ICON" }, { "HOLODUKE_ICON" }, { "COWPIE_ICON" } };
+	if (isRR()) return (iUse >= 1 && iUse <= 4) ? rr[iUse - 1] : nullptr;
+	return (iUse >= 1 && iUse <= 5) ? duke[iUse - 1] : nullptr;
 }
 
 static void FillAmmo()
@@ -211,7 +257,17 @@ static void CheatSound()
 }
 
 #ifndef RAZE_IOS
-// The Linux test rig's: the player's items, for its log (ITEM)
+// The Linux test rig's: health and the ammo in hand set (the HUD's warnings)
+CCMD(ios_rigset_duke)
+{
+	auto p = getPlayer(myconnectindex);
+	if (!p || !p->GetActor() || argv.argc() < 3) return;
+	const int v = atoi(argv[2]);
+	if (!stricmp(argv[1], "health")) p->GetActor()->spr.extra = p->last_extra = v;
+	else if (!stricmp(argv[1], "ammo")) p->ammo_amount[p->curr_weapon] = v;
+}
+
+// The Linux test rig's: the player's items, for its log
 CCMD(ios_riginv_duke)
 {
 	auto p = getPlayer(myconnectindex);
@@ -226,4 +282,5 @@ CCMD(ios_riginv_duke)
 END_DUKE_NS
 
 const IOSGamePart iosDukePart = { DUKE_NS::Weapons, DUKE_NS::Pick, DUKE_NS::PickTick, DUKE_NS::State, DUKE_NS::FillAmmo, false,
-                                  DUKE_NS::Alive, DUKE_NS::GodOn, DUKE_NS::Reset, DUKE_NS::Icon, DUKE_NS::CheatIcon, DUKE_NS::CheatSound };
+                                  DUKE_NS::Alive, DUKE_NS::GodOn, DUKE_NS::Reset, DUKE_NS::Icon, DUKE_NS::CheatIcon, DUKE_NS::CheatSound,
+                                  DUKE_NS::Items, DUKE_NS::ItemIcon };

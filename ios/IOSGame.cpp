@@ -43,6 +43,9 @@ SDL_Window* IOS_GetGameWindow(); // sdlglvideo.cpp: the game's window (OpenGL ES
 #include "buildtiles.h"
 #include "bitmap.h"
 #include "s_soundinternal.h"
+#include "statusbar.h"
+#include "v_draw.h"
+#include "gamecvars.h"
 
 EXTERN_CVAR(Float, m_sensitivity_x)
 EXTERN_CVAR(Float, m_sensitivity_y)
@@ -288,8 +291,8 @@ static bool MakeIcon(FGameTexture* tex, TArray<uint8_t>& out, int& ow, int& oh)
 	return true;
 }
 
-// Once a frame: the pictures the overlay wants (each once for the
-// process: Raze plays one game a run)
+// Once a frame: the pictures the overlay wants, the weapons' and the
+// items' (each once for the process: Raze plays one game a run)
 static void FeedIcons(const IOSGamePart* part)
 {
 	if (!part) return;
@@ -301,6 +304,13 @@ static void FeedIcons(const IOSGamePart* part)
 		if (!(wanted & (1u << i))) continue;
 		if (part->Icon && MakeIcon(FindIconTexture(part->Icon(i)), px, w, h)) IOSTouch_SetWeaponIcon(i, px.Data(), w, h);
 		else IOSTouch_SetWeaponIcon(i, nullptr, 0, 0); // (its name shows)
+	}
+	const unsigned wantedItems = IOSTouch_WantedItemIcons();
+	for (int u = 1; u < 8; u++)
+	{
+		if (!(wantedItems & (1u << u))) continue;
+		if (part->ItemIcon && MakeIcon(FindIconTexture(part->ItemIcon(u)), px, w, h)) IOSTouch_SetItemIcon(u, px.Data(), w, h);
+		else IOSTouch_SetItemIcon(u, nullptr, 0, 0);
 	}
 	if (IOSTouch_WantsCheatIcon())
 	{
@@ -509,8 +519,31 @@ void IOSGame_Frame()
 	if (levelPick && cheatLevels.Size() == 0) FindLevels();
 	hud.ctLevels = levelPick ? cheatLevels.Size() : 0;
 	hud.uWorld = levelStarts;
+	// The HUD (MENU's tray's HUD): CLASSIC is the game's status bar (its
+	// top told to the overlay, which keeps FIRE and its arc above it);
+	// SPLIT, STRIP and NONE give the view the whole screen (the pills drawn
+	// over it: statusbar2.cpp, ioshud.zs). FACE only where the game's own
+	// status bar has a face: Redneck Rampage's Leonard.
+	{
+		IOSTouchHudLayout hl;
+		IOSTouch_GetHudLayout(&hl);
+		const int want = hl.iStyle == IOSTOUCH_HUD_CLASSIC ? Hud_Stbar : Hud_Nothing;
+		if (hud_size != want) hud_size = want;
+		hud.bFace = isRR();
+		if (hl.iStyle == IOSTOUCH_HUD_CLASSIC && StatusBar)
+		{
+			const auto res = GetReservedScreenSpace(Hud_Stbar);
+			if (res.statusbar > 0) hud.fBarTop = float(1.0 - res.statusbar * hud_scalefactor / 200.0);
+		}
+	}
 	if (part && part->PickTick) part->PickTick();
 	IOSTouch_SetWeapons(&wpn);
+	// the item buttons (the game's usable items) and their pictures
+	{
+		IOSTouchItems items = {};
+		if (mode != IOSTOUCH_HIDDEN && part && part->Items && gamestate == GS_LEVEL) part->Items(&items);
+		IOSTouch_SetItems(&items);
+	}
 	if (mode != IOSTOUCH_HIDDEN) FeedIcons(part);
 
 	const int req = IOSTouch_Update(IOS_GetGameWindow(), mode, &hud, framesDrawn);
@@ -542,8 +575,12 @@ void IOSGame_Frame()
 	}
 	else if ((req & IOSTOUCH_REQ_LOADMENU) && mode == IOSTOUCH_GAMEPLAY && !netgame && !CameraBusy()) C_DoCommand("openloadmenu");
 	if ((req & IOSTOUCH_REQ_RESUME) && pausedWithKey) C_DoCommand("pause");
-	if (req & IOSTOUCH_REQ_INVPREV) gameInput.SendAction(SB_INVPREV);
-	if (req & IOSTOUCH_REQ_INVNEXT) gameInput.SendAction(SB_INVNEXT);
+	// an item button tapped: that item used, as the game's own "useitem" does
+	if (req & IOSTOUCH_REQ_USEITEM)
+	{
+		const int u = IOSTouch_TakeUseItem();
+		if (u >= 1 && u <= 7 && mode == IOSTOUCH_GAMEPLAY) gameInput.SendAction(ESyncBits::FromInt(SB_ITEM_BIT_1 << (u - 1)));
+	}
 	// (flying and noclip before the cheat goes off: Shadow Warrior flies only in god mode)
 	if (CheatAllowed())
 	{
@@ -647,7 +684,6 @@ void IOSGame_Input(float* joyAxes, bool bTic)
 		if (isBlood()) actions |= SB_ALTFIRE;
 		else if (isDuke() || isNam() || isWW2GI()) actions |= SB_QUICK_KICK;
 	}
-	if (b & IOSTOUCH_ITEM) actions |= SB_INVUSE;
 	if (b & IOSTOUCH_NEXTWEAPON) gameInput.SendWeapon(WeaponSel_Next);
 	else if (b & IOSTOUCH_PREVWEAPON) gameInput.SendWeapon(WeaponSel_Prev);
 	if (actions) gameInput.SendAction(actions);
@@ -671,6 +707,38 @@ void G_WriteConfigNow(); // gameconfigfile.cpp (C++: declared out here, not in t
 extern "C" void IOSGame_WriteConfig(void)
 {
 	G_WriteConfigNow();
+}
+
+double IOSGame_HudValue(int which, double w, double h)
+{
+	IOSTouchHudLayout hl;
+	IOSTouch_GetHudLayout(&hl);
+	switch (which)
+	{
+	case 0: return hl.iStyle;
+	case 1: return hl.bFace && isRR();
+	case 2: return hl.fPillH * h;
+	case 3: return hl.fPillBottom * h;
+	case 4: return hl.fLeft * w;
+	case 5: return hl.fRight * w;
+	case 6: return hl.fStripHalf * w;
+	case 7: return hl.fAlpha;
+	case 8: return hl.fMsgTop * h;
+	case 9: return hl.fMsgLeft * w;
+	}
+	return 0;
+}
+
+void IOSGame_MessagePlace(double vw, double vh, double* pX, double* pY)
+{
+	const double W = twod->GetWidth(), H = twod->GetHeight();
+	*pX = *pY = 0;
+	if (W <= 0 || H <= 0) return;
+	DoubleRect r;
+	GetFullscreenRect(vw, vh, FSMode_ScaleToHeight, &r); // (where the messages' virtual screen is drawn)
+	if (r.width <= 0 || r.height <= 0) return;
+	*pX = IOSGame_HudValue(9, W, H) * vw / r.width; // (kept in ratio, x = 0 is the screen's left edge)
+	*pY = (IOSGame_HudValue(8, W, H) - r.top) * vh / r.height;
 }
 
 void IOSGame_HudFrame(double w, double h, double* pFrame)

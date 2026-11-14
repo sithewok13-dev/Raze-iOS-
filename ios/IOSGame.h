@@ -9,7 +9,7 @@
 // Each game's part: the player's weapons for the wheel; a weapon picked on
 // the wheel (sent through the game's own weapon selection, gameInput);
 // called every frame for picks that take two steps (a weapon's alternate);
-// what the HUD struct needs (ITEM, the cheat's noclip and flying); the
+// what the HUD struct needs (the cheat's noclip and flying); the
 // cheat's ammo kept full
 struct IOSGamePart
 {
@@ -30,6 +30,11 @@ struct IOSGamePart
 	const char* const* (*CheatIcon)();
 	// the game's own line (a voice of its hero) as the cheat comes on
 	void (*CheatSound)();
+	// The item buttons: the usable items the player has, in the game's
+	// order (IOSTouchItems), and each one's picture (by its useitem number,
+	// as Icon: names to try in order, nullptr-ended)
+	void (*Items)(IOSTouchItems* pItems);
+	const char* const* (*ItemIcon)(int iUse);
 };
 extern const IOSGamePart iosDukePart, iosBloodPart, iosSWPart, iosExhumedPart;
 
@@ -53,3 +58,17 @@ bool IOSGame_HoldsGame();
 // drawer (x0, y0, x1, y1): the screen less its rounded corners, the home
 // indicator and a notch
 void IOSGame_HudFrame(double w, double h, double* pFrame);
+
+// The touch HUD (MENU's tray's HUD; IOSTouch_GetHudLayout) for the status
+// bars' ZScript (Raze.IOSHud, statusbar2.cpp): 0 the style
+// (IOSTOUCH_HUD_*), 1 the face on, then in the 2D drawer's pixels (w x h): 2
+// a pill's height, 3 the pills' bottom, 4 and 5 SPLIT's outer edges, 6
+// STRIP's widest half; 7 how strongly the HUD shows (0.2..1: OPACITY's HUD
+// slider); 8 and 9 where the game's messages start (top, left: below the
+// top row of buttons)
+double IOSGame_HudValue(int which, double w, double h);
+// Where the game's messages start, in the units of a vw x vh virtual screen
+// drawn scaled to the screen's height (FSMode_ScaleToHeight, kept in ratio:
+// x = 0 at the screen's left edge, its pixels 1.2 times as tall as wide): x
+// at NEXT WPN's left edge, y below the top row of buttons
+void IOSGame_MessagePlace(double vw, double vh, double* pX, double* pY);

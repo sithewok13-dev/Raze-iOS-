@@ -787,6 +787,54 @@ class BloodStatusBar : RazeStatusBar
 	//
 	//---------------------------------------------------------------------------
 
+	//---------------------------------------------------------------------------
+	//
+	// Added (iOS touch): the touch HUD's pills (ioshud.zs), in the status
+	// bar's own digits: health (red), each armour in its own colour; the
+	// ammo in hand (blue) and the keys.
+	//
+	//---------------------------------------------------------------------------
+
+	override void IOSHudParts(bool face)
+	{
+		let pPlayer = Blood.GetViewPlayer();
+		if (!pPlayer) return;
+		int health = pPlayer.GetHealth() >> 4;
+		IOSIcon(0, "HealthIcon", 40, IOSF_BRIGHT);
+		IOSNum(0, health, "SBarNumberHealth", 30, IOSLowHealth(health));
+		static const int armorOf[] = { 1, 0, 2 };
+		static const String armorIcon[] = { "Armor1Icon", "Armor3Icon", "Armor2Icon" };
+		static const String armorDigits[] = { "SBarNumberArmor2_", "SBarNumberArmor1_", "SBarNumberArmor3_" };
+		bool first = true;
+		for (int i = 0; i < 3; i++)
+		{
+			int v = pPlayer.armor[armorOf[i]] >> 4;
+			if (v <= 0) continue;
+			if (first) IOSGap(0); else IOSSpace(0);
+			first = false;
+			IOSIcon(0, armorIcon[i], 34);
+			IOSNum(0, v, armorDigits[i], 30);
+		}
+		static const int maxammocount[] = { 0, 100, 100, 500, 100, 50, 288, 250, 100, 100, 50, 50 };
+		int am = pPlayer.weaponAmmo;
+		if (pPlayer.curWeapon && am > 0 && am < 12)
+		{
+			int num = pPlayer.ammoCount[am];
+			int maxa = maxammocount[am];
+			if (am == 6) { num /= 10; maxa /= 10; }
+			IOSIcon(1, gAmmoIcons[am], 26);
+			IOSNum(1, num, "SBarNumberAmmo", 30, IOSLowAmmo(num, maxa));
+		}
+		bool any = false;
+		for (int i = 0; i < 7; i++)
+		{
+			if (!pPlayer.hasKey[i + 1]) continue;
+			if (!any) IOSGap(1);
+			any = true;
+			IOSIcon(1, String.Format("HUDKEYICON%d", i + 1), 40);
+		}
+	}
+
 	override void GetAllStats(HudStats stats)
 	{
 		stats.Clear();

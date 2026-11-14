@@ -461,6 +461,51 @@ class RedneckStatusBar : DukeCommonStatusBar
 	//
 	//---------------------------------------------------------------------------
 
+	//==========================================================================
+	//
+	// Added (iOS touch): the touch HUD's pills (ioshud.zs), in the status
+	// bar's red LCD digits: Leonard (big as the face; small, as health's
+	// picture, without it), health, booze and guts; the ammo in hand and
+	// the keys.
+	//
+	//==========================================================================
+
+	override void IOSHudParts(bool face)
+	{
+		let p = Duke.GetViewPlayer();
+		if (!p) return;
+		int health = p.last_extra;
+		if (face) { IOSIcon(0, "SPINNINGNUKEICON1", 52); IOSGap(0); }
+		else IOSIcon(0, "SPINNINGNUKEICON1", 34);
+		IOSNum(0, health, "font:digi", 34, IOSLowHealth(health));
+		IOSGap(0);
+		IOSIcon(0, "BEER", 40);
+		IOSNum(0, p.drink_amt, "font:digi", 34);
+		IOSSpace(0);
+		IOSIcon(0, "COWPIE", 26);
+		IOSNum(0, p.eat, "font:digi", 34);
+
+		int weapon = p.curr_weapon;
+		if (weapon == RRWpn.THROWINGDYNAMITE_WEAPON) weapon = RRWpn.DYNAMITE_WEAPON;
+		if (weapon >= 0 && weapon < ammo_sprites.Size() && ammo_sprites[weapon].length() > 0 && weapon != RRWpn.KNEE_WEAPON && weapon != RRWpn.SLINGBLADE_WEAPON)
+		{
+			int ammo = p.ammo_amount[weapon];
+			IOSIcon(1, ammo_sprites[weapon], 30);
+			IOSNum(1, ammo, "font:digi", 34, IOSLowAmmo(ammo, Duke.MaxAmmoAmount(weapon)));
+		}
+		// the keys: blue, red, yellow, as its full-screen HUD has them
+		static const int keyOf[] = { 1, 2, 3 };
+		static const int remaps[] = { 0, 21, 23 };
+		bool any = false;
+		for (int i = 0; i < 3; i++)
+		{
+			if (!p.keys[keyOf[i]]) continue;
+			if (!any) IOSGap(1);
+			any = true;
+			IOSIcon(1, "ACCESS_ICON", 26, 0, Translation.MakeID(Translation_Remap, remaps[i]));
+		}
+	}
+
 	override void GetAllStats(HudStats stats)
 	{
 		stats.Clear();

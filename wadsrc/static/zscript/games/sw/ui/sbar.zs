@@ -968,6 +968,40 @@ class SWStatusBar : RazeStatusBar
 	//
 	//---------------------------------------------------------------------------
 
+	//---------------------------------------------------------------------------
+	//
+	// Added (iOS touch): the touch HUD's pills (ioshud.zs): the medkit and
+	// health, the armour; the ammo in hand (gold) and the keys.
+	//
+	//---------------------------------------------------------------------------
+
+	override void IOSHudParts(bool face)
+	{
+		let pp = SW.GetViewPlayer();
+		if (!pp) return;
+		int health = pp.Health();
+		IOSIcon(0, "ICON_SM_MEDKIT", 30);
+		IOSNum(0, health, "font:big", 30, IOSLowHealth(health));
+		IOSGap(0);
+		IOSIcon(0, "ICON_ARMOR", 32);
+		IOSNum(0, pp.Armor, "font:big", 30);
+		int weapon = pp.WeaponNum();
+		if (weapon >= 0 && weapon < ammo_sprites.Size() && ammo_sprites[weapon].length() > 0)
+		{
+			int ammo = pp.WpnAmmo[weapon];
+			IOSIcon(1, ammo_sprites[weapon], 32);
+			IOSNum(1, ammo, "font:big", 30, IOSF_GOLD | IOSLowAmmo(ammo, SW.WeaponMaxAmmo(weapon)));
+		}
+		bool any = false;
+		for (int i = 0; i < 8; i++)
+		{
+			if (!pp.hasKey[i]) continue;
+			if (!any) IOSGap(1);
+			any = true;
+			IOSIcon(1, StatusKeyPics[i], 24);
+		}
+	}
+
 	override void GetAllStats(HudStats stats)
 	{
 		stats.Clear();

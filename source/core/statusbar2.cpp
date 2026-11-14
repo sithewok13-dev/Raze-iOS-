@@ -58,6 +58,9 @@
 #include "gamecvars.h"
 #include "m_fixed.h"
 #include "gamecontrol.h"
+#ifdef RAZE_TOUCH
+#include "../../ios/IOSGame.h"
+#endif
 #include "gamestruct.h"
 #include "razemenu.h"
 #include "mapinfo.h"
@@ -219,6 +222,37 @@ void UpdateStatusBar(SummaryInfo* info)
 		VMValue params[] = { StatusBar, info };
 		VMCall(func, params, 2, nullptr, 0);
 	}
+#ifdef RAZE_TOUCH
+	// Added (iOS touch): the touch HUD's pills over the full-screen view
+	// (MENU's tray's HUD: SPLIT, STRIP; ioshud.zs)
+	if (IOSGame_HudValue(0, 1, 1) <= 1.0)
+	{
+		IFVIRTUALPTRNAME(StatusBar, NAME_RazeStatusBar, DrawIOSHud)
+		{
+			VMValue params[] = { StatusBar };
+			VMCall(func, params, 1, nullptr, 0);
+		}
+	}
+#endif
+}
+
+//============================================================================
+//
+// Added (iOS touch): the touch HUD's layout for the status bars' ZScript
+// (ios/IOSGame.h's IOSGame_HudValue: 0 the style, -1 without the touch
+// controls; 1 the face; 2.. where its pills go, in the 2D drawer's pixels)
+//
+//============================================================================
+
+DEFINE_ACTION_FUNCTION(_Raze, IOSHud)
+{
+	PARAM_PROLOGUE;
+	PARAM_INT(which);
+#ifdef RAZE_TOUCH
+	ACTION_RETURN_FLOAT(IOSGame_HudValue(which, twod->GetWidth(), twod->GetHeight()));
+#else
+	ACTION_RETURN_FLOAT(which == 0 ? -1.0 : 0.0);
+#endif
 }
 
 void TickStatusBar()

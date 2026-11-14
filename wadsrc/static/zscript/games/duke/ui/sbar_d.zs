@@ -498,6 +498,46 @@ class DukeStatusBar : DukeCommonStatusBar
 
 
 
+	//==========================================================================
+	//
+	// Added (iOS touch): the touch HUD's pills (ioshud.zs): the cola and
+	// health, the armour; the ammo in hand and the access cards, big and
+	// side by side. No face (the owner's call: Duke's face doesn't go in it).
+	//
+	//==========================================================================
+
+	override void IOSHudParts(bool face)
+	{
+		let p = Duke.GetViewPlayer();
+		if (!p) return;
+		int health = p.last_extra;
+		IOSIcon(0, isNamWW2GI()? "FIRSTAID_ICON" : "COLA", 30);
+		IOSNum(0, health, "font:big", 30, IOSLowHealth(health));
+		IOSGap(0);
+		IOSIcon(0, "SHIELD", 36);
+		IOSNum(0, GetMoraleOrShield(p), "font:big", 30);
+
+		int weapon = p.curr_weapon;
+		if (weapon == DukeWpn.HANDREMOTE_WEAPON) weapon = DukeWpn.HANDBOMB_WEAPON;
+		if (weapon >= 0 && weapon < ammo_sprites.Size() && ammo_sprites[weapon].length() > 0 && weapon != DukeWpn.KNEE_WEAPON)
+		{
+			int ammo = p.ammo_amount[weapon];
+			IOSIcon(1, ammo_sprites[weapon], 40);
+			IOSNum(1, ammo, "font:big", 30, IOSF_GOLD | IOSLowAmmo(ammo, Duke.MaxAmmoAmount(weapon)));
+		}
+		// the access cards: blue, red, yellow (the game's own colours)
+		static const int bits[] = { 1, 2, 4 };
+		static const int remaps[] = { 0, 21, 23 };
+		bool any = false;
+		for (int i = 0; i < 3; i++)
+		{
+			if (!(p.got_access & bits[i])) continue;
+			if (!any) IOSGap(1);
+			any = true;
+			IOSIcon(1, "ACCESSCARD", 32, 0, Translation.MakeID(Translation_Remap, remaps[i]));
+		}
+	}
+
 	override void GetAllStats(HudStats stats)
 	{
 		stats.Clear();

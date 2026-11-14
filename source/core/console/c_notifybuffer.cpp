@@ -47,6 +47,9 @@
 #include "v_draw.h"
 #include "gamecontrol.h"
 #include "gstrings.h"
+#ifdef RAZE_TOUCH
+#include "../../../ios/IOSGame.h"
+#endif
 
 struct FNotifyBuffer : public FNotifyBufferBase
 {
@@ -125,6 +128,19 @@ void FNotifyBuffer::DrawNative()
 	bool canskip = isBlood();
 	double scale = 1 / (NotifyFontScale * con_notifyscale);
 	double lineadv = font->GetHeight() / NotifyFontScale;
+	double left = 0;
+#ifdef RAZE_TOUCH
+	// Added (iOS touch): at the games' own size for the screen's height, as
+	// before, but below the top row of buttons: the lines at the left start
+	// at NEXT WPN's left edge, the centred ones stay centred (each game's own
+	// place, or lower where that is under the buttons)
+	{
+		double msgLeft, msgTop;
+		IOSGame_MessagePlace(320 * scale, 200 * scale, &msgLeft, &msgTop);
+		left = msgLeft;
+		line = isBlood() ? line + msgTop : max(line, msgTop + font->GetDisplacement());
+	}
+#endif
 
 	for (unsigned i = topline; i < Text.Size(); ++i)
 	{
@@ -144,7 +160,7 @@ void FNotifyBuffer::DrawNative()
 
 			if (!center)
 			{
-				DrawText(twod, font, CR_UNTRANSLATED, 0, line, notify.Text.GetChars(),
+				DrawText(twod, font, CR_UNTRANSLATED, left, line, notify.Text.GetChars(),
 					DTA_FullscreenScale, FSMode_ScaleToHeight,
 					DTA_VirtualWidthF, 320 * scale, DTA_VirtualHeightF, 200 * scale, DTA_KeepRatio, true,
 					DTA_Alpha, alpha, TAG_DONE);
@@ -199,6 +215,12 @@ void FNotifyBuffer::Draw()
 
 	double line = Top + font->GetDisplacement() / nfscale;
 	double lineadv = font->GetHeight () / nfscale;
+	double left = 0, top = 0;
+#ifdef RAZE_TOUCH
+	// Added (iOS touch): below the top row of buttons, from NEXT WPN's left
+	// edge (as DrawNative)
+	IOSGame_MessagePlace(320 * scale, 200 * scale, &left, &top);
+#endif
 
 	for (unsigned i = 0; i < Text.Size(); ++ i)
 	{
@@ -222,7 +244,7 @@ void FNotifyBuffer::Draw()
 				color = PrintColors[notify.PrintLevel];
 
 			if (!center)
-				DrawText(twod, font, color, 0, line * NotifyFontScale, notify.Text.GetChars(),
+				DrawText(twod, font, color, left, line * NotifyFontScale + top, notify.Text.GetChars(),
 					DTA_FullscreenScale, FSMode_ScaleToHeight,
 					DTA_VirtualWidthF, 320. * scale,
 					DTA_VirtualHeightF, 200. * scale,
@@ -230,7 +252,7 @@ void FNotifyBuffer::Draw()
 					DTA_Alpha, alpha, TAG_DONE);
 			else
 				DrawText(twod, font, color, 160 * scale - font->StringWidth (notify.Text) / 2.,
-					line, notify.Text.GetChars(),
+					line + top, notify.Text.GetChars(),
 					DTA_FullscreenScale, FSMode_ScaleToHeight,
 					DTA_VirtualWidthF, 320. * scale,
 					DTA_VirtualHeightF, 200. * scale,

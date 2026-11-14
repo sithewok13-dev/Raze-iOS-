@@ -13,24 +13,26 @@
        2.0x, 3.0x), straight into the player's view angles
      - buttons. Bottom right: FIRE, with CROUCH / USE / JUMP on an arc
        around it, a secondary button beside FIRE (ALT FIRE in Blood, KICK
-       in Duke Nukem 3D, none in the others) and ITEM beside JUMP (uses the
-       inventory item the HUD shows; a slide sideways on it picks the
-       previous / next item instead). Dragging on FIRE, the arc and the
-       secondary button also looks. Top left: NEXT WPN and PREV WPN. Top
-       right: SAVE, LOAD (a tap: the game's Save Game / Load Game menu;
-       held 0.3 s with a ring: a quick save / quick load) and MENU (a
-       tap: the game's menu; held 0.45 s: the tray). CAMERA and CHEAT in
-       the top row (CAMERA's work is iosCamera.h's; CHEAT shows a picture
-       from the game's own art, and a sound of the game's own, its hero's
-       line, plays as the cheat comes on).
+       in Duke Nukem 3D, none in the others). Dragging on FIRE, the arc
+       and the secondary button also looks. The top row, left to right:
+       NEXT WPN and PREV WPN; the item buttons (one per usable item the
+       player has, its own picture: a tap uses it; see IOSTouchItems);
+       CAMERA and CHEAT (CAMERA's work is iosCamera.h's; CHEAT shows a
+       picture from the game's own art, and a sound of the game's own, its
+       hero's line, plays as the cheat comes on); SAVE, LOAD (a tap: the
+       game's Save Game / Load Game menu; held 0.3 s with a ring: a quick
+       save / quick load) and MENU (a tap: the game's menu; held 0.45 s:
+       the tray).
      - NEXT WPN and PREV WPN: a quick tap is the next / previous weapon; a
        10 pt slide opens the weapon wheel at once, a 0.3 s hold opens it to
        tap. One slice per weapon of the game being played, in its own NEXT
        order, with its picture (from the game's own art, IOSGame.cpp) and
        its ammo, on a wheel with that game's own look. The game holds still
        while it is open.
-     - MENU's tray: LOOK, SENS, GYRO, FPS, CAMERA, CHEAT, LEVEL (the cheat
-       on), the keyboard (the console, for typing cheats and commands).
+     - MENU's tray: LOOK, SENS, GYRO, FPS, OPACITY (a panel: BUTTONS and
+       HUD), HUD (SPLIT, STRIP, CLASSIC, NONE), FACE (where the game's
+       status bar has one), CAMERA, CHEAT, LEVEL, GAMES, the keyboard (the
+       console, for typing cheats and commands).
    Buttons act on the player directly (the input bits Raze's games read),
    whatever keys are bound. In menus, cutscenes and while a level loads the
    overlay hides and touches reach SDL as mouse clicks.
@@ -57,7 +59,7 @@ enum {
 typedef struct IOSTouchHud {
   int bValid;
   int iSecondary;      /* the secondary button: IOSTOUCH_SEC_* */
-  int bItem;           /* the game has an inventory item to use (ITEM shows) */
+  int bFace;           /* the game's own status bar has a face (Redneck Rampage's Leonard): the tray's FACE shows */
   int bNoSaves;        /* no SAVE / LOAD (a network game) */
   int bCheatAllowed;   /* the cheat works here (single player, a level being played, the game's cheats allowed) */
   const char *strCheatRefusal; /* ...and if not, why (a static string, or NULL) */
@@ -67,6 +69,8 @@ typedef struct IOSTouchHud {
   int ctLevels;        /* the levels the tray's LEVEL lists (0: none) */
   unsigned int uWorld; /* changes with every level started or loaded */
   float afHudFrame[4]; /* (filled by the overlay: IOSTouch_GetHudFrame) */
+  float fBarTop;       /* the HUD CLASSIC: the top of the game's status bar, a fraction of the screen's
+                          height from the top (0: none shows); FIRE and its arc keep above it */
 } IOSTouchHud;
 
 enum { IOSTOUCH_SEC_NONE = 0, IOSTOUCH_SEC_ALTFIRE, IOSTOUCH_SEC_KICK };
@@ -83,8 +87,7 @@ enum {
   IOSTOUCH_REQ_LEVEL     = 1 << 7, /* the cheat's list of levels: go to IOSTouch_TakeLevelPick() */
   IOSTOUCH_REQ_NOCLIP    = 1 << 8, /* the cheat: toggle the game's noclip */
   IOSTOUCH_REQ_FLY       = 1 << 9, /* the cheat: toggle flying (Shadow Warrior) */
-  IOSTOUCH_REQ_INVPREV   = 1 << 10, /* ITEM slid left: the previous inventory item */
-  IOSTOUCH_REQ_INVNEXT   = 1 << 11, /* ITEM slid right: the next one */
+  IOSTOUCH_REQ_USEITEM   = 1 << 10, /* an item button tapped: use IOSTouch_TakeUseItem()'s item */
   IOSTOUCH_REQ_GAMES     = 1 << 12, /* MENU's tray: GAMES, "Switch game" (ios/IOSPicker.mm) */
   IOSTOUCH_REQ_SAVEMENU  = 1 << 13, /* SAVE tapped: the game's Save Game menu */
   IOSTOUCH_REQ_LOADMENU  = 1 << 14, /* LOAD tapped: the game's Load Game menu */
@@ -99,8 +102,7 @@ enum {
   IOSTOUCH_NEXTWEAPON = 1 << 4,
   IOSTOUCH_PREVWEAPON = 1 << 5,
   IOSTOUCH_SECONDARY  = 1 << 6, /* ALT FIRE or KICK (IOSTouchHud.iSecondary) */
-  IOSTOUCH_ITEM       = 1 << 7, /* use the inventory item (one press per tap) */
-  IOSTOUCH_NUMBUTTONS = 8
+  IOSTOUCH_NUMBUTTONS = 7
 };
 typedef struct IOSTouchInput {
   float fMoveX;           /* move stick: -1..1, right is + */
@@ -138,6 +140,33 @@ typedef struct IOSTouchWeapons {
   int aiMaxAmmo[IOSTOUCH_WPN_MAX];
 } IOSTouchWeapons;
 
+/* The item buttons: the usable items the player has, as the game tells it
+   every frame (before IOSTouch_Update), in the game's fixed order (each one
+   while the player has some of it). The ones a game uses by itself have no
+   button (Duke's scuba gear and boots, Redneck Rampage's snorkel and hip
+   waders, Blood's diving suit, Shadow Warrior's repair kit). */
+#define IOSTOUCH_ITEM_MAX 6
+enum { IOSTOUCH_ITEM_CHARGE = 0, IOSTOUCH_ITEM_COUNT };
+typedef struct IOSTouchItem {
+  int iUse;        /* the game's "useitem" number (1..7): a tap uses it; also its picture's number */
+  int iKind;       /* IOSTOUCH_ITEM_CHARGE: the button's ring is a gauge of fCharge; _COUNT: a number, iCount */
+  float fCharge;   /* 0..1 */
+  int iCount;      /* (shown from 2) */
+  int bOn;         /* switched on, or its effect running: it glows */
+  int bDim;        /* it can't be used now (health full, too little mana...): dimmed, a tap does nothing */
+} IOSTouchItem;
+typedef struct IOSTouchItems {
+  int ctItems;
+  IOSTouchItem aItems[IOSTOUCH_ITEM_MAX];
+} IOSTouchItems;
+void IOSTouch_SetItems(const IOSTouchItems *pItems);
+/* With IOSTOUCH_REQ_USEITEM: the item tapped (its iUse; 0: none) */
+int IOSTouch_TakeUseItem(void);
+/* The items' pictures (as the weapons'): the iUse numbers whose picture the
+   overlay still wants (bit iUse), and each one handed over (NULL: none) */
+unsigned int IOSTouch_WantedItemIcons(void);
+void IOSTouch_SetItemIcon(int iUse, const unsigned char *pubRGBA, int iWidth, int iHeight);
+
 /* The pictures (IOSGame.cpp makes them from the game's own art, as RGBA,
    not premultiplied, at most IOSTOUCH_ICON_MAX square): the weapons whose
    wheel icon the overlay still wants (bit w; each asked for once, until it
@@ -158,6 +187,27 @@ int IOSTouch_Update(void *pSDLWindow, int iMode, const IOSTouchHud *pHud, unsign
    home indicator and a notch, as x0, y0, x1, y1 fractions of the screen. The
    whole screen until IOSTouch_Update has seen SDL's view. */
 void IOSTouch_GetHudFrame(float afFrame[4]);
+/* The HUD (MENU's tray's HUD and FACE, remembered; IOSGame.cpp and the
+   status bars' ZScript draw it): SPLIT, two pills at the bottom (you on the
+   left; the weapon's ammo and the keys on the right: FIRE and its arc move
+   up clear of them), STRIP (one pill in the middle), CLASSIC (the game's
+   own status bar: FIRE and its arc keep above it) or NONE; FACE, the face
+   in the pills (only in a game whose status bar has one). Where the pills
+   go, in fractions of the screen: */
+enum { IOSTOUCH_HUD_SPLIT = 0, IOSTOUCH_HUD_STRIP, IOSTOUCH_HUD_CLASSIC, IOSTOUCH_HUD_NONE, IOSTOUCH_HUD_COUNT };
+typedef struct IOSTouchHudLayout {
+  int iStyle;          /* IOSTOUCH_HUD_* */
+  int bFace;           /* the face in the pills */
+  float fAlpha;        /* how strongly the HUD shows (OPACITY's HUD slider), 0.2..1 */
+  float fPillH;        /* a pill's height (of the screen's height) */
+  float fPillBottom;   /* the pills' bottom edge (of the height, from the top) */
+  float fLeft, fRight; /* SPLIT's pills' outer edges (of the width) */
+  float fStripHalf;    /* STRIP: its pill reaches at most this far either side of the middle (of the width),
+                          clear of the buttons */
+  float fMsgTop;       /* the game's messages start here (of the height): below the top row of buttons */
+  float fMsgLeft;      /* ...lined up with NEXT WPN's left edge (of the width) */
+} IOSTouchHudLayout;
+void IOSTouch_GetHudLayout(IOSTouchHudLayout *pLayout);
 /* The frame rate asked for in the tray (FPS held): 60 or 120. The screen is
    asked for it; the game keeps to it too (i_ios.mm: IOS_FrameCap) */
 int IOSTouch_MaxFps(void);

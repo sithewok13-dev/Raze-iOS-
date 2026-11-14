@@ -1,5 +1,5 @@
 // Added: the iOS touch controls' part for Blood (ios/IOSGame.h): the
-// player's weapons for the weapon wheel, a pick from it, ITEM, the cheat's
+// player's weapons for the weapon wheel, a pick from it, the item buttons, the cheat's
 // noclip and its ammo kept full.
 
 // (as the rest of Blood is built: games/blood/all.cpp)
@@ -115,9 +115,45 @@ static void State(IOSTouchHud* pHud)
 	auto pPlayer = getPlayer(myconnectindex);
 	if (!pPlayer || !pPlayer->GetActor()) return;
 	pHud->iSecondary = IOSTOUCH_SEC_ALTFIRE;
-	const int i = pPlayer->packItemId;
-	pHud->bItem = i >= 0 && i < 5 && pPlayer->packSlots[i].curAmount > 0;
 	pHud->bNoclip = gNoClip;
+}
+
+// (an item button: its useitem number, a charge (0..1) or a count, on, dimmed)
+static void AddItem(IOSTouchItems* pi, int iUse, int iKind, double fCharge, int iCount, bool bOn, bool bDim)
+{
+	if (pi->ctItems >= IOSTOUCH_ITEM_MAX) return;
+	IOSTouchItem& it = pi->aItems[pi->ctItems++];
+	it.iUse = iUse;
+	it.iKind = iKind;
+	it.fCharge = (float)clamp(fCharge, 0.0, 1.0);
+	it.iCount = iCount;
+	it.bOn = bOn;
+	it.bDim = bDim;
+}
+
+// The item buttons: the doctor's bag (dimmed at full health), the crystal
+// ball, beast vision and the jump boots (switched on and off), each its
+// charge; the diving suit works by itself: no button
+static void Items(IOSTouchItems* pi)
+{
+	auto pPlayer = getPlayer(myconnectindex);
+	if (!pPlayer || !pPlayer->GetActor()) return;
+	const bool full = (pPlayer->GetActor()->xspr.health >> 4) >= 100;
+	static const int packOf[] = { 0, 2, 3, 4 }; // (useitem 1..4)
+	for (int k = 0; k < 4; k++)
+	{
+		const auto& slot = pPlayer->packSlots[packOf[k]];
+		if (slot.curAmount <= 0) continue;
+		AddItem(pi, k + 1, IOSTOUCH_ITEM_CHARGE, slot.curAmount / 100.0, 0, k > 0 && slot.isActive, k == 0 && full);
+	}
+}
+
+// ...their pictures: the status bar's pack icons
+static const char* const* ItemIcon(int iUse)
+{
+	static const char* const icons[][3] = { { "Pack2Icon1", "PackIcon1" }, { "Pack2Icon3", "PackIcon3" }, { "Pack2Icon4", "PackIcon4" },
+	                                        { "Pack2Icon5", "PackIcon5" } };
+	return (iUse >= 1 && iUse <= 4) ? icons[iUse - 1] : nullptr;
 }
 
 static void FillAmmo()
@@ -201,4 +237,5 @@ CCMD(ios_riginv_blood)
 END_BLD_NS
 
 const IOSGamePart iosBloodPart = { BLD_NS::Weapons, BLD_NS::Pick, BLD_NS::PickTick, BLD_NS::State, BLD_NS::FillAmmo, true,
-                                   BLD_NS::Alive, BLD_NS::GodOn, BLD_NS::Reset, BLD_NS::Icon, BLD_NS::CheatIcon, BLD_NS::CheatSound };
+                                   BLD_NS::Alive, BLD_NS::GodOn, BLD_NS::Reset, BLD_NS::Icon, BLD_NS::CheatIcon, BLD_NS::CheatSound,
+                                   BLD_NS::Items, BLD_NS::ItemIcon };

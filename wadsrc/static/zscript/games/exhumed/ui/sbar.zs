@@ -808,6 +808,51 @@ class ExhumedStatusBar : RazeStatusBar
 	//
 	//---------------------------------------------------------------------------
 
+	//---------------------------------------------------------------------------
+	//
+	// Added (iOS touch): the touch HUD's pills (ioshud.zs): the status bar's
+	// pools (health, red, under the ankh; magic, blue) with the ammo
+	// counter's stone tablets for numbers; the ammo in hand and the keys.
+	//
+	//---------------------------------------------------------------------------
+
+	override TextureID IOSDigit(String src, int d)
+	{
+		if (src == "tablet") return GetStatusSequencePic(46, d);
+		return Super.IOSDigit(src, d);
+	}
+
+	override void IOSHudParts(bool face)
+	{
+		let pp = Exhumed.GetViewPlayer();
+		if (!pp) return;
+		int health = pp.nHealth >> 3;
+		TextureID frame = IOSTex("#00770");
+		IOSPool(0, IOSTex("#00785"), frame, GetStatusSequencePic(125, 0), 50);
+		IOSNum(0, health, "tablet", 36, IOSLowHealth(health));
+		IOSGap(0);
+		TextureID none;
+		none.SetInvalid();
+		IOSPool(0, IOSTex("#00791"), frame, none, 50);
+		IOSNum(0, pp.nMagic / 10, "tablet", 36);
+		static const string ammoicons[] = { "", "AmmoSpriteMagnum", "AmmoSpriteM60_1", "AmmoSpriteFuel", "AmmoSpriteGrenade", "AmmoSpriteCobra", "" };
+		int w = pp.nCurrentWeapon;
+		if (w > 0 && w < ammoicons.Size() && ammoicons[w] != "")
+		{
+			int ammo = pp.nAmmo[w];
+			IOSIcon(1, ammoicons[w], 36);
+			IOSNum(1, ammo, "tablet", 36, IOSLowAmmo(ammo, 300));
+		}
+		bool any = false;
+		for (int i = 0; i < 4; i++)
+		{
+			if (!(pp.keys & (0x1000 << i))) continue;
+			if (!any) IOSGap(1);
+			any = true;
+			IOSIcon(1, String.Format("KeyIcon%d", i + 1), 26);
+		}
+	}
+
 	override void GetAllStats(HudStats stats)
 	{
 		stats.Clear();

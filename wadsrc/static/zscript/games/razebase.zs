@@ -205,6 +205,8 @@ struct Raze
 	static int bsin(double angle) { return int(sin(angle * (360. / 2048)) * 16384); }
 	static double bobval(double angle) { return sin(angle * (360. / 2048)); }
 	native static TextureID PickTexture(TextureID texid);
+	// Added (iOS touch): the touch HUD's layout (statusbar2.cpp: 0 its style, -1 without the touch controls)
+	native static double IOSHud(int which);
 	native static int GetBuildTime();
 	native static void forceSyncInput(int playeridx);
 	native static Font PickBigFont(String cmptext = "");
