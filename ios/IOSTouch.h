@@ -17,7 +17,8 @@
        inventory item the HUD shows; a slide sideways on it picks the
        previous / next item instead). Dragging on FIRE, the arc and the
        secondary button also looks. Top left: NEXT WPN and PREV WPN. Top
-       right: QUICK SAVE, QUICK LOAD (0.3 s holds with a ring) and MENU (a
+       right: SAVE, LOAD (a tap: the game's Save Game / Load Game menu;
+       held 0.3 s with a ring: a quick save / quick load) and MENU (a
        tap: the game's menu; held 0.45 s: the tray). CAMERA and CHEAT in
        the top row (CAMERA's work is iosCamera.h's; CHEAT shows a picture
        from the game's own art, and a sound of the game's own, its hero's
@@ -57,7 +58,7 @@ typedef struct IOSTouchHud {
   int bValid;
   int iSecondary;      /* the secondary button: IOSTOUCH_SEC_* */
   int bItem;           /* the game has an inventory item to use (ITEM shows) */
-  int bNoSaves;        /* no QUICK SAVE / QUICK LOAD (the game can't save now) */
+  int bNoSaves;        /* no SAVE / LOAD (a network game) */
   int bCheatAllowed;   /* the cheat works here (single player, a level being played, the game's cheats allowed) */
   const char *strCheatRefusal; /* ...and if not, why (a static string, or NULL) */
   int bCanFly;         /* the cheat's fly (Shadow Warrior's) */
@@ -85,6 +86,8 @@ enum {
   IOSTOUCH_REQ_INVPREV   = 1 << 10, /* ITEM slid left: the previous inventory item */
   IOSTOUCH_REQ_INVNEXT   = 1 << 11, /* ITEM slid right: the next one */
   IOSTOUCH_REQ_GAMES     = 1 << 12, /* MENU's tray: GAMES, "Switch game" (ios/IOSPicker.mm) */
+  IOSTOUCH_REQ_SAVEMENU  = 1 << 13, /* SAVE tapped: the game's Save Game menu */
+  IOSTOUCH_REQ_LOADMENU  = 1 << 14, /* LOAD tapped: the game's Load Game menu */
 };
 
 /* Buttons as the game reads them (IOSTouchInput.ulButtons) */

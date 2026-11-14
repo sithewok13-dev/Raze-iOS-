@@ -42,7 +42,7 @@ CVAR(Int, ios_padsetup, 0, CVAR_ARCHIVE | CVAR_GLOBALCONFIG | CVAR_NOSET)
 #define IOSPAD_TRIGGER_DOWN 0.3f  // a trigger is down from here...
 #define IOSPAD_TRIGGER_UP 0.2f    // ...until back under here
 #define IOSPAD_ACTIVE_PUSH 0.3f   // a stick or trigger pushed past this: the pad is being played
-#define IOSPAD_BACK_HOLD 0.3      // Back held this long in a level: quick save (as QUICK SAVE's hold)
+#define IOSPAD_BACK_HOLD 0.3      // Back held this long in a level: quick save (as SAVE's hold)
 
 enum { AX_LX, AX_LY, AX_RX, AX_RY, AX_LT, AX_RT, NUM_AX };
 

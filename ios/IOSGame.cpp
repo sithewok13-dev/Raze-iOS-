@@ -367,7 +367,7 @@ static bool QuickLoad()
 	auto name = NewestQuickSave();
 	if (name.IsEmpty())
 	{
-		IOSTouch_ShowMessage("No quick save yet (hold QUICK SAVE)", 3.0);
+		IOSTouch_ShowMessage("No quick save yet (hold SAVE)", 3.0);
 		return false;
 	}
 	G_LoadGame(name.GetChars());
@@ -500,7 +500,7 @@ void IOSGame_Frame()
 		part->State(&hud);
 		hud.bValid = 1;
 	}
-	hud.bNoSaves = netgame; // (QUICK SAVE says when it can't save; QUICK LOAD works dead too)
+	hud.bNoSaves = netgame; // (SAVE says when it can't save; LOAD works dead too)
 	hud.bCheatAllowed = CheatAllowed();
 	hud.strCheatRefusal = hud.bCheatAllowed ? nullptr : CheatRefusal();
 	// The tray's LEVEL: every game's own levels, in single player whether or
@@ -533,6 +533,14 @@ void IOSGame_Frame()
 	}
 	if ((req & IOSTOUCH_REQ_QUICKSAVE) && mode == IOSTOUCH_GAMEPLAY) QuickSave();
 	else if ((req & IOSTOUCH_REQ_QUICKLOAD) && mode == IOSTOUCH_GAMEPLAY) QuickLoad();
+	// SAVE, LOAD tapped: the game's own Save Game / Load Game menus
+	else if ((req & IOSTOUCH_REQ_SAVEMENU) && mode == IOSTOUCH_GAMEPLAY && !netgame && !CameraBusy())
+	{
+		auto savePart = Part();
+		if (!gi->CanSave() || (savePart && savePart->Alive && !savePart->Alive())) IOSTouch_ShowMessage("Can't save now", 2.0);
+		else C_DoCommand("opensavemenu");
+	}
+	else if ((req & IOSTOUCH_REQ_LOADMENU) && mode == IOSTOUCH_GAMEPLAY && !netgame && !CameraBusy()) C_DoCommand("openloadmenu");
 	if ((req & IOSTOUCH_REQ_RESUME) && pausedWithKey) C_DoCommand("pause");
 	if (req & IOSTOUCH_REQ_INVPREV) gameInput.SendAction(SB_INVPREV);
 	if (req & IOSTOUCH_REQ_INVNEXT) gameInput.SendAction(SB_INVNEXT);

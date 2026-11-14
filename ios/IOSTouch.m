@@ -4,7 +4,7 @@
 
    Everything up to the overlay view is plain C: the buttons and their
    layout, the state shared with the game, and what each touch does (the
-   stick, looking, the buttons, the QUICK SAVE, QUICK LOAD and MENU holds,
+   stick, looking, the buttons, the SAVE, LOAD and MENU holds,
    MENU's tray, the FPS count, tilt aiming, NEXT WPN's and PREV WPN's taps,
    slides and holds and the weapon wheel they open: its slices, what it
    picks, its layout, CAMERA's gestures and the cheat). The view below only
@@ -66,8 +66,8 @@ static const float _afLookSteps[] = { 0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f, 2.5f
 // Edge-to-edge gap between the buttons around FIRE (the arc, the secondary
 // button and ITEM)
 #define IOSTOUCH_CLUSTER_GAP 30.0
-// QUICK SAVE and QUICK LOAD have to be held this long, so a stray tap can't
-// save over the quicksave (the one QUICK LOAD loads) or throw away progress
+// SAVE and LOAD have to be held this long, so a stray tap can't
+// save over the quicksave (the one LOAD loads) or throw away progress
 #define IOSTOUCH_QUICKSAVE_HOLD 0.3
 #define IOSTOUCH_QUICKLOAD_HOLD 0.3
 // NEXT WPN and PREV WPN each take three gestures (as Jedi Knight's FORCE
@@ -75,7 +75,7 @@ static const float _afLookSteps[] = { 0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f, 2.5f
 // the touch's own clock, never IOSTOUCH_WHEEL_OPEN_SLIDE from where it went
 // down) is the next / previous weapon, as it lifts. Sliding that far opens
 // the weapon wheel at once, to slide to a slice; held still for
-// IOSTOUCH_WHEEL_HOLD (known as QUICK SAVE's hold is) it opens to tap one.
+// IOSTOUCH_WHEEL_HOLD (known as SAVE's hold is) it opens to tap one.
 // Sliding to pick is measured from where the thumb went down: it points
 // nowhere until IOSTOUCH_WHEEL_DEAD away, the point it is measured from
 // trails at most IOSTOUCH_WHEEL_LEASH behind the thumb, and a slice stays
@@ -184,8 +184,8 @@ enum {
   KIND_ITEM,     // ITEM: uses the item when the touch lifts on it; slid sideways, the previous / next item instead
   KIND_MENU,     // asks for the menu when the touch lifts on it; held IOSTOUCH_MENU_HOLD, opens its tray
   KIND_TAP,      // asks for its request when the touch lifts on it
-  KIND_HOLDSAVE, // asks for a quick save once held IOSTOUCH_QUICKSAVE_HOLD seconds without leaving it
-  KIND_HOLDLOAD, // asks for a quick load once held IOSTOUCH_QUICKLOAD_HOLD seconds without leaving it
+  KIND_HOLDSAVE, // SAVE: a quick save once held IOSTOUCH_QUICKSAVE_HOLD seconds without leaving it; a tap, the Save Game menu
+  KIND_HOLDLOAD, // LOAD: a quick load once held IOSTOUCH_QUICKLOAD_HOLD seconds without leaving it; a tap, the Load Game menu
   KIND_KEYBOARD, // (MENU's tray) opens or closes the console, when the touch lifts on it
   KIND_FPS,      // (MENU's tray) shows or hides the FPS readout, when the touch lifts on it
   KIND_GYRO,     // (MENU's tray) the next tilt aiming mode, when the touch lifts on it
@@ -230,7 +230,7 @@ typedef struct {
 // short hold) and the menu. CAMERA in the top row, as near its middle as it
 // is clear of the other buttons, CHEAT beside it. Holding MENU opens a tray
 // just under it: the look speed (LOOK), tilt aiming's sensitivity and mode
-// (SENS, GYRO), FPS, which shows or hides a frame rate readout by QUICK SAVE,
+// (SENS, GYRO), FPS, which shows or hides a frame rate readout by SAVE,
 // CAMERA (the camera symbol: shows or hides CAMERA; held, its options), CHEAT
 // (the cheat's switch), LEVEL (the list of levels, only while the cheat is
 // on) and the keyboard, for the console. RESUME, in the middle, only while
@@ -254,8 +254,8 @@ static IOSTouchButton _aButtons[] = {
   [BTN_ITEM]      = { "ITEM",        KIND_ITEM,     IOSTOUCH_ITEM,          30.0, 0, SHOW_PLAY },
   [BTN_NEXTWPN]   = { "NEXT\nWPN",   KIND_WHEEL,    IOSTOUCH_NEXTWEAPON,    22.0, 0, SHOW_PLAY },
   [BTN_PREVWPN]   = { "PREV\nWPN",   KIND_WHEEL,    IOSTOUCH_PREVWEAPON,    22.0, 0, SHOW_PLAY },
-  [BTN_QUICKSAVE] = { "QUICK\nSAVE", KIND_HOLDSAVE, IOSTOUCH_REQ_QUICKSAVE, 22.0, 0, SHOW_PLAY },
-  [BTN_QUICKLOAD] = { "QUICK\nLOAD", KIND_HOLDLOAD, IOSTOUCH_REQ_QUICKLOAD, 22.0, 0, SHOW_PLAY },
+  [BTN_QUICKSAVE] = { "SAVE",        KIND_HOLDSAVE, IOSTOUCH_REQ_QUICKSAVE, 22.0, 0, SHOW_PLAY },
+  [BTN_QUICKLOAD] = { "LOAD",        KIND_HOLDLOAD, IOSTOUCH_REQ_QUICKLOAD, 22.0, 0, SHOW_PLAY },
   [BTN_MENU]      = { "MENU",        KIND_MENU,     IOSTOUCH_REQ_MENU,      22.0, 0, SHOW_ALL },
   [BTN_CAMERA]    = { "",            KIND_CAMERA,   0,                      22.0, 0, SHOW_PLAY },
   [BTN_CHEAT]     = { "",            KIND_CHEAT,    0,                      22.0, 0, SHOW_PLAY },
@@ -623,7 +623,7 @@ static void IOSTouch_LayoutButtons(double W, double H, double inLeft, double inT
   _aButtons[BTN_NEXTWPN].x = left + 24;
   _aButtons[BTN_PREVWPN].x = left + 84;
   _aButtons[BTN_NEXTWPN].y = _aButtons[BTN_PREVWPN].y = topLeftY;
-  // Top right: QUICK SAVE, QUICK LOAD, MENU in the corner -- spaced well
+  // Top right: SAVE, LOAD, MENU in the corner -- spaced well
   // apart, so a press meant for one of the two quick holds can't land on the
   // other
   _aButtons[BTN_QUICKSAVE].x = right - 156;
@@ -664,11 +664,11 @@ static void IOSTouch_LayoutButtons(double W, double H, double inLeft, double inT
     IOSTouch_PlaceTray(_bTrayLevelPlaced);
   }
 
-  // The FPS readout where the keyboard button used to be, left of QUICK SAVE:
+  // The FPS readout where the keyboard button used to be, left of SAVE:
   // the game prints its messages at the top left, and its high score box is
   // in the middle. Where that spot is on the high score box or the unread
   // messages box right of it (a narrower screen, a larger HUD), it moves right
-  // towards QUICK SAVE; if it never fits there, it goes below QUICK SAVE (and
+  // towards SAVE; if it never fits there, it goes below SAVE (and
   // on to the left), clear of ITEM, the secondary button and MENU's tray's FPS and keyboard
   // as well. (Where the rest of the open tray lies over it, it hides while
   // the tray is open: IOSTouch_FpsUnderTray.)
@@ -833,7 +833,7 @@ typedef struct {
   int button;
   double x, y;          // where it is now
   double tDown;         // when it began
-  int bFired;           // QUICK SAVE, QUICK LOAD: the hold is over (a save or load was asked for, by this finger or
+  int bFired;           // SAVE, LOAD: the hold is over (a save or load was asked for, by this finger or
                         // another one on either button, or it slid off). MENU: the hold is over (tray opened, or
                         // slid off). CAMERA: the gesture is decided (a slide or the hold went off). ITEM: it slid
                         // (to pick items), so its lift uses none
@@ -930,7 +930,7 @@ static int _bPadHidden = 0;
 static char _strCamMessage[192] = "";
 static double _tCamMessage = -1.0e9;
 static double _fCamMessageTime = IOSTOUCH_CAMERA_MESSAGE_TIME; // how long it shows
-// how far QUICK SAVE's, QUICK LOAD's and MENU's hold rings have filled
+// how far SAVE's, LOAD's and MENU's hold rings have filled
 static float _fSaveRing = 0.0f, _fLoadRing = 0.0f, _fMenuRing = 0.0f;
 static double _tLastTick = 0.0;            // when IOSTouch_TickHolds last ran (0: not since the last reset)
 // The FPS readout: frames counted since _ulFpsFrames at _tFpsBase, and the
@@ -1065,7 +1065,7 @@ static int IOSTouch_IsTrayButton(int button)
   return button >= BTN_TRAYLOOK && button <= BTN_TRAYKEYS;
 }
 
-// QUICK SAVE and QUICK LOAD: the holds that end for good when the finger leaves the button
+// SAVE and LOAD: the holds that end for good when the finger leaves the button
 static int IOSTouch_IsQuickHold(int button)
 {
   return button == BTN_QUICKSAVE || button == BTN_QUICKLOAD;
@@ -1534,7 +1534,7 @@ static void IOSTouch_CheatLifted(IOSTouchSlot *s, double x, double y, int bCance
   }
 }
 
-// Once a frame: the holds on CHEAT, JUMP and USE, timed as QUICK SAVE's are
+// Once a frame: the holds on CHEAT, JUMP and USE, timed as SAVE's are
 // (known: when the previous tick ran); the list of levels closing once
 // LEVEL is gone; a new level
 static void IOSTouch_TickCheat(double now, double known)
@@ -2902,7 +2902,7 @@ static int IOSTouch_TouchMoved(const void *touch, double x, double y)
     }
     os_unfair_lock_unlock(&_lock);
   }
-  // QUICK SAVE, QUICK LOAD: a finger that leaves the button, even between two
+  // SAVE, LOAD: a finger that leaves the button, even between two
   // frames, doesn't save or load, even if it comes back on (IOSTouch_TickHolds
   // checks too, for a button that moved away from a finger keeping still)
   if (s->role == ROLE_BUTTON && IOSTouch_IsQuickHold(s->button) && !IOSTouch_IsOnButton(x, y, s->button)) {
@@ -2917,7 +2917,7 @@ static int IOSTouch_TouchMoved(const void *touch, double x, double y)
 
 // A finger passed (x,y) on its way to where IOSTouch_TouchMoved is told it
 // went next (UIKit merges a finger's moves while the game's frame runs, and
-// keeps the places in between): only QUICK SAVE and QUICK LOAD care, so a
+// keeps the places in between): only SAVE and LOAD care, so a
 // slide off one and back on still ends its hold
 static void IOSTouch_TouchPassed(const void *touch, double x, double y)
 {
@@ -3011,6 +3011,20 @@ static void IOSTouch_TouchEnded(const void *touch, double x, double y, int bCanc
       if (b->kind == KIND_TAP) {
         _iRequests |= b->ulAction;
       }
+      else if ((b->kind == KIND_HOLDSAVE || b->kind == KIND_HOLDLOAD) && !s->bFired && tTouch - s->tDownTouch < IOSTOUCH_QUICKSAVE_HOLD) {
+        // SAVE, LOAD tapped (lifted before its hold was up, by the touch's
+        // own clock, never slid off): the game's Save Game or Load Game
+        // menu. Only a finished hold saves or loads; a hold that was up but
+        // lifted before a frame could see it does neither. SAVE wins a tie:
+        // LOAD's tap does nothing while SAVE is held.
+        int bSaveHeld = 0;
+        for (int k = 0; k < IOSTOUCH_MAX_TOUCHES; k++) {
+          const IOSTouchSlot *o = &_aSlots[k];
+          if (o != s && o->touch && o->role == ROLE_BUTTON && o->button == BTN_QUICKSAVE) bSaveHeld = 1;
+        }
+        if (b->kind == KIND_HOLDSAVE) _iRequests |= IOSTOUCH_REQ_SAVEMENU;
+        else if (!bSaveHeld) _iRequests |= IOSTOUCH_REQ_LOADMENU;
+      }
       else if (b->kind == KIND_ITEM && !s->bFired) {
         ulLifted |= b->ulAction; // never held, so the game gets it as one press
       }
@@ -3053,11 +3067,11 @@ static void IOSTouch_TouchEnded(const void *touch, double x, double y, int bCanc
   IOSTouch_SetHeld(IOSTouch_HeldButtons(), ulLifted);
 }
 
-// Once per frame while shown: the QUICK SAVE, QUICK LOAD and MENU holds,
+// Once per frame while shown: the SAVE, LOAD and MENU holds,
 // NEXT WPN's and PREV WPN's, CAMERA's and the tray's
 static void IOSTouch_TickHolds(double now)
 {
-  // QUICK SAVE and QUICK LOAD go off only once the finger is known to have
+  // SAVE and LOAD go off only once the finger is known to have
   // stayed down long enough, so they are timed to the previous tick, not this
   // one. UIKit hands over touches whenever SDL pumps events, which Raze does
   // at least once each frame before it draws: by now, then, every lift made
@@ -3069,7 +3083,7 @@ static void IOSTouch_TickHolds(double now)
   // NEXT WPN and PREV WPN held still (they haven't slid, or the wheel would
   // be open): known to be held IOSTOUCH_WHEEL_HOLD, the wheel opens to tap a
   // slice; until then the ring fills. The first to get there opens it (which
-  // drops the other). This comes before the QUICK SAVE, QUICK LOAD and MENU
+  // drops the other). This comes before the SAVE, LOAD and MENU
   // holds: one that completes in the same tick is then dropped by the wheel
   // opening, which ignores every other touch, rather than saving or loading
   // under the wheel. While the wheel couldn't open (the player dead...)
@@ -3094,7 +3108,7 @@ static void IOSTouch_TickHolds(double now)
   }
   _afWheelRing[0] = afWheelRing[0];
   _afWheelRing[1] = afWheelRing[1];
-  // the furthest along of QUICK SAVE's and of QUICK LOAD's holds (a touch each)
+  // the furthest along of SAVE's and of LOAD's holds (a touch each)
   _fLookRing = 0.0f; // (set again below while LOOK is held)
   _fFpsRing = 0.0f; // (...and FPS)
   _fOpacityRing = 0.0f; // (...and OPACITY)
@@ -3115,9 +3129,9 @@ static void IOSTouch_TickHolds(double now)
       }
       const double hold = (s->button == BTN_QUICKSAVE) ? IOSTOUCH_QUICKSAVE_HOLD : IOSTOUCH_QUICKLOAD_HOLD;
       if (known - s->tDown >= hold) {
-        // the ring is full, with the finger still on it. QUICK SAVE and QUICK
+        // the ring is full, with the finger still on it. SAVE and
         // LOAD both found done in the same tick (one long frame can cover
-        // both, whichever was touched first): QUICK SAVE, as only a load
+        // both, whichever was touched first): SAVE, as only a load
         // throws away the game being played
         if (iDone != BTN_QUICKSAVE) iDone = s->button;
       }
@@ -3238,7 +3252,7 @@ static void IOSTouch_TickHolds(double now)
     }
   }
   if (iDone >= 0) {
-    // One save or load, once: it ends every hold on QUICK SAVE and QUICK LOAD,
+    // One save or load, once: it ends every hold on SAVE and LOAD,
     // so two fingers on one button ask once, and the two buttons held together
     // save or load, whichever is found done first, never both (both would only
     // load back the game just saved, or save again the one just loaded)
@@ -3755,8 +3769,8 @@ typedef struct {
   UIView *stickBase;
   UIView *stickKnob;
   UILabel *aButtonViews[IOSTOUCH_NUM_BUTTONS];
-  CAShapeLayer *saveRing; // QUICK SAVE's hold progress
-  CAShapeLayer *loadRing; // QUICK LOAD's
+  CAShapeLayer *saveRing; // SAVE's hold progress
+  CAShapeLayer *loadRing; // LOAD's
   CAShapeLayer *menuRing; // MENU's
   UIView *trayBack;       // behind MENU's tray
   UILabel *versionLabel;  // the build stamp, under the open tray
@@ -3942,8 +3956,8 @@ static CAShapeLayer *IOSTouch_MakeHoldRing(CGFloat r)
       [self addSubview:l];
     }
 
-    // Rings that fill while QUICK SAVE, QUICK LOAD and MENU are held. QUICK
-    // SAVE's and QUICK LOAD's look the same, and fill as quickly.
+    // Rings that fill while SAVE, LOAD and MENU are held.
+    // SAVE's and LOAD's look the same, and fill as quickly.
     saveRing = IOSTouch_MakeHoldRing(_aButtons[BTN_QUICKSAVE].radius);
     [aButtonViews[BTN_QUICKSAVE].layer addSublayer:saveRing];
     loadRing = IOSTouch_MakeHoldRing(_aButtons[BTN_QUICKLOAD].radius);
@@ -5148,7 +5162,7 @@ static void IOSTouch_DrawWheelTheme(const IOSTouchWheelTheme *t, CGPoint c, doub
 - (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { [self endTouches:touches cancelled:0]; }
 - (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event { [self endTouches:touches cancelled:1]; }
 
-// Once per frame while shown: the NEXT WPN, PREV WPN, QUICK SAVE, QUICK
+// Once per frame while shown: the NEXT WPN, PREV WPN, SAVE,
 // LOAD and MENU holds, the weapon wheel, the context buttons and the FPS
 // readout
 - (void)tick
