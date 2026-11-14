@@ -64,6 +64,9 @@ static double HudEdgeLeft() { return HudEdge(0); }
 static double HudEdgeTop() { return HudEdge(1); }
 static double HudEdgeRight() { return HudEdge(2); }
 static double HudEdgeBottom() { return HudEdge(3); }
+// Added (iOS touch): CLASSIC SPLIT / STRIP's SIZE small: the status bar's
+// scale times this while ioshud.zs draws it (Raze.IOSBarScale), else 1
+double iosBarScale = 1.0;
 #else
 static double HudEdgeLeft() { return 0; }
 static double HudEdgeTop() { return 0; }
@@ -408,10 +411,15 @@ void DStatusBarCore::SetScale()
 		refh = h;
 		refw = h * refaspect;
 	}
-	refw *= hud_scalefactor;
-	refh *= hud_scalefactor * aspectscale * ViewportAspect;
+#ifdef RAZE_TOUCH
+	const double sf = hud_scalefactor * iosBarScale; // Added (iOS touch)
+#else
+	const double sf = hud_scalefactor;
+#endif
+	refw *= sf;
+	refh *= sf * aspectscale * ViewportAspect;
 
-	int sby = vert - int(RelTop * hud_scalefactor * aspectscale * ViewportAspect);
+	int sby = vert - int(RelTop * sf * aspectscale * ViewportAspect);
 	// Use full pixels for destination size.
 
 	ST_X = xs_CRoundToInt((w - refw) / 2);

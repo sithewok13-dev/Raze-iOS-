@@ -100,7 +100,7 @@ class ExhumedStatusBar : RazeStatusBar
             double x = frameChunk.xpos + xoffset;
             double y = frameChunk.ypos + yoffset;
 
-            if (hud_size <= Hud_StbarOverlay)
+            if (IOSHudSize() <= Hud_StbarOverlay)
             {
                 x += 161;
                 y += 100;
@@ -366,21 +366,21 @@ class ExhumedStatusBar : RazeStatusBar
 
 	void DrawStatus(ExhumedPlayer pp)
 	{
-		if (hud_size <= Hud_StbarOverlay)
+		if (IOSHudSize() <= Hud_StbarOverlay)
 		{
 			// draw the main bar itself
 			BeginStatusBar(false, 320, 200, 40);
-			if (hud_size == Hud_StbarOverlay) Set43ClipRect();
+			if (IOSHudSize() == Hud_StbarOverlay) Set43ClipRect();
 			DrawImage("TileStatusBar", (160, 200), DI_ITEM_CENTER_BOTTOM);
-			screen.ClearClipRect();
+			if (!mIOSBar) screen.ClearClipRect(); // (Added (iOS touch): ioshud.zs's clip kept)
 		}
-		else if (hud_size == Hud_Mini)
+		else if (IOSHudSize() == Hud_Mini)
 		{
 			BeginHUD(1, false, 320, 200);
 			DrawImage("hud_l", (0, 0), DI_ITEM_LEFT_BOTTOM | DI_SCREEN_LEFT_BOTTOM);
 			DrawImage("hud_r", (0, 0), DI_ITEM_RIGHT_BOTTOM | DI_SCREEN_RIGHT_BOTTOM);
 		}
-		else if (hud_size == Hud_Full)
+		else if (IOSHudSize() == Hud_Full)
 		{
 			DrawHUD2(pp);
 			return;
@@ -425,9 +425,9 @@ class ExhumedStatusBar : RazeStatusBar
 			if (nHurt > 0) DrawStatusSequence(4, nHurt - 1, 0);
 
 			// draw compass
-			if (hud_size <= Hud_StbarOverlay) DrawStatusSequence(35, ((pp.GetAngle() + 128) & Raze.kAngleMask) >> 8, 0, 0.5, true);
+			if (IOSHudSize() <= Hud_StbarOverlay) DrawStatusSequence(35, ((pp.GetAngle() + 128) & Raze.kAngleMask) >> 8, 0, 0.5, true);
 
-			//if (hud_size < Hud_Full)
+			//if (IOSHudSize() < Hud_Full)
 			{
 				// draw ammo count
 				DrawStatusSequence(44, nDigit[2], 0, 0.5, true);
@@ -815,6 +815,15 @@ class ExhumedStatusBar : RazeStatusBar
 	// counter's stone tablets for numbers; the ammo in hand and the keys.
 	//
 	//---------------------------------------------------------------------------
+
+	// Added (iOS touch): CLASSIC SPLIT / STRIP (ioshud.zs): the bar (hud_size
+	// read as Hud_Stbar above: IOSHudSize), cut between the middle jewel and
+	// the item icons (the health pool, ammo counter and jewel left; the
+	// items and the magic pool right)
+	override void IOSBarDraw() { DrawStatus(Exhumed.GetViewPlayer()); }
+	override double IOSBarHeight() { return IOSBarH("TileStatusBar"); }
+	override double, double IOSBarSpan() { double a, b; [a, b] = IOSBarCentred("TileStatusBar"); return a, b; }
+	override double IOSBarCut() { return 177; }
 
 	override TextureID IOSDigit(String src, int d)
 	{

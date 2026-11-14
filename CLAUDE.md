@@ -66,9 +66,10 @@ apply), tilt aiming straight into the view's angles.
 
 - Bottom right: FIRE, CROUCH / USE / JUMP on an arc round it, the
   secondary button (KICK in Duke, ALT FIRE in Blood, none in the others).
-  Dragging on them also looks. In the HUD SPLIT they sit 14 pt above the
-  pills; in CLASSIC 10 pt above the game's status bar (its top told by the
-  game each frame, `IOSTouchHud.fBarTop`); laid out again as that changes
+  Dragging on them also looks. In the HUD SPLIT and STRIP they sit 14 pt
+  above the pills; in CLASSIC, CLASSIC SPLIT and CLASSIC STRIP 10 pt above
+  the game's status bar (its top as drawn told by the game each frame,
+  `IOSTouchHud.fBarTop`); laid out again as that changes
   (`IOSTouch_LayoutKey`).
 - The top row, left to right: NEXT WPN, PREV WPN; a wider gap; the **item
   buttons**; a wider gap; CAMERA, CHEAT (just left of SAVE, 60 pt apart;
@@ -122,22 +123,63 @@ pt apart, at least 32 pt again before CAMERA; where six don't fit the gaps
 shrink (to 20/8 on 874 and 844 pt phones with CHEAT shown), then the
 buttons (r 17 on a 667 pt iPhone SE).
 
-### The HUD (MENU's tray: HUD and FACE)
+### The HUD (MENU's tray: HUD and its panel)
 
-HUD: SPLIT -> STRIP -> CLASSIC -> NONE (a tap; default SPLIT). FACE (default
-on) only where the game's own status bar has a face: Redneck (Leonard's
-head); it hides itself in the others (Duke's face doesn't go in the HUD,
-the owner's call). Remembered (`iosTouchHud`, `iosTouchHudFace`,
-`iosTouchHudOpacity`; the rig's `$HOME/.iosrig-hud`).
+Six looks (`IOSTOUCH_HUD_*`, kept values: SPLIT 0, STRIP 1, CLASSIC 2, NONE
+3, CLASSIC SPLIT 4, CLASSIC STRIP 5), in the panel's order SPLIT, STRIP,
+CLASSIC SPLIT, CLASSIC STRIP, CLASSIC, NONE (default SPLIT). SIZE: the
+pills small / medium / large (30.6, 39.8, 51.7 pt at 440 pt high; default
+medium), the classic bars small / normal (0.75 of the game's own scale, or
+it; default normal); CLASSIC and NONE one size. FACE (default on) only for
+the pills, and only where the game's own status bar has a face: Redneck
+(Leonard's head; Duke's face doesn't go in the HUD, the owner's call); the
+classic bars always show their face. Remembered (`iosTouchHud`,
+`iosTouchHudFace`, `iosTouchHudSize` 0-2, `iosTouchHudBarSize` 0-1,
+`iosTouchHudOpacity`, `iosTouchOpacity`; the rig's `$HOME/.iosrig-hud`).
 
-- SPLIT, STRIP and NONE give the 3D view the whole screen (`hud_size` set
-  each frame from the HUD: `Hud_Nothing`; CLASSIC `Hud_Stbar`, the game's
-  status bar). SPLIT: two dark rounded pills at the bottom, the player's at
-  the left (health, armour or what stands for it), the ammo in hand and the
-  keys at the right. STRIP: one pill in the middle, shrunk to fit between
-  the buttons. NONE: nothing.
-- One size, the owner's LARGE: 39.8 pt high on a 440 pt screen (83 px at
-  2000x921), scaled with the screen's height (0.8-1.25x), the bottom 16.3
+- The tray's HUD (its label the look: "HUD\nSPLIT", "CLASSIC\nSPLIT"...,
+  lit while its panel is open): tap = a panel under the tray (the shared
+  standard, from the DOOM port): dark, rounded, a 1.5 pt white border at
+  40%, up to 560 pt wide inside the safe area, 40 pt rows, the row's name
+  at the left (78 pt): LOOK (six chips), SIZE (not for CLASSIC or NONE),
+  FACE (ON / OFF: the pills, in Redneck), HUD (the HUD's opacity) and
+  BUTTONS (the controls'), each a slider, 20-100% in 5% steps, live, kept
+  on lift, the value at its right. Hidden rows close up. Chips: radius 15,
+  the chosen gold (fill 1, 0.75, 0.24 at 45%, a solid gold border), the
+  others white 10% with a 45% white border; a tap applies at once (a light
+  haptic, the buttons laid out again). A row's name tapped = that row back
+  to its default (toast, haptic); HUD held 0.45 s (ring) = everything back
+  (split, medium, face on, both 100%: a toast) and the panel closes. The
+  tray and the wheel stay at full. Core: `IOSTouch_HudPick`,
+  `IOSTouch_HudRowReset`, `IOSTouch_HudResetAll`, `IOSTouch_HudRowShown`,
+  `IOSTouch_OpacityPanel`; view: `layoutHudPanel`, `hudChipTapped:`,
+  `hudRowNameTapped:`.
+- SPLIT, STRIP, CLASSIC SPLIT, CLASSIC STRIP and NONE give the 3D view the
+  whole screen (`hud_size` set each frame from the HUD: `Hud_Nothing`;
+  CLASSIC `Hud_Stbar`, the game's status bar). SPLIT: two dark rounded pills
+  at the bottom, the player's at the left (health, armour or what stands
+  for it), the ammo in hand and the keys at the right. STRIP: one pill in
+  the middle, as wide as it needs up to the HUD frame (FIRE and its arc sit
+  above it, as with SPLIT). NONE: nothing.
+- CLASSIC STRIP and CLASSIC SPLIT (`DrawIOSBar` in `ioshud.zs`): the game's
+  own status bar as CLASSIC draws it (each game's `IOSBarDraw`; hud_size
+  read as `Hud_Stbar` through `IOSHudSize()`, its clip kept while
+  `mIOSBar`), clipped to its 320 wide core (no side filler: that is the
+  engines' `UpdateFrame`, not drawn), its bottom at the pills' bottom.
+  STRIP: whole in the middle. SPLIT: cut in two (`IOSBarCut`), the left
+  piece at the HUD frame's left edge, the right at its right, as SPLIT's
+  pills: Duke at 191.5 of 320 (between WEAPONS and AMMO), Redneck 174
+  (between KEYS and YER STUFF; Leonard's face, health, ammo and keys left;
+  its weapon bar, part of its bar, cut between two slots), Blood 193.5
+  (between the weapons' ammo list and the ammo's skull), Shadow Warrior 188
+  (between WEAPONS and the pillar before AMMO), PowerSlave 177 (between the
+  middle jewel and the item icons). SIZE small: the status bar's scale
+  times 0.75 while it is drawn (`Raze.IOSBarScale`, `iosBarScale` in
+  `base_sbar.cpp`). Its top as drawn goes to the overlay
+  (`Raze.IOSBarTop`, `IOSGame_SetBarTop`). The HUD slider fades it (the
+  status bar's `Alpha`).
+- The pills: MEDIUM (the owner's earlier LARGE) 39.8 pt high on a 440 pt screen (83 px at
+  2000x921; SMALL 30.6, LARGE 51.7), scaled with the screen's height (0.8-1.25x), the bottom 16.3
   pt above the screen's bottom (where the mockups' was), 2.4 pt inside the
   HUD frame's sides. The overlay computes the layout
   (`IOSTouch_PillGeometry`, `IOSTouch_GetHudLayout`); the game only reads it
@@ -160,10 +202,6 @@ the owner's call). Remembered (`iosTouchHud`, `iosTouchHudFace`,
   below 25% of its maximum, or at 0: the same digits in red (a red copy of
   their own brightness over them) with a red glow round them, so the
   games' red digits show it too.
-- OPACITY (tray): tap = a panel with two sliders, BUTTONS (the controls,
-  `iosTouchOpacity`) and HUD (the pills, `iosTouchHudOpacity`), 20-100% in 5%
-  steps, live, kept on lift; held 0.45 s = both back to 100%. The tray and
-  the wheel stay at full.
 - The game's messages (`c_notifybuffer.cpp`): at the games' own size for
   the screen's height, below the top row of buttons; the ones at the left
   start at NEXT WPN's left edge (`IOSGame_MessagePlace`), the centred ones
@@ -219,8 +257,10 @@ the owner's call). Remembered (`iosTouchHud`, `iosTouchHudFace`,
   play; all lines due run in one frame, so leave a few seconds after a
   `cmd give all` or an `xshot` (it takes over a second). Commands: `down /
   move / up <id> <x|@BUTTON> <y|@BUTTON>` (`@QUICKSAVE`, `@MENU`,
-  `@TRAYHUD`, `@ITEM0`...), `log`, `buttons`, `items`, `hud <style> [face]`,
-  `hudopacity`, `opacity`, `frames`, `lookstats`, `dump <name>`, `xshot <png>`, `cmd <console
+  `@TRAYHUD`, `@ITEM0`...), `log`, `buttons`, `items`, `hud <split|strip|
+  csplit|cstrip|classic|none> [face]`, `hudsize <small|medium|large|normal>`,
+  `hudpick <row> <choice>` and `hudreset <row>` (HUD's panel), `hudopacity`,
+  `opacity`, `frames`, `lookstats`, `dump <name>`, `xshot <png>`, `cmd <console
   command>` (`give all`, `ios_rigpos`, `ios_riginv_duke`, `ios_rigset_duke
   health|ammo <n>`), `picklevel`, `quit`.
 - The rig draws no overlay: `dump` writes its state (buttons, items, HUD)
@@ -264,13 +304,15 @@ the open MENU tray.
     tie (LOAD's tap does nothing while SAVE is held); only a finished hold
     saves or loads, a tap never does.
   - MENU: tap = game menu; hold 0.45 s = tray with LOOK, SENS, GYRO, FPS,
-    OPACITY, HUD, FACE (Redneck), CAMERA, CHEAT, LEVEL, GAMES, keyboard, and
-    the build stamp under it.
+    HUD, CAMERA, CHEAT, LEVEL, GAMES, keyboard, and the build stamp under
+    it.
   - LOOK: the drag's look speed ("LOOK 1x"); a tap steps 0.5, 0.75, 1,
     1.25, 1.5, 2, 2.5, 3x; held 0.45 s (ring) back to 1x. Remembered.
   - GYRO: OFF (default) / TOUCH (aims while either thumb is down) / ALWAYS.
     SENS 1.0/1.5/2.0/3.0, default 1.5. Remembered.
-  - OPACITY: a panel with BUTTONS and HUD, 20-100%; held, both 100%.
+  - HUD: tap = its panel (LOOK, SIZE, FACE, HUD and BUTTONS opacity, see
+    "The HUD"); a row's name = that row's default; held 0.45 s = all the
+    defaults.
   - FPS: tap = show/hide the readout; held 0.45 s (ring) = 60 <-> 120.
     Remembered.
   - NEXT WPN / PREV WPN: tap = next/previous; a 10 pt slide opens the

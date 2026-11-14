@@ -207,6 +207,8 @@ struct Raze
 	native static TextureID PickTexture(TextureID texid);
 	// Added (iOS touch): the touch HUD's layout (statusbar2.cpp: 0 its style, -1 without the touch controls)
 	native static double IOSHud(int which);
+	native static void IOSBarScale(double k); // Added (iOS touch): CLASSIC SPLIT / STRIP (statusbar2.cpp)
+	native static void IOSBarTop(double frac);
 	native static int GetBuildTime();
 	native static void forceSyncInput(int playeridx);
 	native static Font PickBigFont(String cmptext = "");

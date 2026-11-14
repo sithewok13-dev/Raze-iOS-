@@ -30,7 +30,8 @@
        its ammo, on a wheel with that game's own look. The game holds still
        while it is open.
      - MENU's tray: LOOK, SENS, GYRO, FPS, OPACITY (a panel: BUTTONS and
-       HUD), HUD (SPLIT, STRIP, CLASSIC, NONE), FACE (where the game's
+       HUD), HUD (SPLIT, STRIP, CLASSIC SPLIT, CLASSIC STRIP, CLASSIC,
+       NONE), FACE (where the game's
        status bar has one), CAMERA, CHEAT, LEVEL, GAMES, the keyboard (the
        console, for typing cheats and commands).
    Buttons act on the player directly (the input bits Raze's games read),
@@ -69,8 +70,9 @@ typedef struct IOSTouchHud {
   int ctLevels;        /* the levels the tray's LEVEL lists (0: none) */
   unsigned int uWorld; /* changes with every level started or loaded */
   float afHudFrame[4]; /* (filled by the overlay: IOSTouch_GetHudFrame) */
-  float fBarTop;       /* the HUD CLASSIC: the top of the game's status bar, a fraction of the screen's
-                          height from the top (0: none shows); FIRE and its arc keep above it */
+  float fBarTop;       /* the HUD CLASSIC, CLASSIC SPLIT, CLASSIC STRIP: the top of the game's status
+                          bar as drawn, a fraction of the screen's height from the top (0: none
+                          shows); FIRE and its arc keep above it */
 } IOSTouchHud;
 
 enum { IOSTOUCH_SEC_NONE = 0, IOSTOUCH_SEC_ALTFIRE, IOSTOUCH_SEC_KICK };
@@ -203,9 +205,14 @@ void IOSTouch_GetHudFrame(float afFrame[4]);
    left; the weapon's ammo and the keys on the right: FIRE and its arc move
    up clear of them), STRIP (one pill in the middle), CLASSIC (the game's
    own status bar: FIRE and its arc keep above it) or NONE; FACE, the face
-   in the pills (only in a game whose status bar has one). Where the pills
-   go, in fractions of the screen: */
-enum { IOSTOUCH_HUD_SPLIT = 0, IOSTOUCH_HUD_STRIP, IOSTOUCH_HUD_CLASSIC, IOSTOUCH_HUD_NONE, IOSTOUCH_HUD_COUNT };
+   in the pills (only in a game whose status bar has one). CLASSIC SPLIT
+   and CLASSIC STRIP: the game's own status bar without its side filler
+   over the whole view, cut in two to the bottom corners, or whole in the
+   middle (its face always). SIZE: the pills small, medium or large; the
+   classic bars small or normal. Where the pills go, in fractions of the
+   screen (the values are kept in the settings: new ones only at the end): */
+enum { IOSTOUCH_HUD_SPLIT = 0, IOSTOUCH_HUD_STRIP, IOSTOUCH_HUD_CLASSIC, IOSTOUCH_HUD_NONE,
+       IOSTOUCH_HUD_CSPLIT, IOSTOUCH_HUD_CSTRIP, IOSTOUCH_HUD_COUNT };
 typedef struct IOSTouchHudLayout {
   int iStyle;          /* IOSTOUCH_HUD_* */
   int bFace;           /* the face in the pills */
@@ -217,6 +224,7 @@ typedef struct IOSTouchHudLayout {
                           clear of the buttons */
   float fMsgTop;       /* the game's messages start here (of the height): below the top row of buttons */
   float fMsgLeft;      /* ...lined up with NEXT WPN's left edge (of the width) */
+  float fBarScale;     /* CLASSIC SPLIT / STRIP: the status bar's size (1 the game's own, 0.75 SIZE small) */
 } IOSTouchHudLayout;
 void IOSTouch_GetHudLayout(IOSTouchHudLayout *pLayout);
 /* The frame rate asked for in the tray (FPS held): 60 or 120. The screen is

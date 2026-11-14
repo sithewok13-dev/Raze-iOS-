@@ -13,8 +13,13 @@
      down <id> <x|@BTN[+dx]> <y|[+dy]>   move <id> ...   up <id> ...   cancel <id>
      log <text>        state of the overlay and what the game said
      buttons           every button's place
-     hud <split|strip|classic|none> [face 0/1]   the tray's HUD and FACE
-     hudopacity <0.2-1>, opacity <0.2-1>          OPACITY's panel's sliders
+     hud <split|strip|csplit|cstrip|classic|none> [face 0/1]   the tray's HUD and FACE
+     hudsize <small|medium|large|normal>         SIZE: the pills' (small, medium, large)
+                       with SPLIT or STRIP, the classic bars' (small, normal) with
+                       CLASSIC SPLIT or STRIP
+     hudopacity <0.2-1>, opacity <0.2-1>          HUD's panel's sliders
+     hudpick <row 0-2> <choice>   a choice in HUD's panel (LOOK, SIZE, FACE)
+     hudreset <row 0-4>           a row's name tapped in HUD's panel (back to its default)
      items             the item buttons (useitem, kind, charge, count, on, dim, place)
      dump <name>       the overlay's state (buttons shown, places, the
                        items) appended to TOUCHRIG_DUMP as one JSON line
@@ -52,6 +57,7 @@ static void IOSTouch_LoadHudPrefs(void)
   FILE *f = fopen(path, "r");
   if (!f) return;
   if (fscanf(f, "%d %d %f", &_iHudStyle, &_bHudFace, &_fHudOpacity) != 3) { _iHudStyle = 0; _bHudFace = 1; _fHudOpacity = 1.0f; }
+  else if (fscanf(f, "%d %d", &_iHudSize, &_iHudBarSize) != 2) { _iHudSize = 1; _iHudBarSize = 1; }
   fclose(f);
 }
 
@@ -61,7 +67,7 @@ static void IOSTouch_SaveHudPrefs(void)
   snprintf(path, sizeof(path), "%s/.iosrig-hud", getenv("HOME") ? getenv("HOME") : ".");
   FILE *f = fopen(path, "w");
   if (!f) return;
-  fprintf(f, "%d %d %.2f\n", _iHudStyle, _bHudFace, (double)_fHudOpacity);
+  fprintf(f, "%d %d %.2f %d %d\n", _iHudStyle, _bHudFace, (double)_fHudOpacity, _iHudSize, _iHudBarSize);
   fclose(f);
 }
 
@@ -95,7 +101,7 @@ static void RigLog(const char *fmt, ...)
 
 static const char *const _rigNames[BTN_COUNT] = {
   "FIRE", "SECONDARY", "CROUCH", "USE", "JUMP", "NEXTWPN", "PREVWPN", "QUICKSAVE", "QUICKLOAD", "MENU",
-  "CAMERA", "CHEAT", "ITEM0", "ITEM1", "ITEM2", "ITEM3", "ITEM4", "ITEM5", "RESUME", "TRAYLOOK", "TRAYSENS", "TRAYGYRO", "TRAYFPS", "TRAYOPACITY", "TRAYHUD", "TRAYFACE", "TRAYCAM", "TRAYCHEAT",
+  "CAMERA", "CHEAT", "ITEM0", "ITEM1", "ITEM2", "ITEM3", "ITEM4", "ITEM5", "RESUME", "TRAYLOOK", "TRAYSENS", "TRAYGYRO", "TRAYFPS", "TRAYHUD", "TRAYCAM", "TRAYCHEAT",
   "TRAYLEVEL", "TRAYGAMES", "TRAYKEYS",
 };
 
@@ -187,6 +193,13 @@ static void RigDump(const char *name)
     first = 0;
   }
   fprintf(f, "]");
+  {
+    // the HUD's sizes and its panel: where it goes, the rows shown
+    const IOSTouchRect r = IOSTouch_OpacityPanel();
+    fprintf(f, ",\"hudsize\":%d,\"barsize\":%d,\"panel\":[%.1f,%.1f,%.1f,%.1f],\"hudrows\":[%d,%d,%d,%d,%d]", _iHudSize, _iHudBarSize,
+            r.x0, r.y0, r.x1, r.y1, IOSTouch_HudRowShown(0), IOSTouch_HudRowShown(1), IOSTouch_HudRowShown(2),
+            IOSTouch_HudRowShown(3), IOSTouch_HudRowShown(4));
+  }
   fprintf(f, ",\"items\":[");
   for (int k = 0; k < _items.ctItems; k++) {
     const IOSTouchItem *it = &_items.aItems[k];
@@ -273,12 +286,32 @@ static void RigRun(double t)
              _fPillLeft, _fPillRight, _fStripHalf, _fMsgLeft, _fMsgTop, _fFpsX, _fFpsY);
     }
     else if (!strcmp(cmd, "hud")) {
-      static const char *const astr[IOSTOUCH_HUD_COUNT] = { "split", "strip", "classic", "none" };
+      static const char *const astr[IOSTOUCH_HUD_COUNT] = { "split", "strip", "classic", "none", "csplit", "cstrip" };
       IOSTouch_HudPrefs();
       for (int k = 0; k < IOSTOUCH_HUD_COUNT; k++) if (!strcmp(a, astr[k])) _iHudStyle = k;
       if (b[0]) _bHudFace = atoi(b) != 0;
       IOSTouch_SaveHudPrefs();
       RigLog("hud %s face %d", astr[_iHudStyle], _bHudFace);
+    }
+    else if (!strcmp(cmd, "hudsize")) {
+      IOSTouch_HudPrefs();
+      if (IOSTouch_HudIsPills(_iHudStyle)) _iHudSize = !strcmp(a, "small") ? 0 : !strcmp(a, "large") ? 2 : 1;
+      else if (_iHudStyle == IOSTOUCH_HUD_CSPLIT || _iHudStyle == IOSTOUCH_HUD_CSTRIP) _iHudBarSize = strcmp(a, "small") != 0;
+      IOSTouch_SaveHudPrefs();
+      RigLog("hud size: pills %d bars %d", _iHudSize, _iHudBarSize);
+    }
+    else if (!strcmp(cmd, "hudpick")) {
+      // a choice in HUD's panel (as the view's chips): row (0 LOOK, 1 SIZE,
+      // 2 FACE), choice
+      IOSTouch_HudPick(atoi(a), atoi(b));
+      RigLog("hud panel: style %d size %d bars %d face %d; rows %d%d%d%d%d", _iHudStyle, _iHudSize, _iHudBarSize, _bHudFace,
+             IOSTouch_HudRowShown(0), IOSTouch_HudRowShown(1), IOSTouch_HudRowShown(2), IOSTouch_HudRowShown(3), IOSTouch_HudRowShown(4));
+    }
+    else if (!strcmp(cmd, "hudreset")) {
+      // a row's name tapped in HUD's panel (0 LOOK .. 4 BUTTONS)
+      IOSTouch_HudRowReset(atoi(a));
+      RigLog("hud panel reset %s: style %d size %d bars %d face %d hud %.2f buttons %.2f", a, _iHudStyle, _iHudSize, _iHudBarSize,
+             _bHudFace, (double)_fHudOpacity, (double)_fOpacity);
     }
     else if (!strcmp(cmd, "hudopacity")) {
       IOSTouch_SetHudOpacity((float)atof(a), 1);

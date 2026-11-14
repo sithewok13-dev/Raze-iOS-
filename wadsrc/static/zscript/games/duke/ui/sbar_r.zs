@@ -337,20 +337,21 @@ class RedneckStatusBar : DukeCommonStatusBar
 		let siz = TexMan.GetScaledSize(bsb) * scale;
 
 		double wh = 0;
-		if (hud_size < Hud_Stbar) wh = tileHeight("WEAPONBAR") * scale;
+		int hs = IOSHudSize(); // Added (iOS touch): Hud_Stbar for CLASSIC SPLIT / STRIP
+		if (hs < Hud_Stbar) wh = tileHeight("WEAPONBAR") * scale;
 
 		double h = siz.Y;
 		double top = 200 - h;
 		int left = (320 - int(siz.X)) / 2;
 		BeginStatusBar(false, 320, 200, int(wh + h));
-		DrawInventory(p, 160, hud_size <= Hud_Stbar? 148 : 154, 0);
+		DrawInventory(p, 160, hs <= Hud_Stbar? 148 : 154, 0);
 
-		if (hud_size <= Hud_Stbar)
+		if (hs <= Hud_Stbar)
 			DrawWeaponBar(p, int(top));
 
-		if (hud_size == Hud_StbarOverlay) Set43ClipRect();
+		if (hs == Hud_StbarOverlay) Set43ClipRect();
 		DrawTexture(bsb, (left, top), DI_ITEM_LEFT_TOP, scale:(scale, scale));
-		screen.ClearClipRect();
+		if (!mIOSBar) screen.ClearClipRect(); // (Added (iOS touch): ioshud.zs's clip kept)
 
 		String format;
 
@@ -469,6 +470,15 @@ class RedneckStatusBar : DukeCommonStatusBar
 	// the keys.
 	//
 	//==========================================================================
+
+	// Added (iOS touch): CLASSIC SPLIT / STRIP (ioshud.zs): the bar with its
+	// weapon bar, cut between KEYS and YER STUFF (Leonard's face, health, ammo
+	// and keys left; the inventory and the gauges right; the weapon bar
+	// between two of its slots)
+	override void IOSBarDraw() { Statusbar(Duke.GetViewPlayer()); }
+	override double IOSBarHeight() { return max(IOSBarH("BOTTOMSTATUSBAR", scale), 200 - 158); } // (the weapon bar from 158 down)
+	override double, double IOSBarSpan() { double a, b; [a, b] = IOSBarCentred("BOTTOMSTATUSBAR", scale); return a, b; }
+	override double IOSBarCut() { return 174; }
 
 	override void IOSHudParts(bool face)
 	{

@@ -424,7 +424,7 @@ class DukeStatusBar : DukeCommonStatusBar
 		DrawInventory(p, 160, 154, 0);
 		if (hud_size == Hud_StbarOverlay) Set43ClipRect();
 		DrawTexture(bsb, (left, top), DI_ITEM_LEFT_TOP, 1);
-		screen.ClearClipRect();
+		if (!mIOSBar) screen.ClearClipRect(); // (Added (iOS touch): ioshud.zs's clip kept)
 
 		String format;
 
@@ -506,6 +506,13 @@ class DukeStatusBar : DukeCommonStatusBar
 	// side by side. No face (the owner's call: Duke's face doesn't go in it).
 	//
 	//==========================================================================
+
+	// Added (iOS touch): CLASSIC SPLIT / STRIP (ioshud.zs): the bar, cut
+	// between WEAPONS and AMMO, each box whole
+	override void IOSBarDraw() { Statusbar(Duke.GetViewPlayer()); }
+	override double IOSBarHeight() { return IOSBarH("BOTTOMSTATUSBAR"); }
+	override double, double IOSBarSpan() { double a, b; [a, b] = IOSBarCentred("BOTTOMSTATUSBAR"); return a, b; }
+	override double IOSBarCut() { return 191.5; } // (the gap between the WEAPONS and AMMO boxes)
 
 	override void IOSHudParts(bool face)
 	{

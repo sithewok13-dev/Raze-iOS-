@@ -562,9 +562,9 @@ class BloodStatusBar : RazeStatusBar
 			double x = 73.5 + (i & 1) * 173;
 			double y = 171.5 + (i >> 1) * 11;
 			if (pPlayer.hasKey[i + 1])
-				DrawImage(nTile, (x, y), DI_ITEM_RELCENTER, style:STYLE_Normal);
+				DrawImage(nTile, (x, y), DI_ITEM_RELCENTER, style:mIOSBar ? STYLE_Translucent : STYLE_Normal); // (Added (iOS touch): the HUD slider fades it)
 			else
-				DrawImage(nTile, (x, y), DI_ITEM_RELCENTER, style:STYLE_Normal, col: 0xff606060, translation:Translation.MakeID(Translation_Remap, 5));
+				DrawImage(nTile, (x, y), DI_ITEM_RELCENTER, style:mIOSBar ? STYLE_Translucent : STYLE_Normal, col: 0xff606060, translation:Translation.MakeID(Translation_Remap, 5));
 		}
 		DrawImage("BlinkIcon", (118.5, 185.5), DI_ITEM_RELCENTER, col:Raze.shadeToLight(pPlayer.isRunning || cl_bloodvanillarun ? 16 : 40));
 		DrawImage("BlinkIcon", (201.5, 185.5), DI_ITEM_RELCENTER, col:Raze.shadeToLight(pPlayer.isRunning || cl_bloodvanillarun ? 16 : 40));
@@ -794,6 +794,14 @@ class BloodStatusBar : RazeStatusBar
 	// coloured plate; the ammo in hand (blue) and the keys.
 	//
 	//---------------------------------------------------------------------------
+
+	// Added (iOS touch): CLASSIC SPLIT / STRIP (ioshud.zs): the bar, cut
+	// between the weapons' ammo list and the ammo's skull (armour, health and
+	// the list left; the ammo, the item and the keys right)
+	override void IOSBarDraw() { TranslationID notr = 0; DrawStatusBar(Blood.GetViewPlayer(), notr); }
+	override double IOSBarHeight() { return IOSBarH("Statusbar"); }
+	override double, double IOSBarSpan() { double a, b; [a, b] = IOSBarCentred("Statusbar"); return a, b; }
+	override double IOSBarCut() { return 193.5; }
 
 	override void IOSHudParts(bool face)
 	{

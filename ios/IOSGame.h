@@ -78,8 +78,12 @@ void IOSGame_HudFrame(double w, double h, double* pFrame);
 // a pill's height, 3 the pills' bottom, 4 and 5 SPLIT's outer edges, 6
 // STRIP's widest half; 7 how strongly the HUD shows (0.2..1: OPACITY's HUD
 // slider); 8 and 9 where the game's messages start (top, left: below the
-// top row of buttons)
+// top row of buttons); 10 the classic bars' size (CLASSIC SPLIT / STRIP: 1
+// the game's own, 0.75 small)
 double IOSGame_HudValue(int which, double w, double h);
+// CLASSIC SPLIT / STRIP: the status bar's top as drawn (a fraction of the
+// screen's height), so FIRE and its arc keep above it
+void IOSGame_SetBarTop(double frac);
 // Where the game's messages start, in the units of a vw x vh virtual screen
 // drawn scaled to the screen's height (FSMode_ScaleToHeight, kept in ratio:
 // x = 0 at the screen's left edge, its pixels 1.2 times as tall as wide): x

@@ -14,6 +14,11 @@
 // games' red digits show it too). The numbers are in the digits of the
 // game's own status bar. Each game says what goes in (IOSHudParts, in its
 // status bar's file); this draws it.
+// CLASSIC STRIP and CLASSIC SPLIT: the game's own status bar (as CLASSIC
+// draws it) over the full-screen view, clipped to its 320 wide core (no
+// side filler), whole in the middle at the bottom, or cut in two (each
+// game says where: IOSBarCut) to the bottom corners, at the HUD frame's
+// edges as SPLIT's pills; SIZE small 0.75 of the game's own scale.
 //
 //============================================================================
 
@@ -45,6 +50,7 @@ extend class RazeStatusBar
 	Shape2D mIOSFill, mIOSEdge, mIOSOval;
 	double mIOSU;		// screen pixels per mockup unit
 	double mIOSA;		// how strongly it shows (OPACITY's HUD slider)
+	bool mIOSBar;		// CLASSIC SPLIT / STRIP: the classic bar being drawn (IOSHudSize: Hud_Stbar)
 
 	//---------------------------------------------------------------------------
 	// What the games give
@@ -53,6 +59,37 @@ extend class RazeStatusBar
 	// The parts of the two pills (pill 0: the player; pill 1: the gun and
 	// the keys), with face on or off (only where the game has one)
 	virtual void IOSHudParts(bool face) {}
+
+	// CLASSIC SPLIT / STRIP: the game's status bar as CLASSIC draws it,
+	// without the level's stats (IOSBarDraw; hud_size read through
+	// IOSHudSize, the clip not cleared while mIOSBar); its height in the
+	// bar's 320 x 200 (from the bottom: what's above it too, as Redneck's
+	// weapon bar), the part across of it that is the bar (the 320 wide core;
+	// narrower where the bar is), and where SPLIT cuts it
+	virtual void IOSBarDraw() {}
+	virtual double IOSBarHeight() { return 0; }
+	virtual double, double IOSBarSpan() { return 0, 320; }
+	virtual double IOSBarCut() { return 160; }
+
+	int IOSHudSize()
+	{
+		return mIOSBar ? Hud_Stbar : hud_size;
+	}
+
+	// a status bar picture's size (scaled), and the part across of the 320
+	// that it covers, drawn in the middle
+	double IOSBarH(String tex, double scale = 1)
+	{
+		Vector2 v = TexMan.GetScaledSize(TexMan.CheckForTexture(tex, TexMan.Type_Any));
+		return v.Y * scale;
+	}
+
+	double, double IOSBarCentred(String tex, double scale = 1)
+	{
+		Vector2 v = TexMan.GetScaledSize(TexMan.CheckForTexture(tex, TexMan.Type_Any));
+		double w = v.X * scale;
+		return max(0, 160 - w / 2), min(320, 160 + w / 2);
+	}
 
 	// The digit sets: a font ("font:big", "font:digi", "font:small") or the
 	// game's own digit pictures (src the start of their names, digit after)
@@ -455,11 +492,66 @@ extend class RazeStatusBar
 		}
 	}
 
+	// CLASSIC SPLIT (split) and CLASSIC STRIP: the game's bar over the
+	// full-screen view, its bottom where the pills' is; its top as drawn
+	// told to the touch controls, so FIRE and its arc keep above it
+	void DrawIOSBar(bool split)
+	{
+		double H = IOSBarHeight();
+		double x0, x1;
+		[x0, x1] = IOSBarSpan();
+		if (H <= 0 || x1 <= x0 || Screen.GetHeight() <= 0) return;
+		double k = Raze.IOSHud(10);
+		if (!(k >= 0.3 && k <= 1.)) k = 1.;
+		Raze.IOSBarScale(k);
+		drawOffset = (0, 0);
+		BeginStatusBar(false, 320, 200, int(H));
+		double bx, by, bw, bh;
+		[bx, by, bw, bh] = StatusbarToRealCoords(x0, 200 - H, x1 - x0, H);
+		if (bw > 0 && bh > 0)
+		{
+			double sx = bw / (x1 - x0), sy = bh / H;
+			double dy = (Raze.IOSHud(3) - (by + bh)) / sy;
+			Raze.IOSBarTop((Raze.IOSHud(3) - bh) / Screen.GetHeight());
+			Alpha = mIOSA;
+			mIOSBar = true;
+			if (!split)
+			{
+				drawOffset = (0, dy);
+				SetClipRect(x0, 0, x1 - x0, 200);
+				IOSBarDraw();
+			}
+			else
+			{
+				double cut = clamp(IOSBarCut(), x0, x1);
+				drawOffset = ((Raze.IOSHud(4) - bx) / sx, dy);
+				SetClipRect(x0, 0, cut - x0, 200);
+				IOSBarDraw();
+				drawOffset = ((Raze.IOSHud(5) - (bx + bw)) / sx, dy);
+				SetClipRect(cut, 0, x1 - cut, 200);
+				IOSBarDraw();
+			}
+			mIOSBar = false;
+		}
+		drawOffset = (0, 0);
+		Screen.ClearClipRect();
+		Alpha = 1.;
+		Raze.IOSBarScale(1);
+		BeginStatusBar(false, 320, 200, int(H));
+	}
+
 	// From statusbar2.cpp, after the game's own status bar (drawn as
-	// "nothing" then: the full-screen view): SPLIT and STRIP
+	// "nothing" then: the full-screen view): SPLIT and STRIP, CLASSIC
+	// SPLIT and CLASSIC STRIP
 	virtual void DrawIOSHud()
 	{
 		int style = int(Raze.IOSHud(0));
+		if (style == 4 || style == 5)
+		{
+			mIOSA = Raze.IOSHud(7);
+			DrawIOSBar(style == 4);
+			return;
+		}
 		if (style != 0 && style != 1) return;
 		double pillH = Raze.IOSHud(2), bottom = Raze.IOSHud(3), left = Raze.IOSHud(4), right = Raze.IOSHud(5), half = Raze.IOSHud(6);
 		if (pillH <= 0) return;

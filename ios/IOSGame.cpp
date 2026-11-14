@@ -513,6 +513,7 @@ static void SkipLevelScreens()
 // count the frame last saw
 static unsigned int levelStarts = 0, levelStartsSeen = 0;
 static unsigned int framesDrawn = 0;
+static double iosBarTop = 0.0; // (CLASSIC SPLIT / STRIP: IOSGame_SetBarTop)
 
 void IOSGame_LevelStarted()
 {
@@ -583,8 +584,10 @@ void IOSGame_Frame()
 	// The HUD (MENU's tray's HUD): CLASSIC is the game's status bar (its
 	// top told to the overlay, which keeps FIRE and its arc above it);
 	// SPLIT, STRIP and NONE give the view the whole screen (the pills drawn
-	// over it: statusbar2.cpp, ioshud.zs). FACE only where the game's own
-	// status bar has a face: Redneck Rampage's Leonard.
+	// over it: statusbar2.cpp, ioshud.zs), as do CLASSIC SPLIT and CLASSIC
+	// STRIP (the game's status bar drawn over it by ioshud.zs, its top as
+	// drawn told back here). FACE only where the game's own status bar has
+	// a face: Redneck Rampage's Leonard.
 	{
 		IOSTouchHudLayout hl;
 		IOSTouch_GetHudLayout(&hl);
@@ -596,6 +599,8 @@ void IOSGame_Frame()
 			const auto res = GetReservedScreenSpace(Hud_Stbar);
 			if (res.statusbar > 0) hud.fBarTop = float(1.0 - res.statusbar * hud_scalefactor / 200.0);
 		}
+		else if ((hl.iStyle == IOSTOUCH_HUD_CSPLIT || hl.iStyle == IOSTOUCH_HUD_CSTRIP) && iosBarTop > 0.0)
+			hud.fBarTop = float(iosBarTop);
 	}
 	if (part && part->PickTick) part->PickTick();
 	IOSTouch_SetWeapons(&wpn);
@@ -770,6 +775,13 @@ extern "C" void IOSGame_WriteConfig(void)
 	G_WriteConfigNow();
 }
 
+// CLASSIC SPLIT / STRIP: the status bar's top as ioshud.zs drew it (a
+// fraction of the screen's height; 0 not drawn yet)
+void IOSGame_SetBarTop(double frac)
+{
+	iosBarTop = frac;
+}
+
 double IOSGame_HudValue(int which, double w, double h)
 {
 	IOSTouchHudLayout hl;
@@ -786,6 +798,7 @@ double IOSGame_HudValue(int which, double w, double h)
 	case 7: return hl.fAlpha;
 	case 8: return hl.fMsgTop * h;
 	case 9: return hl.fMsgLeft * w;
+	case 10: return hl.fBarScale;
 	}
 	return 0;
 }

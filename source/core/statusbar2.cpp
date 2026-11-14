@@ -224,8 +224,10 @@ void UpdateStatusBar(SummaryInfo* info)
 	}
 #ifdef RAZE_TOUCH
 	// Added (iOS touch): the touch HUD's pills over the full-screen view
-	// (MENU's tray's HUD: SPLIT, STRIP; ioshud.zs)
-	if (IOSGame_HudValue(0, 1, 1) <= 1.0)
+	// (MENU's tray's HUD: SPLIT, STRIP; ioshud.zs), or the game's own
+	// status bar over it (CLASSIC SPLIT, CLASSIC STRIP)
+	const int iosStyle = int(IOSGame_HudValue(0, 1, 1));
+	if (iosStyle == IOSTOUCH_HUD_SPLIT || iosStyle == IOSTOUCH_HUD_STRIP || iosStyle == IOSTOUCH_HUD_CSPLIT || iosStyle == IOSTOUCH_HUD_CSTRIP)
 	{
 		IFVIRTUALPTRNAME(StatusBar, NAME_RazeStatusBar, DrawIOSHud)
 		{
@@ -243,6 +245,33 @@ void UpdateStatusBar(SummaryInfo* info)
 // controls; 1 the face; 2.. where its pills go, in the 2D drawer's pixels)
 //
 //============================================================================
+
+#ifdef RAZE_TOUCH
+extern double iosBarScale; // base_sbar.cpp
+#endif
+
+// CLASSIC SPLIT / STRIP: the status bar's scale times k while ioshud.zs
+// draws it (1 after), and its top as drawn (a fraction of the height) for
+// the touch controls
+DEFINE_ACTION_FUNCTION(_Raze, IOSBarScale)
+{
+	PARAM_PROLOGUE;
+	PARAM_FLOAT(k);
+#ifdef RAZE_TOUCH
+	iosBarScale = (k >= 0.3 && k <= 2.0) ? k : 1.0;
+#endif
+	return 0;
+}
+
+DEFINE_ACTION_FUNCTION(_Raze, IOSBarTop)
+{
+	PARAM_PROLOGUE;
+	PARAM_FLOAT(frac);
+#ifdef RAZE_TOUCH
+	IOSGame_SetBarTop(frac);
+#endif
+	return 0;
+}
 
 DEFINE_ACTION_FUNCTION(_Raze, IOSHud)
 {

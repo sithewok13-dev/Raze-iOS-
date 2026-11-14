@@ -621,7 +621,7 @@ class SWStatusBar : RazeStatusBar
 
 		if (hud_size == Hud_StbarOverlay) Set43ClipRect();
 		DrawImage("STATUS_BAR", (160, 200), DI_ITEM_CENTER_BOTTOM);
-		screen.ClearClipRect();
+		if (!mIOSBar) screen.ClearClipRect(); // (Added (iOS touch): ioshud.zs's clip kept)
 		DisplayPanelNumber(PANEL_HEALTH_BOX_X + PANEL_HEALTH_XOFF, PANEL_BOX_Y + PANEL_HEALTH_YOFF, pp.Health());
 		DisplayPanelNumber(PANEL_ARMOR_BOX_X + PANEL_ARMOR_XOFF, PANEL_BOX_Y + PANEL_ARMOR_YOFF, pp.Armor);
 		if (wnum != SW.WPN_FIST && wnum != SW.WPN_SWORD) DisplayPanelNumber(PANEL_AMMO_BOX_X + PANEL_AMMO_XOFF, PANEL_BOX_Y + PANEL_AMMO_YOFF, pp.WpnAmmo[wnum]);
@@ -975,6 +975,13 @@ class SWStatusBar : RazeStatusBar
 	// the ammo in hand and the keys.
 	//
 	//---------------------------------------------------------------------------
+
+	// Added (iOS touch): CLASSIC SPLIT / STRIP (ioshud.zs): the bar, cut
+	// between the WEAPONS box and the pillar before AMMO (each box whole)
+	override void IOSBarDraw() { DrawStatusBar(SW.GetViewPlayer()); }
+	override double IOSBarHeight() { return IOSBarH("STATUS_BAR"); }
+	override double, double IOSBarSpan() { double a, b; [a, b] = IOSBarCentred("STATUS_BAR"); return a, b; }
+	override double IOSBarCut() { return 188; }
 
 	override void IOSHudParts(bool face)
 	{
