@@ -148,11 +148,18 @@ static void Items(IOSTouchItems* pi)
 	}
 }
 
-// ...their pictures: the status bar's pack icons
+// ...their pictures: the world pickups (the doctor's bag, crystal ball,
+// beast vision and jump boots: tiles 519, 760, 839, 827, the same art as
+// the status bar's pack icons), made into larger, cleaner pictures
+static bool ItemPictures()
+{
+	return true;
+}
+
 static const char* const* ItemIcon(int iUse)
 {
-	static const char* const icons[][3] = { { "Pack2Icon1", "PackIcon1" }, { "Pack2Icon3", "PackIcon3" }, { "Pack2Icon4", "PackIcon4" },
-	                                        { "Pack2Icon5", "PackIcon5" } };
+	static const char* const icons[][4] = { { "#519", "Pack2Icon1", "PackIcon1" }, { "#760", "Pack2Icon3", "PackIcon3" },
+	                                        { "#839", "Pack2Icon4", "PackIcon4" }, { "#827", "Pack2Icon5", "PackIcon5" } };
 	return (iUse >= 1 && iUse <= 4) ? icons[iUse - 1] : nullptr;
 }
 
@@ -205,11 +212,24 @@ static const char* const* Icon(int w)
 }
 
 // CHEAT: the trapped soul (the life leech's ammo: a skull in a blue orb),
-// else the skull key
+// made into the whole button with a blood-red glow (IOSIconLook.cpp); else
+// the skull key, the same way
 static const char* const* CheatIcon()
 {
-	static const char* const list[] = { "#820", "KeyIcon1", nullptr };
+	static const char* const list[] = { "KeyIcon1", nullptr };
 	return list;
+}
+
+static const char* const* CheatSign()
+{
+	static const char* const list[] = { "#820", nullptr };
+	return list;
+}
+
+static const IOSIconSignStyle* CheatSignStyle()
+{
+	static const IOSIconSignStyle soul = { false, 1.0f, 0.0f, 0.0f, 0.0f, { 220, 30, 20 }, { 60, 8, 8 } };
+	return &soul;
 }
 
 // Caleb's line as the cheat comes on: one of those he has for blowing
@@ -238,4 +258,5 @@ END_BLD_NS
 
 const IOSGamePart iosBloodPart = { BLD_NS::Weapons, BLD_NS::Pick, BLD_NS::PickTick, BLD_NS::State, BLD_NS::FillAmmo, true,
                                    BLD_NS::Alive, BLD_NS::GodOn, BLD_NS::Reset, BLD_NS::Icon, BLD_NS::CheatIcon, BLD_NS::CheatSound,
-                                   BLD_NS::Items, BLD_NS::ItemIcon };
+                                   BLD_NS::Items, BLD_NS::ItemIcon, BLD_NS::ItemPictures, BLD_NS::CheatSign,
+                                   BLD_NS::CheatSignStyle };

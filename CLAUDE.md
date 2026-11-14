@@ -81,11 +81,17 @@ apply), tilt aiming straight into the view's angles.
 
 One full-size round button per usable item the player has, in the game's
 fixed order, closing up as items come and go (`IOSTouchItems`, each game's
-`Items`): its own inventory picture from the player's data (`ItemIcon`;
-Duke's are the world pickups FIRSTAID 53, STEROIDS 55, HOLODUKE 1348,
-JETPACK 57, HEATSENSOR 59, made once as fed by `ios/IOSIconLook.cpp`:
-hq4x, Lanczos, brighter, more contrast and colour, a thin light outline,
-the larger side 3/4 of the button, `IOSTouch_SetItemPicture`), drawn at
+`Items`): its picture from the player's data (`ItemIcon`), the world
+pickup as it lies in the levels, made once as fed by `ios/IOSIconLook.cpp`
+(`ItemPictures`: hq4x, Lanczos, brighter, more contrast and colour, a thin
+light outline, the larger side 3/4 of the button, `IOSTouch_SetItemPicture`;
+PowerSlave's lifted less, `fItemEnhance` 0.35): Duke FIRSTAID 53, STEROIDS
+55, HOLODUKE 1348, JETPACK 57, HEATSENSOR 59; Redneck whiskey 53, moonshine
+55, beer 51, cow pie 57; Blood 519, 760, 839, 827 (the same art as its pack
+icons); Shadow Warrior ICON_MEDKIT, ICON_CLOAK (smoke bomb),
+ICON_NIGHT_VISION, ICON_CHEMBOMB, ICON_FLASHBOMB, and the status bar's
+caltrops (their pickup is a shop sign); PowerSlave the status bar's (the
+pickups' own art). NAM / WW2GI keep the plain icons. Drawn at
 full strength (dimmed 0.4), a tap uses it directly (the game's `useitem N`: `SB_ITEM_BIT_1 << (N-1)`).
 No hold action. Charge items: the ring is a gauge filling clockwise from
 12 o'clock (gold, red under 25%), glowing (ring and picture) while the
@@ -167,14 +173,22 @@ the owner's call). Remembered (`iosTouchHud`, `iosTouchHudFace`,
 
 - **CHEAT** (`sithewok`): the tray's CHEAT shows the button and switches
   the cheat on, or leaves cheat mode; CHEAT held 0.5 s = on/off; a tap does
-  nothing. Its picture is the game's own (Redneck's moonshine...), its
+  nothing. Its picture is the game's own, its
   hero's line plays as it comes on. Duke's is his worn radiation sign
   (tile 3392, `CheatSign`) made into the whole button by
   `IOSIconLook_CheatSign` (cropped to its yellow circle, hq4x, a black
   rim; off grey and dim, the button at 0.8; on its yellow orange-hot with
   a wide orange halo, the rim crisp over it): `IOSTouch_SetCheatPictures`,
   216 px covering 72/44 of the button; the nuke button if 3392 isn't the
-  sign (another edition). Rig dumps: `<dump>.cheatpic.rgba` (on, off). While on (single
+  sign (another edition). The others the same way with a style
+  (`CheatSignStyle`, `IOSIconLook_CheatSignStyled`: on lit and warmed, a
+  halo of the game's colour, the rim crisp; off grey and dim): Redneck the
+  Dairy Air Farm sign's cow (2700, cropped to 0.68), Rides Again the No. 20
+  pig sign (7910), amber; Blood the trapped soul (820), red; Shadow Warrior
+  the bloodied yin-yang (YINYANG 2870, an ellipse made round), red;
+  PowerSlave the gold ankh (798) on a lapis disc, gold. Where the sign
+  isn't there, CheatIcon's picture is made into the button in that style
+  (PowerSlave: the drawn ankh). Rig dumps: `<dump>.cheatpic.rgba` (on, off). While on (single
   player, where the game's cheats work): god mode, "give all" at each
   level, ammo kept full; JUMP / USE holds for fly (Shadow Warrior) and
   noclip.

@@ -178,22 +178,25 @@ static void Items(IOSTouchItems* pi)
 	}
 }
 
-// ...their pictures: Duke's the world pickups (FIRSTAID, STEROIDS,
-// HOLODUKE, JETPACK, HEATSENSOR: tiles 53, 55, 1348, 57, 59), made into
-// larger, cleaner pictures (ItemPictures); else the status bar's own icons
+// ...their pictures: the world pickups, made into larger, cleaner
+// pictures (ItemPictures): Duke's FIRSTAID, STEROIDS, HOLODUKE, JETPACK,
+// HEATSENSOR (tiles 53, 55, 1348, 57, 59); Redneck's whiskey, moonshine,
+// beer and cow pie (53, 55, 51, 57: its FIRSTAID, STEROIDS, BEER, COWPIE);
+// else the status bar's own icons
 static bool ItemPictures()
 {
-	return !isRR() && !isNamWW2GI();
+	return !isNamWW2GI();
 }
 
 static const char* const* ItemIcon(int iUse)
 {
 	static const char* const pick[][3] = { { "#53", "FIRSTAID_ICON" }, { "#55", "STEROIDS_ICON" }, { "#1348", "HOLODUKE_ICON" },
 	                                       { "#57", "JETPACK_ICON" }, { "#59", "HEAT_ICON" } };
+	static const char* const rrpick[][3] = { { "#53", "WHISKEY_ICON" }, { "#55", "MOONSHINE_ICON" }, { "#51", "HOLODUKE_ICON" },
+	                                         { "#57", "COWPIE_ICON" } };
 	static const char* const duke[][2] = { { "FIRSTAID_ICON" }, { "STEROIDS_ICON" }, { "HOLODUKE_ICON" }, { "JETPACK_ICON" }, { "HEAT_ICON" } };
+	if (isRR()) return (iUse >= 1 && iUse <= 4) ? rrpick[iUse - 1] : nullptr;
 	if (ItemPictures()) return (iUse >= 1 && iUse <= 5) ? pick[iUse - 1] : nullptr;
-	static const char* const rr[][2] = { { "WHISKEY_ICON" }, { "MOONSHINE_ICON" }, { "HOLODUKE_ICON" }, { "COWPIE_ICON" } };
-	if (isRR()) return (iUse >= 1 && iUse <= 4) ? rr[iUse - 1] : nullptr;
 	return (iUse >= 1 && iUse <= 5) ? duke[iUse - 1] : nullptr;
 }
 
@@ -255,11 +258,23 @@ static const char* const* CheatIcon()
 }
 
 // ...Duke's own worn radiation sign (tile 3392), made into the whole
-// button (IOSIconLook.cpp; CheatIcon's if it isn't there or isn't that)
+// button (IOSIconLook.cpp; CheatIcon's if it isn't there or isn't that);
+// Redneck's the Dairy Air Farm sign's cow (2700), Rides Again's the No. 20
+// pig sign (7910), with an amber glow (else the moonshine in that style)
 static const char* const* CheatSign()
 {
 	static const char* const duke[] = { "#3392", nullptr };
-	return (isRR() || isNamWW2GI()) ? nullptr : duke;
+	static const char* const rr[] = { "#2700", nullptr };
+	static const char* const rra[] = { "#7910", nullptr };
+	if (isNamWW2GI()) return nullptr;
+	return isRR() ? (isRRRA() ? rra : rr) : duke;
+}
+
+static const IOSIconSignStyle* CheatSignStyle()
+{
+	static const IOSIconSignStyle cow = { false, 0.68f, 0.0f, 0.02f, 0.0f, { 255, 150, 40 }, { 70, 40, 15 } };
+	static const IOSIconSignStyle pig = { false, 1.0f, 0.0f, 0.0f, 0.0f, { 255, 150, 40 }, { 70, 40, 15 } };
+	return isRR() ? (isRRRA() ? &pig : &cow) : nullptr;
 }
 
 // The hero's line as the cheat comes on (the game's own sounds, by their
@@ -301,4 +316,5 @@ END_DUKE_NS
 
 const IOSGamePart iosDukePart = { DUKE_NS::Weapons, DUKE_NS::Pick, DUKE_NS::PickTick, DUKE_NS::State, DUKE_NS::FillAmmo, false,
                                   DUKE_NS::Alive, DUKE_NS::GodOn, DUKE_NS::Reset, DUKE_NS::Icon, DUKE_NS::CheatIcon, DUKE_NS::CheatSound,
-                                  DUKE_NS::Items, DUKE_NS::ItemIcon, DUKE_NS::ItemPictures, DUKE_NS::CheatSign };
+                                  DUKE_NS::Items, DUKE_NS::ItemIcon, DUKE_NS::ItemPictures, DUKE_NS::CheatSign,
+                                  DUKE_NS::CheatSignStyle };

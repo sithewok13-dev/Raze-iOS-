@@ -85,7 +85,13 @@ static void Items(IOSTouchItems* pi)
 	}
 }
 
-// ...their pictures: the status bar's (the item shown on the magic pool)
+// ...their pictures: the status bar's (the item shown on the magic pool:
+// the same art as the world pickups), made into larger, cleaner pictures
+static bool ItemPictures()
+{
+	return true;
+}
+
 static const char* const* ItemIcon(int iUse)
 {
 	static const int seqOf[] = { 91, 72, 76, 79, 68, 87 };
@@ -136,10 +142,23 @@ static const char* const* Icon(int w)
 	return (w >= 0 && w < (int)countof(list) && list[w][0]) ? list[w] : nullptr;
 }
 
-// CHEAT: no picture of the game's (its drawn ankh)
+// CHEAT: the gold ankh (tile 798) on a lapis disc, made into the whole
+// button with a gold glow (IOSIconLook.cpp); else the drawn ankh
 static const char* const* CheatIcon()
 {
 	return nullptr;
+}
+
+static const char* const* CheatSign()
+{
+	static const char* const list[] = { "#798", nullptr };
+	return list;
+}
+
+static const IOSIconSignStyle* CheatSignStyle()
+{
+	static const IOSIconSignStyle ankh = { true, 0.0f, 0.0f, 0.0f, 0.78f, { 255, 190, 60 }, { 20, 40, 110 } };
+	return &ankh;
 }
 
 // The game's own fanfare for a special item as the cheat comes on (its
@@ -165,4 +184,5 @@ END_PS_NS
 
 const IOSGamePart iosExhumedPart = { PS_NS::Weapons, PS_NS::Pick, nullptr, PS_NS::State, PS_NS::FillAmmo, true,
                                      PS_NS::Alive, PS_NS::GodOn, nullptr, PS_NS::Icon, PS_NS::CheatIcon, PS_NS::CheatSound,
-                                     PS_NS::Items, PS_NS::ItemIcon };
+                                     PS_NS::Items, PS_NS::ItemIcon, PS_NS::ItemPictures, PS_NS::CheatSign,
+                                     PS_NS::CheatSignStyle, 0.35f };

@@ -351,19 +351,30 @@ static void FeedIcons(const IOSGamePart* part)
 		std::vector<uint8_t> raw, made;
 		int rw = 0, rh = 0;
 		if (part->ItemPictures && part->ItemPictures() && part->ItemIcon && TextureRGBA(FindIconTexture(part->ItemIcon(u)), raw, rw, rh)
-			&& IOSIconLook_ItemPicture(raw.data(), rw, rh, made, w, h))
+			&& IOSIconLook_ItemPicture(raw.data(), rw, rh, made, w, h, part->fItemEnhance > 0 ? part->fItemEnhance : 1.0f))
 			IOSTouch_SetItemPicture(u, made.data(), w, h);
 		else if (part->ItemIcon && MakeIcon(FindIconTexture(part->ItemIcon(u)), px, w, h)) IOSTouch_SetItemIcon(u, px.Data(), w, h);
 		else IOSTouch_SetItemIcon(u, nullptr, 0, 0);
 	}
 	if (IOSTouch_WantsCheatIcon())
 	{
-		// a round sign made into the whole button (Duke's), else the picture
+		// a sign made into the whole button (Duke's radiation sign; the
+		// others' in their style); else, with a style, CheatIcon's picture
+		// made into the button the same way; else the picture
 		std::vector<uint8_t> raw, on, off;
 		int rw = 0, rh = 0;
-		if (part->CheatSign && TextureRGBA(FindIconTexture(part->CheatSign()), raw, rw, rh, false)
-			&& IOSIconLook_CheatSign(raw.data(), rw, rh, IOSTOUCH_CHEAT_PICTURE_SIZE, on, off))
-			IOSTouch_SetCheatPictures(on.data(), off.data(), IOSTOUCH_CHEAT_PICTURE_SIZE);
+		const IOSIconSignStyle* style = part->CheatSignStyle ? part->CheatSignStyle() : nullptr;
+		const int n = IOSTOUCH_CHEAT_PICTURE_SIZE;
+		bool bMade = part->CheatSign && TextureRGBA(FindIconTexture(part->CheatSign()), raw, rw, rh, false)
+			&& (style ? IOSIconLook_CheatSignStyled(raw.data(), rw, rh, n, *style, on, off) : IOSIconLook_CheatSign(raw.data(), rw, rh, n, on, off));
+		if (!bMade && style && part->CheatIcon && TextureRGBA(FindIconTexture(part->CheatIcon()), raw, rw, rh, false))
+		{
+			IOSIconSignStyle emblem = *style;
+			emblem.bEmblem = true;
+			emblem.fEmblem = 0.74f;
+			bMade = IOSIconLook_CheatSignStyled(raw.data(), rw, rh, n, emblem, on, off);
+		}
+		if (bMade) IOSTouch_SetCheatPictures(on.data(), off.data(), n);
 		else if (part->CheatIcon && MakeIcon(FindIconTexture(part->CheatIcon()), px, w, h)) IOSTouch_SetCheatIcon(px.Data(), w, h);
 		else IOSTouch_SetCheatIcon(nullptr, 0, 0); // (the drawn emblem stays)
 	}

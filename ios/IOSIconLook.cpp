@@ -311,12 +311,13 @@ Pic Outline(const Pic& p, float wpx, float r, float g, float b, float alpha)
 // The item buttons' look (the owner's pick, "C"): sized for a 22 pt button
 // at IOSTOUCH_PICTURE_PER_PT a point: fitting 1.5 x 22 pt square, its
 // diagonal at most 1.85 x 22 pt; a 0.9 pt outline
-bool IOSIconLook_ItemPicture(const uint8_t* rgba, int w, int h, std::vector<uint8_t>& out, int& ow, int& oh)
+bool IOSIconLook_ItemPicture(const uint8_t* rgba, int w, int h, std::vector<uint8_t>& out, int& ow, int& oh, float fEnhance)
 {
 	if (!rgba || w <= 0 || h <= 0 || w > 1024 || h > 1024) return false;
 	const double K = IOSTOUCH_PICTURE_PER_PT, R = 22.0;
 	Pic p = Hq4(FromBytes(rgba, w, h));
-	Enhance(p, 1.25f, 1.25f, 1.45f, 0.85f);
+	const float e = fEnhance;
+	Enhance(p, 1 + 0.25f * e, 1 + 0.25f * e, 1 + 0.45f * e, 1 - 0.15f * e);
 	// (the picture's own size within hq4x's room: 4 x w, h)
 	const double box = 1.5 * R * K, diag = 1.85 * R * K;
 	const double k = std::min({ box / w, box / h, diag / hypot(w, h) }) / 4.0;
@@ -338,6 +339,106 @@ bool IOSIconLook_ItemPicture(const uint8_t* rgba, int w, int h, std::vector<uint
 	ToBytes(o, out);
 	return true;
 }
+
+namespace {
+
+// The face (the sign's own picture, hq4x's room cut off) made into CHEAT's
+// two pictures: a black disc, the face in it, a thin grey line at its edge;
+// off grey and dim; on the face lit (Duke: its yellow orange-hot; else
+// brighter, warmer, more colour), a wide halo of the game's colour and a
+// tighter, lighter one, a bloom over the rim, the rim kept crisp on top
+bool MakeSign(const Pic& face4, int n, bool bDukeHot, const uint8_t aGlow[3], const uint8_t aLight[3], const uint8_t aBloom[3],
+              std::vector<uint8_t>& on, std::vector<uint8_t>& off)
+{
+	const double R = 22.0, RIM = 2.4, K = n / (2 * R * IOSTOUCH_CHEAT_PICTURE_SPAN), c = n * 0.5;
+	const double faceRad = (R - RIM) * K;
+	const int F = (int)ceil(2 * faceRad);
+	const Pic face = Resize(face4, F, F);
+	const int fo = (int)lround(c - F * 0.5);
+	const Mask faceDisc = Disc(F, c - fo, c - fo, faceRad - 0.5 * 0.25);
+	const float g0 = aGlow[0], g1 = aGlow[1], g2 = aGlow[2], l0 = aLight[0], l1 = aLight[1], l2 = aLight[2];
+
+	for (int st = 0; st < 2; st++)
+	{
+		const bool bOn = st == 0;
+		Pic f = face;
+		if (bOn && !bDukeHot) Enhance(f, 1.18f, 1.18f, 1.35f, 0.9f);
+		for (int i = 0; i < F * F; i++)
+		{
+			float* q = &f.px[(size_t)i * 4];
+			if (bOn && bDukeHot)
+			{
+				// the yellow orange-hot: deep orange to a hot yellow by its
+				// brightness; the blades, dark, stay as they are
+				const float lum = (q[0] + q[1] + q[2]) / 3.0f, yel = clamp01((q[0] - q[2] - 40) / 80.0f), t = clamp01(lum / 200.0f);
+				const float tgt[3] = { 255.0f, 128 * (1 - t) + 226 * t, 10 * (1 - t) + 70 * t };
+				for (int k = 0; k < 3; k++) q[k] = clamp255(q[k] * (1 - yel) + tgt[k] * yel * (0.75f + 0.35f * t));
+			}
+			else if (bOn)
+			{
+				// warmed a little towards the game's colour
+				const float g[3] = { g0, g1, g2 };
+				for (int k = 0; k < 3; k++) q[k] = clamp255(q[k] * 0.88f + g[k] * 0.12f * (Luma(q) / 255.0f + 0.3f));
+			}
+			else
+			{
+				// grey and dim
+				const float l = Luma(q);
+				for (int k = 0; k < 3; k++) q[k] = clamp255((l * 0.85f + q[k] * 0.15f) * 0.72f);
+			}
+			q[3] *= faceDisc.v[i];
+		}
+		Pic lay = Solid(Disc(n, c, c, R * K), 8, 8, 8);
+		Over(lay, f, fo, fo);
+		const double rLine = (R - 0.5) * K;
+		const Pic line = Solid(Ring(n, c, rLine - std::max(1.0, 0.35 * K), rLine), 70, 70, 70);
+		Over(lay, line);
+		if (!bOn)
+		{
+			ToBytes(lay, off);
+			continue;
+		}
+		Pic o(n, n);
+		Over(o, GlowOf(lay, g0, g1, g2, 4.5 * K, 1.3f));
+		Over(o, GlowOf(lay, l0, l1, l2, 1.6 * K, 0.8f));
+		Over(o, lay);
+		Mask m = Blur(Disc(n, c, c, R * K + 1.5 * K), 2.5 * K), in = Blur(Disc(n, c, c, (R - RIM - 2.5) * K), 1.5 * K);
+		for (size_t i = 0; i < m.v.size(); i++) m.v[i] = clamp01(m.v[i] - in.v[i]) * 0.55f;
+		Over(o, Solid(m, aBloom[0], aBloom[1], aBloom[2]));
+		Over(o, Solid(Ring(n, c, faceRad, R * K), 8, 8, 8));
+		Over(o, line);
+		ToBytes(o, on);
+	}
+	return true;
+}
+
+// A part of a picture (out of it: see-through)
+Pic Cut(const uint8_t* rgba, int w, int h, int x0, int y0, int cw, int ch)
+{
+	Pic crop(cw, ch);
+	for (int y = 0; y < ch; y++)
+		for (int x = 0; x < cw; x++)
+		{
+			const int sx = x + x0, sy = y + y0;
+			float* d = crop.at(x, y);
+			if (sx < 0 || sy < 0 || sx >= w || sy >= h) continue;
+			const uint8_t* s = rgba + ((size_t)sy * w + sx) * 4;
+			d[0] = s[0]; d[1] = s[1]; d[2] = s[2]; d[3] = s[3];
+		}
+	return crop;
+}
+
+// hq4x for small pictures, its room cut off again; large ones as they are
+Pic Smooth(const Pic& p)
+{
+	if (p.w > 160 || p.h > 160) return p;
+	Pic big = Hq4(p);
+	Pic o(big.w - 16, big.h - 16);
+	for (int y = 0; y < o.h; y++) memcpy(o.at(0, y), big.at(8, y + 8), (size_t)o.w * 4 * sizeof(float));
+	return o;
+}
+
+} // namespace
 
 // CHEAT's sign (the owner's pick: tile 3392 cropped to its circle; on, the
 // "hot" look with a crisp black rim). Sizes in points of a 22 pt button,
@@ -363,74 +464,58 @@ bool IOSIconLook_CheatSign(const uint8_t* rgba, int w, int h, int n, std::vector
 	if (bw < w * 0.7 || bh < h * 0.7 || bw > bh * 1.12 || bh > bw * 1.12 || ct < bw * bh * 0.3) return false;
 	const double cx = (x0 + x1 + 1) * 0.5, cy = (y0 + y1 + 1) * 0.5, rad = std::max(bw, bh) * 0.5 - 0.5;
 	const int cx0 = (int)lround(cx - rad), cy0 = (int)lround(cy - rad), cx1 = (int)lround(cx + rad), cy1 = (int)lround(cy + rad);
-	Pic crop(cx1 - cx0, cy1 - cy0);
-	for (int y = 0; y < crop.h; y++)
-		for (int x = 0; x < crop.w; x++)
-		{
-			const int sx = x + cx0, sy = y + cy0;
-			float* d = crop.at(x, y);
-			if (sx < 0 || sy < 0 || sx >= w || sy >= h) continue;
-			const uint8_t* s = rgba + ((size_t)sy * w + sx) * 4;
-			d[0] = s[0]; d[1] = s[1]; d[2] = s[2]; d[3] = s[3];
-		}
-	Pic big = Hq4(crop);
-	// (hq4x's room cut off again)
-	Pic face4(big.w - 16, big.h - 16);
-	for (int y = 0; y < face4.h; y++) memcpy(face4.at(0, y), big.at(8, y + 8), (size_t)face4.w * 4 * sizeof(float));
+	static const uint8_t orange[3] = { 255, 140, 20 }, yellow[3] = { 255, 200, 60 }, bloom[3] = { 255, 170, 40 };
+	return MakeSign(Smooth(Cut(rgba, w, h, cx0, cy0, cx1 - cx0, cy1 - cy0)), n, true, orange, yellow, bloom, on, off);
+}
 
-	const double R = 22.0, RIM = 2.4, K = n / (2 * R * IOSTOUCH_CHEAT_PICTURE_SPAN), c = n * 0.5;
-	const double faceRad = (R - RIM) * K;
-	const int F = (int)ceil(2 * faceRad);
-	const Pic face = Resize(face4, F, F);
-	const int fo = (int)lround(c - F * 0.5);
-	const Mask faceDisc = Disc(F, c - fo, c - fo, faceRad - 0.5 * 0.25);
-
-	for (int st = 0; st < 2; st++)
+// The other games' signs (IOSIconLook.h)
+bool IOSIconLook_CheatSignStyled(const uint8_t* rgba, int w, int h, int n, const IOSIconSignStyle& st, std::vector<uint8_t>& on,
+                                 std::vector<uint8_t>& off)
+{
+	// (the tighter halo: the colour lifted towards white; the bloom between)
+	uint8_t light[3], bloom[3];
+	for (int c = 0; c < 3; c++)
 	{
-		const bool bOn = st == 0;
-		Pic f = face;
-		for (int i = 0; i < F * F; i++)
-		{
-			float* q = &f.px[(size_t)i * 4];
-			if (bOn)
-			{
-				// the yellow orange-hot: deep orange to a hot yellow by its
-				// brightness; the blades, dark, stay as they are
-				const float lum = (q[0] + q[1] + q[2]) / 3.0f, yel = clamp01((q[0] - q[2] - 40) / 80.0f), t = clamp01(lum / 200.0f);
-				const float tgt[3] = { 255.0f, 128 * (1 - t) + 226 * t, 10 * (1 - t) + 70 * t };
-				for (int k = 0; k < 3; k++) q[k] = clamp255(q[k] * (1 - yel) + tgt[k] * yel * (0.75f + 0.35f * t));
-			}
-			else
-			{
-				// grey and dim
-				const float l = Luma(q);
-				for (int k = 0; k < 3; k++) q[k] = clamp255((l * 0.85f + q[k] * 0.15f) * 0.72f);
-			}
-			q[3] *= faceDisc.v[i];
-		}
-		// the button: a black disc, the face in it, a thin grey line at its edge
-		Pic lay = Solid(Disc(n, c, c, R * K), 8, 8, 8);
-		Over(lay, f, fo, fo);
-		const double rLine = (R - 0.5) * K;
-		const Pic line = Solid(Ring(n, c, rLine - std::max(1.0, 0.35 * K), rLine), 70, 70, 70);
-		Over(lay, line);
-		if (!bOn)
-		{
-			ToBytes(lay, off);
-			continue;
-		}
-		// on: a wide orange halo and a tighter yellow one, a bloom over the
-		// rim and the face's edge, then the rim and its line again, crisp
-		Pic o(n, n);
-		Over(o, GlowOf(lay, 255, 140, 20, 4.5 * K, 1.3f));
-		Over(o, GlowOf(lay, 255, 200, 60, 1.6 * K, 0.8f));
-		Over(o, lay);
-		Mask m = Blur(Disc(n, c, c, R * K + 1.5 * K), 2.5 * K), in = Blur(Disc(n, c, c, (R - RIM - 2.5) * K), 1.5 * K);
-		for (size_t i = 0; i < m.v.size(); i++) m.v[i] = clamp01(m.v[i] - in.v[i]) * 0.55f;
-		Over(o, Solid(m, 255, 170, 40));
-		Over(o, Solid(Ring(n, c, faceRad, R * K), 8, 8, 8));
-		Over(o, line);
-		ToBytes(o, on);
+		light[c] = (uint8_t)(st.aGlow[c] + (255 - st.aGlow[c]) * 0.45f);
+		bloom[c] = (uint8_t)((st.aGlow[c] + light[c]) / 2);
 	}
-	return true;
+	if (!rgba || w < 12 || h < 12 || n < 32) return false;
+	int x0 = w, y0 = h, x1 = -1, y1 = -1;
+	for (int y = 0; y < h; y++)
+		for (int x = 0; x < w; x++)
+			if (rgba[((size_t)y * w + x) * 4 + 3] > 128) { x0 = std::min(x0, x); x1 = std::max(x1, x); y0 = std::min(y0, y); y1 = std::max(y1, y); }
+	if (x1 < x0) return false;
+	const int bw = x1 - x0 + 1, bh = y1 - y0 + 1;
+	if (!st.bEmblem)
+	{
+		// a round sign (its shape may be an ellipse: made round), cropped to
+		// a circle about a point of it
+		if (bw < 24 || bh < 24 || bw > bh * 1.3 || bh > bw * 1.3) return false;
+		const double hx = bw * 0.5 * st.fCrop, hy = bh * 0.5 * st.fCrop;
+		const double cx = x0 + bw * 0.5 + st.fCx * bw * 0.5, cy = y0 + bh * 0.5 + st.fCy * bh * 0.5;
+		const int cx0 = (int)lround(cx - hx), cy0 = (int)lround(cy - hy);
+		return MakeSign(Smooth(Cut(rgba, w, h, cx0, cy0, (int)lround(cx + hx) - cx0, (int)lround(cy + hy) - cy0)), n, false, st.aGlow, light, bloom, on, off);
+	}
+	// an emblem: on a disc of the game's colour, darkening to its edge, the
+	// emblem's larger side fEmblem of the disc across, a soft shadow under it
+	Pic em = Smooth(Cut(rgba, w, h, x0, y0, bw, bh));
+	Enhance(em, 1.1f, 1.1f, 1.15f, 0.95f);
+	const int D = 512;
+	const double k = D * st.fEmblem / std::max(em.w, em.h);
+	const int ew = std::max(1, (int)lround(em.w * k)), eh = std::max(1, (int)lround(em.h * k));
+	const Pic e = Resize(em, ew, eh);
+	Pic face(D, D);
+	for (int y = 0; y < D; y++)
+		for (int x = 0; x < D; x++)
+		{
+			const float r = (float)(hypot(x + 0.5 - D * 0.5, y + 0.5 - D * 0.42) / (D * 0.5)), t = clamp01(1.0f - r * 0.75f);
+			float* q = face.at(x, y);
+			for (int c = 0; c < 3; c++) q[c] = st.aBack[c] * (0.25f + 0.75f * t);
+			q[3] = 255;
+		}
+	const int ex = (D - ew) / 2, ey = (D - eh) / 2;
+	Pic shadow = Solid(Blur(AlphaOf(e), D * 0.02), 0, 0, 0, 0.8f);
+	Over(face, shadow, ex + D / 80, ey + D / 50);
+	Over(face, e, ex, ey);
+	return MakeSign(face, n, false, st.aGlow, light, bloom, on, off);
 }

@@ -122,11 +122,20 @@ static void Items(IOSTouchItems* pi)
 	}
 }
 
-// ...their pictures: the status bar's inventory icons
+// ...their pictures: the world pickups (ICON_MEDKIT, ICON_CLOAK the smoke
+// bomb, ICON_NIGHT_VISION, ICON_CHEMBOMB, ICON_FLASHBOMB), made into
+// larger, cleaner pictures; the caltrops the status bar's (their pickup is
+// a shop sign), made the same way
+static bool ItemPictures()
+{
+	return true;
+}
+
 static const char* const* ItemIcon(int iUse)
 {
-	static const char* const icons[][2] = { { "PanelMedkit" }, { "PanelRepairKit" }, { "PanelCloak" }, { "PanelNightVision" },
-	                                        { "PanelChemBomb" }, { "PanelFlashBomb" }, { "PanelCaltrops" } };
+	static const char* const icons[][3] = { { "ICON_MEDKIT", "PanelMedkit" }, { "PanelRepairKit" }, { "ICON_CLOAK", "PanelCloak" },
+	                                        { "ICON_NIGHT_VISION", "PanelNightVision" }, { "ICON_CHEMBOMB", "PanelChemBomb" },
+	                                        { "ICON_FLASHBOMB", "PanelFlashBomb" }, { "PanelCaltrops" } };
 	return (iUse >= 1 && iUse <= 7) ? icons[iUse - 1] : nullptr;
 }
 
@@ -165,11 +174,24 @@ static const char* const* Icon(int w)
 	return (w >= 0 && w < (int)countof(list) && list[w][0]) ? list[w] : nullptr;
 }
 
-// CHEAT: the fortune cookie
+// CHEAT: the bloodied yin-yang (YINYANG, 2870) made into the whole button
+// with a red glow (IOSIconLook.cpp); else the fortune cookie, the same way
 static const char* const* CheatIcon()
 {
 	static const char* const list[] = { "ICON_BOOSTER", nullptr };
 	return list;
+}
+
+static const char* const* CheatSign()
+{
+	static const char* const list[] = { "YINYANG", nullptr };
+	return list;
+}
+
+static const IOSIconSignStyle* CheatSignStyle()
+{
+	static const IOSIconSignStyle yinyang = { false, 0.94f, 0.0f, 0.0f, 0.0f, { 235, 45, 30 }, { 60, 10, 8 } };
+	return &yinyang;
 }
 
 // Lo Wang's line as the cheat comes on: "Who wants some Wang?" or "No mess
@@ -196,4 +218,5 @@ END_SW_NS
 
 const IOSGamePart iosSWPart = { SW_NS::Weapons, SW_NS::Pick, nullptr, SW_NS::State, SW_NS::FillAmmo, false,
                                 SW_NS::Alive, SW_NS::GodOn, nullptr, SW_NS::Icon, SW_NS::CheatIcon, SW_NS::CheatSound,
-                                SW_NS::Items, SW_NS::ItemIcon };
+                                SW_NS::Items, SW_NS::ItemIcon, SW_NS::ItemPictures, SW_NS::CheatSign,
+                                SW_NS::CheatSignStyle };

@@ -5,6 +5,7 @@
 #pragma once
 
 #include "IOSTouch.h"
+#include "IOSIconLook.h"
 
 // Each game's part: the player's weapons for the wheel; a weapon picked on
 // the wheel (sent through the game's own weapon selection, gameInput);
@@ -38,9 +39,15 @@ struct IOSGamePart
 	// Made pictures (IOSIconLook.cpp; nullptr: none): true when ItemIcon
 	// names larger art (world pickups) to make the item buttons' pictures
 	// of; and a round sign (names, as Icon) made into CHEAT's whole button,
-	// CheatIcon where it isn't there or isn't such a sign
+	// CheatIcon where it isn't there or isn't such a sign; and the sign's
+	// style (nullptr: Duke's radiation sign; with a style, CheatIcon's
+	// picture is made into the button the same way where the sign isn't)
 	bool (*ItemPictures)();
 	const char* const* (*CheatSign)();
+	const IOSIconSignStyle* (*CheatSignStyle)();
+	// how much the item pictures are lifted (0: as Duke's, 1; PowerSlave's
+	// art is already bright and saturated)
+	float fItemEnhance;
 };
 extern const IOSGamePart iosDukePart, iosBloodPart, iosSWPart, iosExhumedPart;
 

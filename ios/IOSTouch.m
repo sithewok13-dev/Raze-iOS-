@@ -2452,7 +2452,7 @@ static void IOSTouch_LightReds(unsigned char *pub, int w, int h)
   }
 }
 
-// CHEAT's whole button made by the game side (Duke's radiation sign): on and
+// CHEAT's whole button made by the game side (each game's sign): on and
 // off as they are, IOSTOUCH_CHEAT_PICTURE_SPAN of the button across
 static unsigned char _aubCheatPicture[2][IOSTOUCH_CHEAT_PICTURE_MAX * IOSTOUCH_CHEAT_PICTURE_MAX * 4];
 static int _iCheatPictureSize = 0; // (0: none)
