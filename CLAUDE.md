@@ -170,16 +170,18 @@ classic bars always show their face. Remembered (`iosTouchHud`,
   HUD frame's left edge, the right at its right, as SPLIT's pills, each
   made of parts of the bar put side by side in whole pixels
   (`IOSBarPieces`/`IOSBarPiece`: side, from-to across, top; the default
-  cuts at `IOSBarCut`), the weapons' list left out (the wheel shows the
-  ammo; the owner's call), in the bar's 320 units: Duke HEALTH + ARMOR
-  with both bar ends (0-79 + 302-320 = 97) | an end + AMMO, INV, KEYS + an
-  end (0-17 + 190-320 = 147); Shadow Warrior the same (0-87.5 + 300-320 =
-  107.5 | 0-18 + 187-320 = 151); Blood gargoyle, armour, health and its
-  skull (0-123.5) | the other skull, ammo, items, keys, gargoyle
-  (192.5-320); Redneck without the weapon row along its top (the piece's
-  top is the wood bar's) Leonard, HEALTH, AMMO, KEYS (0-174) | YER STUFF
-  and the gauges (174-320 = 146); PowerSlave cut at 145, before the
-  compass (145 | 175). FIRE keeps 10 pt above the pieces' real top. SIZE small: the status bar's scale
+  cuts at `IOSBarCut`), the weapons' list and the item box left out (the
+  wheel shows the ammo, the item buttons the items; the owner's calls), in
+  the bar's 320 units: Duke HEALTH + ARMOR with both bar ends (0-79 +
+  302-320 = 97) | an end + AMMO, the pillar before KEYS, KEYS + an end
+  (0-17 + 190-222.5 + 268.5-320 = 101); Shadow Warrior the same (0-87.5 +
+  300-320 = 107.5 | 0-18 + 187-222.5 + 268-320 = 105.5); Blood gargoyle,
+  armour, health and its skull (0-123.5) | the other skull, ammo, keys,
+  gargoyle (192.5-254 + 276-320 = 105.5); Redneck without the weapon row
+  along its top (the piece's top is the wood bar's) Leonard, HEALTH, AMMO,
+  KEYS (0-174) | the gauges (229-320 = 91); PowerSlave cut at 145, before
+  the compass (145 | 175: its four glyphs are the keys, and the item shows
+  on the magic pool, so nothing is left out). FIRE keeps 10 pt above the pieces' real top. SIZE small: the status bar's scale
   times 0.75 while it is drawn (`Raze.IOSBarScale`, `iosBarScale` in
   `base_sbar.cpp`). Its top as drawn goes to the overlay
   (`Raze.IOSBarTop`, `IOSGame_SetBarTop`). The HUD slider fades it (the

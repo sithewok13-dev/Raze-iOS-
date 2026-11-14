@@ -801,8 +801,9 @@ class BloodStatusBar : RazeStatusBar
 	override void IOSBarDraw() { TranslationID notr = 0; DrawStatusBar(Blood.GetViewPlayer(), notr); }
 	override double IOSBarHeight() { return IOSBarH("Statusbar"); }
 	override double, double IOSBarSpan() { double a, b; [a, b] = IOSBarCentred("Statusbar"); return a, b; }
-	// SPLIT leaves out the weapons' ammo list between the two skulls
-	override void IOSBarPieces() { IOSBarPiece(0, 0, 123.5); IOSBarPiece(1, 192.5, 320); }
+	// SPLIT leaves out the weapons' ammo list between the two skulls and the
+	// item's box (the item buttons show the items)
+	override void IOSBarPieces() { IOSBarPiece(0, 0, 123.5); IOSBarPiece(1, 192.5, 254); IOSBarPiece(1, 276, 320); }
 
 	override void IOSHudParts(bool face)
 	{

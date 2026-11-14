@@ -981,12 +981,13 @@ class SWStatusBar : RazeStatusBar
 	override void IOSBarDraw() { DrawStatusBar(SW.GetViewPlayer()); }
 	override double IOSBarHeight() { return IOSBarH("STATUS_BAR"); }
 	override double, double IOSBarSpan() { double a, b; [a, b] = IOSBarCentred("STATUS_BAR"); return a, b; }
-	// SPLIT leaves out WEAPONS: left the yin-yang end, HEALTH, ARMOR, the
-	// pillar after it and the other end; right an end, AMMO, INV, KEYS, an end
+	// SPLIT leaves out WEAPONS and INV (the item buttons show the items): left
+	// the yin-yang end, HEALTH, ARMOR, the pillar after it and the other end;
+	// right an end, AMMO, the pillar before KEYS, KEYS, an end
 	override void IOSBarPieces()
 	{
 		IOSBarPiece(0, 0, 87.5); IOSBarPiece(0, 300, 320);
-		IOSBarPiece(1, 0, 18); IOSBarPiece(1, 187, 320);
+		IOSBarPiece(1, 0, 18); IOSBarPiece(1, 187, 222.5); IOSBarPiece(1, 268, 320);
 	}
 
 	override void IOSHudParts(bool face)

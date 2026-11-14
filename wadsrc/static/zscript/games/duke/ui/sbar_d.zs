@@ -508,15 +508,16 @@ class DukeStatusBar : DukeCommonStatusBar
 	//==========================================================================
 
 	// Added (iOS touch): CLASSIC SPLIT / STRIP (ioshud.zs). SPLIT leaves out
-	// WEAPONS: left the bar's left end, HEALTH, ARMOR and its right end;
-	// right its left end, AMMO, INV, KEYS and its right end
+	// WEAPONS and INV (the item buttons show the items): left the bar's left
+	// end, HEALTH, ARMOR and its right end; right its left end, AMMO (cut
+	// before its pillar), the pillar before KEYS, KEYS and its right end
 	override void IOSBarDraw() { Statusbar(Duke.GetViewPlayer()); }
 	override double IOSBarHeight() { return IOSBarH("BOTTOMSTATUSBAR"); }
 	override double, double IOSBarSpan() { double a, b; [a, b] = IOSBarCentred("BOTTOMSTATUSBAR"); return a, b; }
 	override void IOSBarPieces()
 	{
 		IOSBarPiece(0, 0, 79); IOSBarPiece(0, 302, 320);
-		IOSBarPiece(1, 0, 17); IOSBarPiece(1, 190, 320);
+		IOSBarPiece(1, 0, 17); IOSBarPiece(1, 190, 222.5); IOSBarPiece(1, 268.5, 320);
 	}
 
 	override void IOSHudParts(bool face)
