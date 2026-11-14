@@ -970,8 +970,9 @@ class SWStatusBar : RazeStatusBar
 
 	//---------------------------------------------------------------------------
 	//
-	// Added (iOS touch): the touch HUD's pills (ioshud.zs): the medkit and
-	// health, the armour; the ammo in hand (gold) and the keys.
+	// Added (iOS touch): the touch HUD's pills (ioshud.zs), in the status
+	// bar's green digits (PANEL_FONT_G): the medkit and health, the armour;
+	// the ammo in hand and the keys.
 	//
 	//---------------------------------------------------------------------------
 
@@ -981,16 +982,16 @@ class SWStatusBar : RazeStatusBar
 		if (!pp) return;
 		int health = pp.Health();
 		IOSIcon(0, "ICON_SM_MEDKIT", 30);
-		IOSNum(0, health, "font:big", 30, IOSLowHealth(health));
+		IOSNum(0, health, "PANEL_FONT_G", 30, IOSLowHealth(health));
 		IOSGap(0);
 		IOSIcon(0, "ICON_ARMOR", 32);
-		IOSNum(0, pp.Armor, "font:big", 30);
+		IOSNum(0, pp.Armor, "PANEL_FONT_G", 30);
 		int weapon = pp.WeaponNum();
 		if (weapon >= 0 && weapon < ammo_sprites.Size() && ammo_sprites[weapon].length() > 0)
 		{
 			int ammo = pp.WpnAmmo[weapon];
 			IOSIcon(1, ammo_sprites[weapon], 32);
-			IOSNum(1, ammo, "font:big", 30, IOSF_GOLD | IOSLowAmmo(ammo, SW.WeaponMaxAmmo(weapon)));
+			IOSNum(1, ammo, "PANEL_FONT_G", 30, IOSLowAmmo(ammo, SW.WeaponMaxAmmo(weapon)));
 		}
 		bool any = false;
 		for (int i = 0; i < 8; i++)

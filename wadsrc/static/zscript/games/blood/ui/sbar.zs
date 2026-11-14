@@ -790,8 +790,8 @@ class BloodStatusBar : RazeStatusBar
 	//---------------------------------------------------------------------------
 	//
 	// Added (iOS touch): the touch HUD's pills (ioshud.zs), in the status
-	// bar's own digits: health (red), each armour in its own colour; the
-	// ammo in hand (blue) and the keys.
+	// bar's own digits: health (red), each armour's grey digits on its
+	// coloured plate; the ammo in hand (blue) and the keys.
 	//
 	//---------------------------------------------------------------------------
 
@@ -801,10 +801,10 @@ class BloodStatusBar : RazeStatusBar
 		if (!pPlayer) return;
 		int health = pPlayer.GetHealth() >> 4;
 		IOSIcon(0, "HealthIcon", 40, IOSF_BRIGHT);
-		IOSNum(0, health, "SBarNumberHealth", 30, IOSLowHealth(health));
+		IOSNum(0, health, "SBarHealthAmount", 30, IOSLowHealth(health));
 		static const int armorOf[] = { 1, 0, 2 };
 		static const String armorIcon[] = { "Armor1Icon", "Armor3Icon", "Armor2Icon" };
-		static const String armorDigits[] = { "SBarNumberArmor2_", "SBarNumberArmor1_", "SBarNumberArmor3_" };
+		static const int armorPlate[] = { 0xff960000, 0xff0611a8, 0xff2c682c }; // (the status bar's plates)
 		bool first = true;
 		for (int i = 0; i < 3; i++)
 		{
@@ -813,7 +813,8 @@ class BloodStatusBar : RazeStatusBar
 			if (first) IOSGap(0); else IOSSpace(0);
 			first = false;
 			IOSIcon(0, armorIcon[i], 34);
-			IOSNum(0, v, armorDigits[i], 30);
+			Color plate = armorPlate[i];
+			IOSNum(0, v, "SBarAmmoAmount", 24, 0, plate);
 		}
 		static const int maxammocount[] = { 0, 100, 100, 500, 100, 50, 288, 250, 100, 100, 50, 50 };
 		int am = pPlayer.weaponAmmo;

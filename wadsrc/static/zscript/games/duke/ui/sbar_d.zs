@@ -500,8 +500,9 @@ class DukeStatusBar : DukeCommonStatusBar
 
 	//==========================================================================
 	//
-	// Added (iOS touch): the touch HUD's pills (ioshud.zs): the cola and
-	// health, the armour; the ammo in hand and the access cards, big and
+	// Added (iOS touch): the touch HUD's pills (ioshud.zs), in the status
+	// bar's digital digits (DigiFont): the cola and health, the armour; the
+	// ammo in hand and the access cards, big and
 	// side by side. No face (the owner's call: Duke's face doesn't go in it).
 	//
 	//==========================================================================
@@ -512,10 +513,10 @@ class DukeStatusBar : DukeCommonStatusBar
 		if (!p) return;
 		int health = p.last_extra;
 		IOSIcon(0, isNamWW2GI()? "FIRSTAID_ICON" : "COLA", 30);
-		IOSNum(0, health, "font:big", 30, IOSLowHealth(health));
+		IOSNum(0, health, "font:digi", 30, IOSLowHealth(health));
 		IOSGap(0);
 		IOSIcon(0, "SHIELD", 36);
-		IOSNum(0, GetMoraleOrShield(p), "font:big", 30);
+		IOSNum(0, GetMoraleOrShield(p), "font:digi", 30);
 
 		int weapon = p.curr_weapon;
 		if (weapon == DukeWpn.HANDREMOTE_WEAPON) weapon = DukeWpn.HANDBOMB_WEAPON;
@@ -523,7 +524,7 @@ class DukeStatusBar : DukeCommonStatusBar
 		{
 			int ammo = p.ammo_amount[weapon];
 			IOSIcon(1, ammo_sprites[weapon], 40);
-			IOSNum(1, ammo, "font:big", 30, IOSF_GOLD | IOSLowAmmo(ammo, Duke.MaxAmmoAmount(weapon)));
+			IOSNum(1, ammo, "font:digi", 30, IOSLowAmmo(ammo, Duke.MaxAmmoAmount(weapon)));
 		}
 		// the access cards: blue, red, yellow (the game's own colours)
 		static const int bits[] = { 1, 2, 4 };

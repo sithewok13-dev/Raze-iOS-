@@ -818,7 +818,7 @@ class ExhumedStatusBar : RazeStatusBar
 
 	override TextureID IOSDigit(String src, int d)
 	{
-		if (src == "tablet") return GetStatusSequencePic(46, d);
+		if (src == "tablet") return GetStatusSequencePic(46, 3 * d); // (the counter rolls: 3 frames a digit)
 		return Super.IOSDigit(src, d);
 	}
 

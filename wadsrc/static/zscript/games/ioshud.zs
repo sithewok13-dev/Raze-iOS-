@@ -10,8 +10,10 @@
 // pill 64 high), scaled to the pill's height the touch controls give
 // (Raze.IOSHud); a pill too wide for its room shrinks. Health under 25
 // pulses red; ammo strictly under a quarter of what can be carried, or
-// none, turns red. Each game says what goes in (IOSHudParts, in its status
-// bar's file); this draws it.
+// none, turns red (the digits in red with a red glow round them, so the
+// games' red digits show it too). The numbers are in the digits of the
+// game's own status bar. Each game says what goes in (IOSHudParts, in its
+// status bar's file); this draws it.
 //
 //============================================================================
 
@@ -36,6 +38,7 @@ extend class RazeStatusBar
 {
 	Array<int> mIOSKind, mIOSFlags, mIOSPill;
 	Array<TranslationID> mIOSTrans;
+	Array<Color> mIOSPlate;
 	Array<TextureID> mIOSTex, mIOSTex2, mIOSTex3;
 	Array<double> mIOSH;
 	Array<String> mIOSText;
@@ -72,13 +75,13 @@ extend class RazeStatusBar
 	void IOSClear()
 	{
 		mIOSKind.Clear(); mIOSFlags.Clear(); mIOSPill.Clear(); mIOSTrans.Clear();
-		mIOSTex.Clear(); mIOSTex2.Clear(); mIOSTex3.Clear(); mIOSH.Clear(); mIOSText.Clear();
+		mIOSTex.Clear(); mIOSTex2.Clear(); mIOSTex3.Clear(); mIOSH.Clear(); mIOSText.Clear(); mIOSPlate.Clear();
 	}
 
 	void IOSAdd(int pill, int kind, TextureID tex, double h, String text = "", int flags = 0, TranslationID trans = 0)
 	{
 		mIOSPill.Push(pill); mIOSKind.Push(kind); mIOSTex.Push(tex); mIOSH.Push(h); mIOSText.Push(text);
-		mIOSFlags.Push(flags); mIOSTrans.Push(trans);
+		mIOSFlags.Push(flags); mIOSTrans.Push(trans); mIOSPlate.Push(0);
 		TextureID none;
 		none.SetInvalid();
 		mIOSTex2.Push(none);
@@ -102,12 +105,14 @@ extend class RazeStatusBar
 		if (tex.IsValid()) IOSAdd(pill, IOSK_ICON, tex, h, "", flags, trans);
 	}
 
-	// a number: src a digit set (IOSDigit / IOSFont); the text kept with it
-	void IOSNum(int pill, int value, String src, double h, int flags = 0)
+	// a number: src a digit set (IOSDigit / IOSFont); the text kept with it;
+	// plate: a coloured plate behind it, as the status bar has (Blood's armour)
+	void IOSNum(int pill, int value, String src, double h, int flags = 0, Color plate = 0)
 	{
 		TextureID none;
 		none.SetInvalid();
 		IOSAdd(pill, IOSK_NUM, none, h, String.Format("%s|%d", src, value), flags);
+		mIOSPlate[mIOSPlate.Size() - 1] = plate;
 	}
 
 	void IOSGap(int pill)
@@ -204,6 +209,17 @@ extend class RazeStatusBar
 			{
 				int cr = (flags & IOSF_RED) ? Font.CR_RED : (flags & IOSF_GOLD) ? Font.CR_GOLD : Font.CR_UNTRANSLATED;
 				double y = (ymid - h / 2 - fnt.GetDisplayTopOffset(48) * k) * u;
+				if (flags & (IOSF_LOW | IOSF_RED))
+				{
+					// a red glow round it (the game's red digits show it too)
+					double ga = ((flags & IOSF_LOW) ? pulse : 0.8) * 0.3 * mIOSA;
+					for (int g = 0; g < 8; g++)
+					{
+						double gx = x * u + cos(g * 45) * h * 0.09 * u, gy = y + sin(g * 45) * h * 0.09 * u;
+						Screen.DrawText(fnt, Font.CR_RED, gx, gy, str, DTA_ScaleX, k * u, DTA_ScaleY, k * u,
+							DTA_Alpha, ga, DTA_LegacyRenderStyle, STYLE_Add);
+					}
+				}
 				Screen.DrawText(fnt, cr, x * u, y, str, DTA_ScaleX, k * u, DTA_ScaleY, k * u, DTA_Alpha, mIOSA);
 				if (flags & IOSF_LOW)
 				{
@@ -213,31 +229,69 @@ extend class RazeStatusBar
 			}
 			return w;
 		}
-		// the game's digit pictures, each h high, a unit apart
+		// the game's digit pictures, each h high, one of their own pixels
+		// apart (as the status bars space them)
+		Color plate = mIOSPlate[i];
+		double pad = plate.a > 0 ? h * 0.3 : 0;
 		double w = 0;
-		for (int c = 0; c < int(str.Length()); c++)
+		for (int pass = 0; pass < 2; pass++)
 		{
-			int d = str.ByteAt(c) - 48;
-			if (d < 0 || d > 9) continue;
-			TextureID tex = IOSDigit(src, d);
-			double dw = IOSIconW(tex, h);
-			if (dw <= 0) continue;
-			if (draw)
+			if (pass == 1 && !draw) break;
+			if (pass == 1 && plate.a > 0)
 			{
-				double dx = (x + w) * u, dy = (ymid - h / 2) * u;
-				Screen.DrawTexture(tex, false, dx, dy, DTA_DestWidthF, dw * u, DTA_DestHeightF, h * u,
-					DTA_LeftOffset, 0, DTA_TopOffset, 0, DTA_Alpha, mIOSA);
-				if (flags & (IOSF_LOW | IOSF_RED))
-				{
-					double a = (flags & IOSF_LOW) ? pulse * 0.8 : 0.75;
-					Screen.DrawTexture(tex, false, dx, dy, DTA_DestWidthF, dw * u, DTA_DestHeightF, h * u,
-						DTA_LeftOffset, 0, DTA_TopOffset, 0, DTA_Alpha, a * mIOSA,
-						DTA_FillColor, Color(255, 255, 30, 20), DTA_LegacyRenderStyle, STYLE_AddStencil);
-				}
+				// the plate: the status bar's colour, a lighter top edge
+				double pw = w + 2 * pad;
+				Screen.Dim(plate, mIOSA, int(x * u), int((ymid - h * 0.66) * u), int(pw * u), int(h * 1.32 * u));
+				Screen.Dim(Color(255, 255, 255), 0.18 * mIOSA, int(x * u), int((ymid - h * 0.66) * u), int(pw * u), int(max(h * 0.08 * u, 1)));
+				Screen.Dim(Color(0, 0, 0), 0.3 * mIOSA, int(x * u), int((ymid + h * 0.58) * u), int(pw * u), int(max(h * 0.08 * u, 1)));
 			}
-			w += dw + 1;
+			w = 0;
+			double texel = 0;
+			for (int c = 0; c < int(str.Length()); c++)
+			{
+				int d = str.ByteAt(c) - 48;
+				if (d < 0 || d > 9) continue;
+				TextureID tex = IOSDigit(src, d);
+				double dw = IOSIconW(tex, h);
+				if (dw <= 0) continue;
+				Vector2 tsz = TexMan.GetScaledSize(tex);
+				texel = tsz.Y > 0 ? h / tsz.Y : 1;
+				if (pass == 1)
+				{
+					double dx = (x + pad + w) * u, dy = (ymid - h / 2) * u;
+					if (flags & (IOSF_LOW | IOSF_RED))
+					{
+						// a red glow round it, of the digit's own light (black
+						// cells stay black), as for the fonts
+						double ga = ((flags & IOSF_LOW) ? pulse : 0.8) * 0.3 * mIOSA;
+						for (int g = 0; g < 8; g++)
+						{
+							Screen.DrawTexture(tex, false, dx + cos(g * 45) * h * 0.09 * u, dy + sin(g * 45) * h * 0.09 * u,
+								DTA_DestWidthF, dw * u, DTA_DestHeightF, h * u, DTA_LeftOffset, 0, DTA_TopOffset, 0,
+								DTA_Alpha, ga, DTA_Desaturate, 255, DTA_Color, Color(255, 255, 60, 40), DTA_LegacyRenderStyle, STYLE_Add);
+						}
+					}
+					Screen.DrawTexture(tex, false, dx, dy, DTA_DestWidthF, dw * u, DTA_DestHeightF, h * u,
+						DTA_LeftOffset, 0, DTA_TopOffset, 0, DTA_Alpha, mIOSA);
+					if (flags & (IOSF_LOW | IOSF_RED))
+					{
+						// the same digit in red over it (its brightness kept: dark
+						// stays dark), pulsing for the health; a little red light
+						// added so digits already red still show it
+						double a = (flags & IOSF_LOW) ? pulse : 1.0;
+						Screen.DrawTexture(tex, false, dx, dy, DTA_DestWidthF, dw * u, DTA_DestHeightF, h * u,
+							DTA_LeftOffset, 0, DTA_TopOffset, 0, DTA_Alpha, a * 0.9 * mIOSA,
+							DTA_Desaturate, 255, DTA_Color, Color(255, 255, 40, 30));
+						Screen.DrawTexture(tex, false, dx, dy, DTA_DestWidthF, dw * u, DTA_DestHeightF, h * u,
+							DTA_LeftOffset, 0, DTA_TopOffset, 0, DTA_Alpha, a * mIOSA,
+							DTA_Desaturate, 255, DTA_Color, Color(255, 255, 40, 30), DTA_LegacyRenderStyle, STYLE_Add);
+					}
+				}
+				w += dw + texel;
+			}
+			if (w > 0) w -= texel;
 		}
-		return max(w - 1, 0);
+		return w + 2 * pad;
 	}
 
 	// An oval of tex, w x h at (x0, y0) (screen pixels)

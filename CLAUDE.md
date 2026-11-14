@@ -114,13 +114,20 @@ the owner's call). Remembered (`iosTouchHud`, `iosTouchHudFace`,
   (`DrawIOSHud`, called from `statusbar2.cpp` after the game's own status
   bar) draws the parts each game's status bar lists in `IOSHudParts`
   (`sbar_d.zs`, `sbar_r.zs`, `blood/ui/sbar.zs`, `sw/ui/sbar.zs`,
-  `exhumed/ui/sbar.zs`), in the game's own digits: Duke and Shadow Warrior
-  BigFont (ammo gold), Redneck its status bar's red LCD DigiFont, Blood its
-  status bar digits (health red, each armour its colour, ammo blue),
-  PowerSlave the ammo counter's stone tablets (status sequence 46) and its
-  pools (red health under the ankh, blue magic). Duke's access cards big and
-  side by side. Warnings: health under 25 pulses red (twice a second); ammo
-  red strictly below 25% of its maximum, or at 0.
+  `exhumed/ui/sbar.zs`), in the digits of the game's own status bar
+  (CLASSIC), so the pills look like pieces of it: Duke and Redneck the
+  red digital DigiFont, Shadow Warrior the green `PANEL_FONT_G`, Blood
+  `SBarHealthAmount` (red) for health, `SBarNumberAmmo` (blue) for ammo
+  and each armour's grey `SBarAmmoAmount` on a plate of its colour (red,
+  blue, green, as the bar's), PowerSlave the ammo counter's stone tablets
+  (status sequence 46, frame 3 x digit: the counter rolls) and its pools
+  (red health under the ankh, blue magic). Digit pictures are spaced one
+  of their own pixels apart, as the bars do; no leading zeros (Shadow
+  Warrior's bar pads to three). Duke's access cards big and side by side.
+  Warnings: health under 25 pulses red (twice a second); ammo red strictly
+  below 25% of its maximum, or at 0: the same digits in red (a red copy of
+  their own brightness over them) with a red glow round them, so the
+  games' red digits show it too.
 - OPACITY (tray): tap = a panel with two sliders, BUTTONS (the controls,
   `iosTouchOpacity`) and HUD (the pills, `iosTouchHudOpacity`), 20-100% in 5%
   steps, live, kept on lift; held 0.45 s = both back to 100%. The tray and
