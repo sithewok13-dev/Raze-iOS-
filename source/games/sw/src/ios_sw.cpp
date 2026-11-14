@@ -174,24 +174,19 @@ static const char* const* Icon(int w)
 	return (w >= 0 && w < (int)countof(list) && list[w][0]) ? list[w] : nullptr;
 }
 
-// CHEAT: the bloodied yin-yang (YINYANG, 2870) made into the whole button
-// with a red glow (IOSIconLook.cpp); else the fortune cookie, the same way
+// CHEAT: the fortune cookie (ICON_BOOSTER, 1810), the owner's pick, inset
+// on a dark disc as it was, in the new look (IOSIconLook.cpp): off grey,
+// on in its own colour with an amber glow, the rim crisp
 static const char* const* CheatIcon()
 {
 	static const char* const list[] = { "ICON_BOOSTER", nullptr };
 	return list;
 }
 
-static const char* const* CheatSign()
-{
-	static const char* const list[] = { "YINYANG", nullptr };
-	return list;
-}
-
 static const IOSIconSignStyle* CheatSignStyle()
 {
-	static const IOSIconSignStyle yinyang = { false, 0.94f, 0.0f, 0.0f, 0.0f, { 235, 45, 30 }, { 60, 10, 8 } };
-	return &yinyang;
+	static const IOSIconSignStyle cookie = { true, 0.0f, 0.0f, 0.0f, 0.84f, { 255, 180, 50 }, { 40, 32, 24 }, 1.0f };
+	return &cookie;
 }
 
 // Lo Wang's line as the cheat comes on: "Who wants some Wang?" or "No mess
@@ -218,5 +213,5 @@ END_SW_NS
 
 const IOSGamePart iosSWPart = { SW_NS::Weapons, SW_NS::Pick, nullptr, SW_NS::State, SW_NS::FillAmmo, false,
                                 SW_NS::Alive, SW_NS::GodOn, nullptr, SW_NS::Icon, SW_NS::CheatIcon, SW_NS::CheatSound,
-                                SW_NS::Items, SW_NS::ItemIcon, SW_NS::ItemPictures, SW_NS::CheatSign,
+                                SW_NS::Items, SW_NS::ItemIcon, SW_NS::ItemPictures, SW_NS::CheatIcon,
                                 SW_NS::CheatSignStyle };

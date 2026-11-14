@@ -185,7 +185,9 @@ the owner's call). Remembered (`iosTouchHud`, `iosTouchHudFace`,
   halo of the game's colour, the rim crisp; off grey and dim): Redneck the
   Dairy Air Farm sign's cow (2700, cropped to 0.68), Rides Again the No. 20
   pig sign (7910), amber; Blood the trapped soul (820), red; Shadow Warrior
-  the bloodied yin-yang (YINYANG 2870, an ellipse made round), red;
+  the fortune cookie (ICON_BOOSTER 1810, the owner's pick over the
+  yin-yang), inset on a dark disc as before (`bEmblem`, 0.84 of the disc),
+  in its own colour on (`fOnColour` 1.0), an amber glow;
   PowerSlave the gold ankh (798) on a lapis disc, gold. Where the sign
   isn't there, CheatIcon's picture is made into the button in that style
   (PowerSlave: the drawn ankh). Rig dumps: `<dump>.cheatpic.rgba` (on, off). While on (single

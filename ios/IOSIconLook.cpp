@@ -348,7 +348,7 @@ namespace {
 // brighter, warmer, more colour), a wide halo of the game's colour and a
 // tighter, lighter one, a bloom over the rim, the rim kept crisp on top
 bool MakeSign(const Pic& face4, int n, bool bDukeHot, const uint8_t aGlow[3], const uint8_t aLight[3], const uint8_t aBloom[3],
-              std::vector<uint8_t>& on, std::vector<uint8_t>& off)
+              std::vector<uint8_t>& on, std::vector<uint8_t>& off, float fOnColour = 0.0f)
 {
 	const double R = 22.0, RIM = 2.4, K = n / (2 * R * IOSTOUCH_CHEAT_PICTURE_SPAN), c = n * 0.5;
 	const double faceRad = (R - RIM) * K;
@@ -362,7 +362,7 @@ bool MakeSign(const Pic& face4, int n, bool bDukeHot, const uint8_t aGlow[3], co
 	{
 		const bool bOn = st == 0;
 		Pic f = face;
-		if (bOn && !bDukeHot) Enhance(f, 1.18f, 1.18f, 1.35f, 0.9f);
+		if (bOn && !bDukeHot) Enhance(f, 1.18f, 1.18f, fOnColour > 0 ? fOnColour : 1.35f, 0.9f);
 		for (int i = 0; i < F * F; i++)
 		{
 			float* q = &f.px[(size_t)i * 4];
@@ -499,7 +499,7 @@ bool IOSIconLook_CheatSignStyled(const uint8_t* rgba, int w, int h, int n, const
 	// an emblem: on a disc of the game's colour, darkening to its edge, the
 	// emblem's larger side fEmblem of the disc across, a soft shadow under it
 	Pic em = Smooth(Cut(rgba, w, h, x0, y0, bw, bh));
-	Enhance(em, 1.1f, 1.1f, 1.15f, 0.95f);
+	Enhance(em, 1.1f, 1.1f, st.fOnColour > 0 ? 1.0f : 1.15f, 0.95f);
 	const int D = 512;
 	const double k = D * st.fEmblem / std::max(em.w, em.h);
 	const int ew = std::max(1, (int)lround(em.w * k)), eh = std::max(1, (int)lround(em.h * k));
@@ -517,5 +517,5 @@ bool IOSIconLook_CheatSignStyled(const uint8_t* rgba, int w, int h, int n, const
 	Pic shadow = Solid(Blur(AlphaOf(e), D * 0.02), 0, 0, 0, 0.8f);
 	Over(face, shadow, ex + D / 80, ey + D / 50);
 	Over(face, e, ex, ey);
-	return MakeSign(face, n, false, st.aGlow, light, bloom, on, off);
+	return MakeSign(face, n, false, st.aGlow, light, bloom, on, off, st.fOnColour);
 }

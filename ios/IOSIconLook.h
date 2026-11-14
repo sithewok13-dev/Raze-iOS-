@@ -25,12 +25,14 @@ bool IOSIconLook_CheatSign(const uint8_t* rgba, int w, int h, int n, std::vector
 // (alpha's box, an ellipse made round) cropped to fCrop of its radius
 // about its middle moved fCx, fCy of the radius; true, an emblem (fEmblem
 // of the disc across) on a disc of aBack. On: the picture lit, warmed and
-// glowing in aGlow, the rim crisp; off grey and dim
+// glowing in aGlow, the rim crisp; off grey and dim. fOnColour: how much
+// more colour on (0: 1.35; an emblem with it keeps its own colour otherwise)
 struct IOSIconSignStyle
 {
 	bool bEmblem;
 	float fCrop, fCx, fCy, fEmblem;
 	uint8_t aGlow[3], aBack[3];
+	float fOnColour;
 };
 bool IOSIconLook_CheatSignStyled(const uint8_t* rgba, int w, int h, int n, const IOSIconSignStyle& st, std::vector<uint8_t>& on,
                                  std::vector<uint8_t>& off);
