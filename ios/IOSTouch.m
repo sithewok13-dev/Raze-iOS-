@@ -1894,7 +1894,8 @@ void IOSTouch_SetWeapons(const IOSTouchWeapons *pw)
 // (IOSTouch_WantedIcons, IOSTouch_SetWeaponIcon): kept for the process, each
 // as it is and tinted for the states that grey it (IOSTouch_TintIcon). A
 // weapon the game has no picture of shows its name. CHEAT's picture comes
-// the same way (IOSTouch_SetCheatIcon): as it is (on) and greyed (off).
+// the same way (IOSTouch_SetCheatIcon): with its reds lit (on) and greyed
+// (off); a round one fills the button.
 enum { WICON_READY = 0, WICON_NOAMMO, WICON_NOTFOUND, WICON_NUM };
 typedef struct {
   int bHave, bGaveUp;
@@ -1905,6 +1906,7 @@ static IOSTouchIcon _aIcons[IOSTOUCH_WPN_MAX];
 static unsigned int _ulIconsNew = 0; // icons the view hasn't made images of yet
 static IOSTouchIcon _cheatIcon;      // [WICON_READY] on, [WICON_NOTFOUND] off
 static int _bCheatIconAsked = 0, _bCheatIconNew = 0;
+static int _bCheatIconFills = 0;   // a round picture, filling the button's circle
 
 // The icon a weapon shows: its own
 static int IOSTouch_WheelIconOf(int iWeapon)
@@ -1978,12 +1980,144 @@ int IOSTouch_WantsCheatIcon(void)
   return 1;
 }
 
+// A round picture (its opaque part an ellipse filling its box: Duke's nuke
+// button, Blood's trapped soul) fills CHEAT's circle instead of sitting in
+// it as a smaller one. Its own rim (a grey ring round the coloured inside,
+// Duke's) is left out: along rays from the middle, where the coloured
+// inside ends; the radius most rays reach (the blades' rays end sooner).
+static int IOSTouch_IconIsRound(const unsigned char *pub, int w, int h)
+{
+  if (w < 16 || h < 16 || w > 2 * h || h > 2 * w) return 0;
+  int ctIn = 0, ctInSolid = 0, ctOut = 0, ctOutSolid = 0;
+  for (int y = 0; y < h; y++)
+    for (int x = 0; x < w; x++) {
+      const float u = (x + 0.5f) / w * 2 - 1, v = (y + 0.5f) / h * 2 - 1, d = u * u + v * v;
+      const int bSolid = pub[(y * w + x) * 4 + 3] > 128;
+      if (d < 0.85f * 0.85f) { ctIn++; ctInSolid += bSolid; }
+      else if (d > 1.08f * 1.08f) { ctOut++; ctOutSolid += bSolid; }
+    }
+  return ctIn > 0 && ctOut > 0 && ctInSolid >= ctIn * 0.98f && ctOutSolid <= ctOut * 0.05f;
+}
+
+static void IOSTouch_IconTexel(const unsigned char *pub, int w, int h, float x, float y, float af[4])
+{
+  // bilinear, weighted by alpha
+  x -= 0.5f; y -= 0.5f;
+  int x0 = (int)floorf(x), y0 = (int)floorf(y);
+  const float fx = x - x0, fy = y - y0;
+  float a = 0;
+  af[0] = af[1] = af[2] = af[3] = 0;
+  for (int j = 0; j < 2; j++)
+    for (int i = 0; i < 2; i++) {
+      const int xx = x0 + i < 0 ? 0 : (x0 + i >= w ? w - 1 : x0 + i);
+      const int yy = y0 + j < 0 ? 0 : (y0 + j >= h ? h - 1 : y0 + j);
+      const unsigned char *p = pub + (yy * w + xx) * 4;
+      const float k = (i ? fx : 1 - fx) * (j ? fy : 1 - fy), ka = k * p[3];
+      af[0] += p[0] * ka; af[1] += p[1] * ka; af[2] += p[2] * ka; a += ka;
+    }
+  if (a > 0) { af[0] /= a; af[1] /= a; af[2] /= a; }
+  af[3] = a;
+}
+
+static float IOSTouch_IconRim(const unsigned char *pub, int w, int h)
+{
+  enum { RAYS = 72 };
+  float af[RAYS];
+  int ct = 0;
+  for (int i = 0; i < RAYS; i++) {
+    const float a = i * 2 * (float)M_PI / RAYS;
+    float t;
+    for (t = 0.99f; t > 0.6f; t -= 0.005f) {
+      float c[4];
+      IOSTouch_IconTexel(pub, w, h, w * 0.5f * (1 + t * cosf(a)), h * 0.5f * (1 + t * sinf(a)), c);
+      const float mx = fmaxf(c[0], fmaxf(c[1], c[2])), mn = fminf(c[0], fminf(c[1], c[2]));
+      if (c[3] > 128 && mx > 40 && (mx - mn) / mx > 0.40f) break; // the coloured inside
+    }
+    af[ct++] = t;
+  }
+  // the radius reached by a third of the rays
+  for (int i = 1; i < ct; i++)
+    for (int j = i; j > 0 && af[j] > af[j - 1]; j--) { const float f = af[j]; af[j] = af[j - 1]; af[j - 1] = f; }
+  const float r = af[ct / 3];
+  return (r > 0.78f && r < 0.985f) ? r - 0.01f : 1.0f; // (no clear rim: all of it)
+}
+
+// The round picture as a circle filling a square of n x n
+static void IOSTouch_FillCircle(const unsigned char *pub, int w, int h, int n, unsigned char *pubDst)
+{
+  const float rim = IOSTouch_IconRim(pub, w, h);
+  for (int y = 0; y < n; y++)
+    for (int x = 0; x < n; x++) {
+      const float u = (x + 0.5f) / n * 2 - 1, v = (y + 0.5f) / n * 2 - 1, d = sqrtf(u * u + v * v);
+      float c[4];
+      IOSTouch_IconTexel(pub, w, h, w * 0.5f * (1 + u * rim), h * 0.5f * (1 + v * rim), c);
+      float al = (1 - d) * n * 0.5f + 0.5f; // (smooth edge, a pixel wide)
+      al = al < 0 ? 0 : (al > 1 ? 1 : al);
+      unsigned char *q = pubDst + (y * n + x) * 4;
+      q[0] = (unsigned char)(c[0] + 0.5f); q[1] = (unsigned char)(c[1] + 0.5f); q[2] = (unsigned char)(c[2] + 0.5f);
+      q[3] = (unsigned char)(255 * al + 0.5f);
+    }
+}
+
+// CHEAT on: the picture's red parts lit up, brighter and hotter, with a red
+// glow spilling onto what is round them (in the picture)
+static void IOSTouch_LightReds(unsigned char *pub, int w, int h)
+{
+  static float s_af[IOSTOUCH_ICON_MAX * IOSTOUCH_ICON_MAX], s_afT[IOSTOUCH_ICON_MAX * IOSTOUCH_ICON_MAX];
+  float *m = s_af, *t = s_afT;
+  for (int i = 0; i < w * h; i++) {
+    unsigned char *p = pub + i * 4;
+    const float r = p[0], g = p[1], b = p[2], o = fmaxf(g, b);
+    float k = (r - 1.6f * o) / (0.6f * r + 8); // (how red: 0 at r = 1.6 x g, b)
+    k = k < 0 ? 0 : (k > 1 ? 1 : k);
+    k *= p[3] / 255.0f;
+    m[i] = k * (0.3f + 0.7f * r / 255.0f);
+    if (k > 0) { // (brighter, its texture kept)
+      p[0] = (unsigned char)fminf(r * (1 + 1.1f * k) + 34 * k + 0.5f, 255.0f);
+      p[1] = (unsigned char)fminf(g * (1 + 0.7f * k) + 6 * k + 0.5f, 255.0f);
+      p[2] = (unsigned char)fminf(b * (1 + 0.2f * k) + 0.5f, 255.0f);
+    }
+  }
+  // the glow: the red's strength blurred (three box passes each way)
+  const int rad = (w > h ? w : h) / 22 + 1;
+  for (int pass = 0; pass < 6; pass++) {
+    const int bX = pass % 2 == 0;
+    for (int y = 0; y < h; y++)
+      for (int x = 0; x < w; x++) {
+        float s = 0;
+        int ct = 0;
+        for (int k = -rad; k <= rad; k++) {
+          const int xx = bX ? x + k : x, yy = bX ? y : y + k;
+          if (xx < 0 || yy < 0 || xx >= w || yy >= h) continue;
+          s += m[yy * w + xx];
+          ct++;
+        }
+        t[y * w + x] = s / ct;
+      }
+    float *f = m; m = t; t = f;
+  }
+  for (int i = 0; i < w * h; i++) {
+    unsigned char *p = pub + i * 4;
+    const float gl = m[i] * 0.45f;
+    p[0] = (unsigned char)fminf(p[0] + 255 * gl + 0.5f, 255.0f);
+    p[1] = (unsigned char)fminf(p[1] + 70 * gl + 0.5f, 255.0f);
+    p[2] = (unsigned char)fminf(p[2] + 30 * gl + 0.5f, 255.0f);
+  }
+}
+
 void IOSTouch_SetCheatIcon(const unsigned char *pubRGBA, int iWidth, int iHeight)
 {
   _bCheatIconAsked = 1;
   if (!IOSTouch_IconFits(pubRGBA, iWidth, iHeight)) {
     if (!_cheatIcon.bHave) _cheatIcon.bGaveUp = 1;
     return;
+  }
+  // (round: made a circle filling the button, IOSTOUCH_ICON_MAX across)
+  _bCheatIconFills = IOSTouch_IconIsRound(pubRGBA, iWidth, iHeight);
+  if (_bCheatIconFills) {
+    IOSTouch_FillCircle(pubRGBA, iWidth, iHeight, IOSTOUCH_ICON_MAX, _cheatIcon.aub[WICON_NOAMMO]);
+    pubRGBA = _cheatIcon.aub[WICON_NOAMMO];
+    iWidth = iHeight = IOSTOUCH_ICON_MAX;
   }
   _cheatIcon.w = iWidth;
   _cheatIcon.h = iHeight;
@@ -1997,6 +2131,7 @@ void IOSTouch_SetCheatIcon(const unsigned char *pubRGBA, int iWidth, int iHeight
     q[0] = q[1] = q[2] = (unsigned char)fminf(lum * k + 0.5f, 255.0f);
     q[3] = (unsigned char)fminf(p[3] * a + 0.5f, 255.0f);
   }
+  IOSTouch_LightReds(_cheatIcon.aub[WICON_READY], iWidth, iHeight);
   _cheatIcon.bHave = 1;
   _cheatIcon.bGaveUp = 0;
   _bCheatIconNew = 1;
@@ -4043,7 +4178,8 @@ static UIBezierPath *IOSTouch_AnkhPath(CGFloat cx, CGFloat cy, CGFloat r)
   cheatFuse.lineCap = kCALineCapRound;
   [aButtonViews[BTN_CHEAT].layer addSublayer:cheatBody];
   [aButtonViews[BTN_CHEAT].layer addSublayer:cheatFuse];
-  // the game's picture (IOSTouch_SetCheatIcon), fitted inside the circle
+  // the game's picture (IOSTouch_SetCheatIcon), fitted inside the circle (a
+  // round one fills it: placed as it comes, refreshCheat)
   cheatPicture = [CALayer layer];
   cheatPicture.frame = CGRectInset(CGRectMake(0, 0, r * 2, r * 2), r * 0.30, r * 0.30);
   cheatPicture.contentsGravity = kCAGravityResizeAspect;
@@ -4100,7 +4236,7 @@ static UIBezierPath *IOSTouch_AnkhPath(CGFloat cx, CGFloat cy, CGFloat r)
     }
     trayBack.frame = CGRectMake(_rTrayBack.x0, _rTrayBack.y0, _rTrayBack.x1 - _rTrayBack.x0, _rTrayBack.y1 - _rTrayBack.y0);
   }
-  // CHEAT: the game's picture once it has come (as it is while on, grey
+  // CHEAT: the game's picture once it has come (its reds lit while on, grey
   // while off); without one, the drawn emblem (Exhumed's an ankh)
   int bPictureNew = 0;
   if (_bCheatIconNew) {
@@ -4109,6 +4245,12 @@ static UIBezierPath *IOSTouch_AnkhPath(CGFloat cx, CGFloat cy, CGFloat r)
     cheatImages[1] = CFBridgingRelease(IOSTouch_MakeIconImage(_cheatIcon.aub[WICON_NOTFOUND], _cheatIcon.w, _cheatIcon.h));
     [CATransaction begin];
     [CATransaction setDisableActions:YES];
+    // a round picture fills the circle, edge to edge (the button clips it;
+    // its border, gold while on, is drawn over it); others sit inside it
+    const CGFloat r = _aButtons[BTN_CHEAT].radius;
+    const CGRect rc = CGRectMake(0, 0, r * 2, r * 2);
+    cheatPicture.frame = _bCheatIconFills ? rc : CGRectInset(rc, r * 0.30, r * 0.30);
+    cheatPicture.contentsGravity = _bCheatIconFills ? kCAGravityResize : kCAGravityResizeAspect;
     cheatPicture.hidden = NO;
     cheatBody.hidden = cheatFuse.hidden = YES;
     [CATransaction commit];
