@@ -14,8 +14,10 @@
 #include "IOSPad.h"
 #include "IOSPicker.h"
 #include "iosCamera.h"
+#include "IOSIconLook.h"
 
 #include <sys/stat.h>
+#include <vector>
 
 #include <SDL.h>
 SDL_Window* IOS_GetGameWindow(); // sdlglvideo.cpp: the game's window (OpenGL ES or Vulkan)
@@ -229,6 +231,41 @@ static FGameTexture* FindIconTexture(const char* const* names)
 	return nullptr;
 }
 
+// A texture's pixels as RGBA, cropped to what isn't see-through (crop:
+// false keeps all of it)
+static bool TextureRGBA(FGameTexture* tex, std::vector<uint8_t>& out, int& ow, int& oh, bool crop = true)
+{
+	if (!tex) return false;
+	FBitmap bmp = tex->GetTexture()->GetBgraBitmap(nullptr);
+	const int w = bmp.GetWidth(), h = bmp.GetHeight(), pitch = bmp.GetPitch();
+	const uint8_t* px = bmp.GetPixels();
+	if (!px || w <= 0 || h <= 0) return false;
+	int x0 = 0, y0 = 0, x1 = w - 1, y1 = h - 1;
+	if (crop)
+	{
+		x0 = w; y0 = h; x1 = -1; y1 = -1;
+		for (int y = 0; y < h; y++)
+			for (int x = 0; x < w; x++)
+				if (px[y * pitch + x * 4 + 3] > 8)
+				{
+					x0 = min(x0, x); x1 = max(x1, x);
+					y0 = min(y0, y); y1 = max(y1, y);
+				}
+		if (x1 < x0 || y1 < y0) return false;
+	}
+	ow = x1 - x0 + 1;
+	oh = y1 - y0 + 1;
+	out.resize((size_t)ow * oh * 4);
+	for (int y = 0; y < oh; y++)
+		for (int x = 0; x < ow; x++)
+		{
+			const uint8_t* p = px + (y0 + y) * pitch + (x0 + x) * 4;
+			uint8_t* q = &out[((size_t)y * ow + x) * 4];
+			q[0] = p[2]; q[1] = p[1]; q[2] = p[0]; q[3] = p[3]; // (BGRA to RGBA)
+		}
+	return true;
+}
+
 static bool MakeIcon(FGameTexture* tex, TArray<uint8_t>& out, int& ow, int& oh)
 {
 	if (!tex) return false;
@@ -309,12 +346,25 @@ static void FeedIcons(const IOSGamePart* part)
 	for (int u = 1; u < 8; u++)
 	{
 		if (!(wantedItems & (1u << u))) continue;
-		if (part->ItemIcon && MakeIcon(FindIconTexture(part->ItemIcon(u)), px, w, h)) IOSTouch_SetItemIcon(u, px.Data(), w, h);
+		// (made pictures from the larger art where the game has them: Duke's
+		// pickups, IOSIconLook.cpp)
+		std::vector<uint8_t> raw, made;
+		int rw = 0, rh = 0;
+		if (part->ItemPictures && part->ItemPictures() && part->ItemIcon && TextureRGBA(FindIconTexture(part->ItemIcon(u)), raw, rw, rh)
+			&& IOSIconLook_ItemPicture(raw.data(), rw, rh, made, w, h))
+			IOSTouch_SetItemPicture(u, made.data(), w, h);
+		else if (part->ItemIcon && MakeIcon(FindIconTexture(part->ItemIcon(u)), px, w, h)) IOSTouch_SetItemIcon(u, px.Data(), w, h);
 		else IOSTouch_SetItemIcon(u, nullptr, 0, 0);
 	}
 	if (IOSTouch_WantsCheatIcon())
 	{
-		if (part->CheatIcon && MakeIcon(FindIconTexture(part->CheatIcon()), px, w, h)) IOSTouch_SetCheatIcon(px.Data(), w, h);
+		// a round sign made into the whole button (Duke's), else the picture
+		std::vector<uint8_t> raw, on, off;
+		int rw = 0, rh = 0;
+		if (part->CheatSign && TextureRGBA(FindIconTexture(part->CheatSign()), raw, rw, rh, false)
+			&& IOSIconLook_CheatSign(raw.data(), rw, rh, IOSTOUCH_CHEAT_PICTURE_SIZE, on, off))
+			IOSTouch_SetCheatPictures(on.data(), off.data(), IOSTOUCH_CHEAT_PICTURE_SIZE);
+		else if (part->CheatIcon && MakeIcon(FindIconTexture(part->CheatIcon()), px, w, h)) IOSTouch_SetCheatIcon(px.Data(), w, h);
 		else IOSTouch_SetCheatIcon(nullptr, 0, 0); // (the drawn emblem stays)
 	}
 }

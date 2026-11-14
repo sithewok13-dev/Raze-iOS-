@@ -178,10 +178,20 @@ static void Items(IOSTouchItems* pi)
 	}
 }
 
-// ...their pictures: the status bar's own item icons
+// ...their pictures: Duke's the world pickups (FIRSTAID, STEROIDS,
+// HOLODUKE, JETPACK, HEATSENSOR: tiles 53, 55, 1348, 57, 59), made into
+// larger, cleaner pictures (ItemPictures); else the status bar's own icons
+static bool ItemPictures()
+{
+	return !isRR() && !isNamWW2GI();
+}
+
 static const char* const* ItemIcon(int iUse)
 {
+	static const char* const pick[][3] = { { "#53", "FIRSTAID_ICON" }, { "#55", "STEROIDS_ICON" }, { "#1348", "HOLODUKE_ICON" },
+	                                       { "#57", "JETPACK_ICON" }, { "#59", "HEAT_ICON" } };
 	static const char* const duke[][2] = { { "FIRSTAID_ICON" }, { "STEROIDS_ICON" }, { "HOLODUKE_ICON" }, { "JETPACK_ICON" }, { "HEAT_ICON" } };
+	if (ItemPictures()) return (iUse >= 1 && iUse <= 5) ? pick[iUse - 1] : nullptr;
 	static const char* const rr[][2] = { { "WHISKEY_ICON" }, { "MOONSHINE_ICON" }, { "HOLODUKE_ICON" }, { "COWPIE_ICON" } };
 	if (isRR()) return (iUse >= 1 && iUse <= 4) ? rr[iUse - 1] : nullptr;
 	return (iUse >= 1 && iUse <= 5) ? duke[iUse - 1] : nullptr;
@@ -244,6 +254,14 @@ static const char* const* CheatIcon()
 	return isRR() ? rr : duke;
 }
 
+// ...Duke's own worn radiation sign (tile 3392), made into the whole
+// button (IOSIconLook.cpp; CheatIcon's if it isn't there or isn't that)
+static const char* const* CheatSign()
+{
+	static const char* const duke[] = { "#3392", nullptr };
+	return (isRR() || isNamWW2GI()) ? nullptr : duke;
+}
+
 // The hero's line as the cheat comes on (the game's own sounds, by their
 // numbers in the game's DEFS.CON): Duke's "Hail to the king, baby",
 // "Come get some", "Groovy", "Let's rock"; Leonard's "Yeehaw" and "Hot
@@ -283,4 +301,4 @@ END_DUKE_NS
 
 const IOSGamePart iosDukePart = { DUKE_NS::Weapons, DUKE_NS::Pick, DUKE_NS::PickTick, DUKE_NS::State, DUKE_NS::FillAmmo, false,
                                   DUKE_NS::Alive, DUKE_NS::GodOn, DUKE_NS::Reset, DUKE_NS::Icon, DUKE_NS::CheatIcon, DUKE_NS::CheatSound,
-                                  DUKE_NS::Items, DUKE_NS::ItemIcon };
+                                  DUKE_NS::Items, DUKE_NS::ItemIcon, DUKE_NS::ItemPictures, DUKE_NS::CheatSign };

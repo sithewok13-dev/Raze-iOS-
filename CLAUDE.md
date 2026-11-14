@@ -81,8 +81,12 @@ apply), tilt aiming straight into the view's angles.
 
 One full-size round button per usable item the player has, in the game's
 fixed order, closing up as items come and go (`IOSTouchItems`, each game's
-`Items`): its own inventory picture from the player's data (`ItemIcon`),
-a tap uses it directly (the game's `useitem N`: `SB_ITEM_BIT_1 << (N-1)`).
+`Items`): its own inventory picture from the player's data (`ItemIcon`;
+Duke's are the world pickups FIRSTAID 53, STEROIDS 55, HOLODUKE 1348,
+JETPACK 57, HEATSENSOR 59, made once as fed by `ios/IOSIconLook.cpp`:
+hq4x, Lanczos, brighter, more contrast and colour, a thin light outline,
+the larger side 3/4 of the button, `IOSTouch_SetItemPicture`), drawn at
+full strength (dimmed 0.4), a tap uses it directly (the game's `useitem N`: `SB_ITEM_BIT_1 << (N-1)`).
 No hold action. Charge items: the ring is a gauge filling clockwise from
 12 o'clock (gold, red under 25%), glowing (ring and picture) while the
 item is on or its effect runs. Count items: the plain outline and a
@@ -163,8 +167,14 @@ the owner's call). Remembered (`iosTouchHud`, `iosTouchHudFace`,
 
 - **CHEAT** (`sithewok`): the tray's CHEAT shows the button and switches
   the cheat on, or leaves cheat mode; CHEAT held 0.5 s = on/off; a tap does
-  nothing. Its picture is the game's own (Duke's nuke button, Redneck's
-  moonshine...), its hero's line plays as it comes on. While on (single
+  nothing. Its picture is the game's own (Redneck's moonshine...), its
+  hero's line plays as it comes on. Duke's is his worn radiation sign
+  (tile 3392, `CheatSign`) made into the whole button by
+  `IOSIconLook_CheatSign` (cropped to its yellow circle, hq4x, a black
+  rim; off grey and dim, the button at 0.8; on its yellow orange-hot with
+  a wide orange halo, the rim crisp over it): `IOSTouch_SetCheatPictures`,
+  216 px covering 72/44 of the button; the nuke button if 3392 isn't the
+  sign (another edition). Rig dumps: `<dump>.cheatpic.rgba` (on, off). While on (single
   player, where the game's cheats work): god mode, "give all" at each
   level, ammo kept full; JUMP / USE holds for fly (Shadow Warrior) and
   noclip.

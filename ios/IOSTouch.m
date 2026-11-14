@@ -2305,6 +2305,21 @@ void IOSTouch_SetItemIcon(int iUse, const unsigned char *pubRGBA, int iWidth, in
   _ulItemIconsNew |= 1u << iUse;
 }
 
+// A made picture (IOSIconLook.cpp: Duke's pickups): shown at its own size
+// (IOSTOUCH_PICTURE_PER_PT at a 22 pt button), smoothly; dimmed: grey (luma
+// x 0.8), alpha x 0.7
+static int _abItemPictureMade[8];
+
+void IOSTouch_SetItemPicture(int iUse, const unsigned char *pubRGBA, int iWidth, int iHeight)
+{
+  if (iUse < 1 || iUse > 7) return;
+  IOSTouch_SetItemIcon(iUse, pubRGBA, iWidth, iHeight);
+  IOSTouchIcon *pi = &_aItemIcons[iUse];
+  if (!pi->bHave || !IOSTouch_IconFits(pubRGBA, iWidth, iHeight)) return;
+  _abItemPictureMade[iUse] = 1;
+  IOSTouch_TintIcon(pubRGBA, iWidth * iHeight, WICON_NOAMMO, pi->aub[WICON_NOAMMO]);
+}
+
 int IOSTouch_WantsCheatIcon(void)
 {
   if (_bCheatIconAsked || _iMode == IOSTOUCH_HIDDEN) return 0;
@@ -2435,6 +2450,23 @@ static void IOSTouch_LightReds(unsigned char *pub, int w, int h)
     p[1] = (unsigned char)fminf(p[1] + 70 * gl + 0.5f, 255.0f);
     p[2] = (unsigned char)fminf(p[2] + 30 * gl + 0.5f, 255.0f);
   }
+}
+
+// CHEAT's whole button made by the game side (Duke's radiation sign): on and
+// off as they are, IOSTOUCH_CHEAT_PICTURE_SPAN of the button across
+static unsigned char _aubCheatPicture[2][IOSTOUCH_CHEAT_PICTURE_MAX * IOSTOUCH_CHEAT_PICTURE_MAX * 4];
+static int _iCheatPictureSize = 0; // (0: none)
+
+void IOSTouch_SetCheatPictures(const unsigned char *pubOn, const unsigned char *pubOff, int n)
+{
+  _bCheatIconAsked = 1;
+  if (!pubOn || !pubOff || n <= 0 || n > IOSTOUCH_CHEAT_PICTURE_MAX) return;
+  memcpy(_aubCheatPicture[0], pubOn, (size_t)n * n * 4);
+  memcpy(_aubCheatPicture[1], pubOff, (size_t)n * n * 4);
+  _iCheatPictureSize = n;
+  _cheatIcon.bHave = 1;
+  _cheatIcon.bGaveUp = 0;
+  _bCheatIconNew = 1;
 }
 
 void IOSTouch_SetCheatIcon(const unsigned char *pubRGBA, int iWidth, int iHeight)
@@ -4675,16 +4707,27 @@ static UIBezierPath *IOSTouch_AnkhPath(CGFloat cx, CGFloat cy, CGFloat r)
   int bPictureNew = 0;
   if (_bCheatIconNew) {
     _bCheatIconNew = 0;
-    cheatImages[0] = CFBridgingRelease(IOSTouch_MakeIconImage(_cheatIcon.aub[WICON_READY], _cheatIcon.w, _cheatIcon.h));
-    cheatImages[1] = CFBridgingRelease(IOSTouch_MakeIconImage(_cheatIcon.aub[WICON_NOTFOUND], _cheatIcon.w, _cheatIcon.h));
+    const int n = _iCheatPictureSize;
+    cheatImages[0] = CFBridgingRelease(n ? IOSTouch_MakeIconImage(_aubCheatPicture[0], n, n)
+                                         : IOSTouch_MakeIconImage(_cheatIcon.aub[WICON_READY], _cheatIcon.w, _cheatIcon.h));
+    cheatImages[1] = CFBridgingRelease(n ? IOSTouch_MakeIconImage(_aubCheatPicture[1], n, n)
+                                         : IOSTouch_MakeIconImage(_cheatIcon.aub[WICON_NOTFOUND], _cheatIcon.w, _cheatIcon.h));
     [CATransaction begin];
     [CATransaction setDisableActions:YES];
     // a round picture fills the circle, edge to edge (the button clips it;
-    // its border, gold while on, is drawn over it); others sit inside it
+    // its border, gold while on, is drawn over it); others sit inside it; a
+    // made one is the whole button, its halo round it (not clipped)
     const CGFloat r = _aButtons[BTN_CHEAT].radius;
     const CGRect rc = CGRectMake(0, 0, r * 2, r * 2);
-    cheatPicture.frame = _bCheatIconFills ? rc : CGRectInset(rc, r * 0.30, r * 0.30);
-    cheatPicture.contentsGravity = _bCheatIconFills ? kCAGravityResize : kCAGravityResizeAspect;
+    const CGFloat span = r * 2 * IOSTOUCH_CHEAT_PICTURE_SPAN;
+    cheatPicture.frame = n ? CGRectMake(r - span * 0.5, r - span * 0.5, span, span)
+                           : (_bCheatIconFills ? rc : CGRectInset(rc, r * 0.30, r * 0.30));
+    cheatPicture.contentsGravity = (n || _bCheatIconFills) ? kCAGravityResize : kCAGravityResizeAspect;
+    if (n) {
+      aButtonViews[BTN_CHEAT].clipsToBounds = NO;
+      aButtonViews[BTN_CHEAT].layer.masksToBounds = NO;
+      cheatPicture.minificationFilter = kCAFilterTrilinear;
+    }
     cheatPicture.hidden = NO;
     cheatBody.hidden = cheatFuse.hidden = YES;
     [CATransaction commit];
@@ -4716,7 +4759,7 @@ static UIBezierPath *IOSTouch_AnkhPath(CGFloat cx, CGFloat cy, CGFloat r)
     [CATransaction begin];
     [CATransaction setDisableActions:YES];
     if (_cheatIcon.bHave) cheatPicture.contents = cheatImages[bLookOn ? 0 : 1];
-    cheatPicture.opacity = bLookOn ? 1.0f : 0.45f; // (off: grey and faded)
+    cheatPicture.opacity = (bLookOn || _iCheatPictureSize) ? 1.0f : 0.45f; // (off: grey and faded; a made one is already)
     cheatBody.fillColor = c.CGColor;
     cheatFuse.strokeColor = cFuse.CGColor;
     [CATransaction commit];
@@ -4994,9 +5037,16 @@ static UIBezierPath *IOSTouch_AnkhPath(CGFloat cx, CGFloat cy, CGFloat r)
     if (i == BTN_TRAYSENS && (!bGyro || _iGyroMode == IOSTOUCH_GYRO_OFF)) alpha *= 0.45; // ...or it's off
     if (i == BTN_CAMERA && IOSTouch_CameraBusy()) alpha *= 0.45;                         // the camera is busy
     if (i == BTN_TRAYFACE && _iHudStyle != IOSTOUCH_HUD_SPLIT && _iHudStyle != IOSTOUCH_HUD_STRIP) alpha *= 0.45; // (no pills)
+    // (CHEAT as a made picture: the picture is all of it, off at 0.8)
+    const int bCheatPicture = (i == BTN_CHEAT) && _iCheatPictureSize;
+    if (bCheatPicture) {
+      alpha = (bCheatLit || bHeld) ? 1.0 : 0.8;
+      l.backgroundColor = [UIColor clearColor];
+    }
     if (!bTray) alpha *= _fOpacity; // (OPACITY: the controls in play; the tray at full)
     l.alpha = alpha;
-    if (bCheatLit) {
+    if (bCheatPicture) l.layer.borderWidth = 0.0;
+    else if (bCheatLit) {
       l.layer.borderColor = [UIColor colorWithRed:1.0 green:0.75 blue:0.2 alpha:1.0].CGColor;
       l.layer.borderWidth = 3.0;
     }
@@ -5135,7 +5185,7 @@ static CGImageRef IOSTouch_MakeIconImage(const unsigned char *pub, int w, int h)
 // the core placed them; each one's picture (grey while dimmed), its ring
 // (charge: a gauge filling clockwise from 12 o'clock, gold, red under 25%,
 // glowing while on; count: the plain outline and a number from 2) and how
-// strongly it shows (dimmed 0.4, on 1, else 0.8, times OPACITY's)
+// strongly it shows (dimmed 0.4, else 1, times OPACITY's)
 - (void)refreshItems
 {
   const IOSTouchItems *it = &_items;
@@ -5185,6 +5235,19 @@ static CGImageRef IOSTouch_MakeIconImage(const unsigned char *pub, int w, int h)
     const int u = (item->iUse >= 1 && item->iUse < 8) ? item->iUse : 0;
     id img = u ? aItemImages[u][item->bDim ? 1 : 0] : nil;
     aItemIconLayers[k].contents = img;
+    if (u && _abItemPictureMade[u] && _aItemIcons[u].bHave) {
+      // a made picture: its own size (for a 22 pt button), smoothly
+      const CGFloat kpt = r / (22.0 * IOSTOUCH_PICTURE_PER_PT);
+      const CGFloat iw = _aItemIcons[u].w * kpt, ih = _aItemIcons[u].h * kpt;
+      aItemIconLayers[k].frame = CGRectMake(r - iw * 0.5, r - ih * 0.5, iw, ih);
+      aItemIconLayers[k].magnificationFilter = kCAFilterLinear;
+      aItemIconLayers[k].minificationFilter = kCAFilterTrilinear;
+    }
+    else {
+      const CGFloat side = r * 1.25;
+      aItemIconLayers[k].frame = CGRectMake(r - side * 0.5, r - side * 0.5, side, side);
+      aItemIconLayers[k].magnificationFilter = kCAFilterNearest;
+    }
     const int bCharge = item->iKind == IOSTOUCH_ITEM_CHARGE;
     l.layer.borderWidth = bCharge ? 0.0 : 1.5;
     l.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:0.4].CGColor;
@@ -5205,7 +5268,7 @@ static CGImageRef IOSTouch_MakeIconImage(const unsigned char *pub, int w, int h)
     const int bBadge = !bCharge && item->iCount >= 2;
     if (bBadge) aItemBadges[k].text = [NSString stringWithFormat:@"%d", item->iCount];
     if (aItemBadges[k].hidden == bBadge) aItemBadges[k].hidden = !bBadge;
-    const CGFloat a = item->bDim ? 0.4 : ((item->bOn || bHeld) ? 1.0 : 0.8);
+    const CGFloat a = item->bDim ? 0.4 : 1.0; // (full strength: the owner's call)
     l.alpha = a * _fOpacity;
   }
   [CATransaction commit];

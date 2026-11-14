@@ -35,6 +35,12 @@ struct IOSGamePart
 	// as Icon: names to try in order, nullptr-ended)
 	void (*Items)(IOSTouchItems* pItems);
 	const char* const* (*ItemIcon)(int iUse);
+	// Made pictures (IOSIconLook.cpp; nullptr: none): true when ItemIcon
+	// names larger art (world pickups) to make the item buttons' pictures
+	// of; and a round sign (names, as Icon) made into CHEAT's whole button,
+	// CheatIcon where it isn't there or isn't such a sign
+	bool (*ItemPictures)();
+	const char* const* (*CheatSign)();
 };
 extern const IOSGamePart iosDukePart, iosBloodPart, iosSWPart, iosExhumedPart;
 

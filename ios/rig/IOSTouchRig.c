@@ -211,6 +211,19 @@ static void RigDump(const char *name)
     fwrite(pi->aub[u == 8 ? WICON_NOTFOUND : WICON_NOAMMO], 1, (size_t)pi->w * pi->h * 4, g);
     fclose(g);
   }
+  // CHEAT's made pictures (on, then off), and which items' are made
+  if (_iCheatPictureSize) {
+    char ipath[600];
+    snprintf(ipath, sizeof(ipath), "%s.cheatpic.rgba", path);
+    FILE *g = fopen(ipath, "wb");
+    if (g) {
+      const int wh[2] = { _iCheatPictureSize, _iCheatPictureSize };
+      fwrite(wh, 4, 2, g);
+      for (int k = 0; k < 2; k++) fwrite(_aubCheatPicture[k], 1, (size_t)_iCheatPictureSize * _iCheatPictureSize * 4, g);
+      fclose(g);
+    }
+  }
+  for (int u = 1; u < 8; u++) if (_abItemPictureMade[u]) RigLog("dump item %d: a made picture %dx%d", u, _aItemIcons[u].w, _aItemIcons[u].h);
   RigLog("dump %s", name);
 }
 

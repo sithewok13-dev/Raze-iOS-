@@ -1512,6 +1512,7 @@ if( RAZE_TOUCH )
 	# is built in its game's all.cpp, as the rest of the game is.
 	set( TOUCH_SOURCES
 		../ios/IOSGame.cpp
+		../ios/IOSIconLook.cpp
 		../ios/IOSNet.c
 		../ios/IOSPad.cpp )
 	if( RAZE_IOS )

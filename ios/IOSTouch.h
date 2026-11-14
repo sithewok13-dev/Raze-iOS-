@@ -177,6 +177,17 @@ unsigned int IOSTouch_WantedIcons(void);
 void IOSTouch_SetWeaponIcon(int iWeapon, const unsigned char *pubRGBA, int iWidth, int iHeight);
 int IOSTouch_WantsCheatIcon(void);
 void IOSTouch_SetCheatIcon(const unsigned char *pubRGBA, int iWidth, int iHeight);
+/* Made pictures (IOSIconLook.cpp), drawn as they are, smoothly: an item's,
+   sized for a 22 pt button at IOSTOUCH_PICTURE_PER_PT pixels a point (and
+   scaled with the button: Duke's pickups); CHEAT's whole button, on and off,
+   n x n (n at most IOSTOUCH_CHEAT_PICTURE_MAX), centred on the button and
+   IOSTOUCH_CHEAT_PICTURE_SPAN times its diameter (room for the halo) */
+#define IOSTOUCH_PICTURE_PER_PT 3.0
+#define IOSTOUCH_CHEAT_PICTURE_MAX 256
+#define IOSTOUCH_CHEAT_PICTURE_SIZE 216
+#define IOSTOUCH_CHEAT_PICTURE_SPAN (72.0 / 44.0)
+void IOSTouch_SetItemPicture(int iUse, const unsigned char *pubRGBA, int iWidth, int iHeight);
+void IOSTouch_SetCheatPictures(const unsigned char *pubOn, const unsigned char *pubOff, int n);
 
 /* Once per frame: shows or hides the overlay for iMode, follows the SDL
    window (an SDL_Window *). ulFramesDrawn: the game's count of frames drawn,
