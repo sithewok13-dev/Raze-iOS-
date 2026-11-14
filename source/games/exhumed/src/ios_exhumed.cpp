@@ -142,8 +142,8 @@ static const char* const* Icon(int w)
 	return (w >= 0 && w < (int)countof(list) && list[w][0]) ? list[w] : nullptr;
 }
 
-// CHEAT: the gold ankh (tile 798) on a lapis disc, made into the whole
-// button with a gold glow (IOSIconLook.cpp); else the drawn ankh
+// CHEAT: the gold pharaoh mask (tile 590) on a lapis disc, made into the
+// whole button with a gold glow (IOSIconLook.cpp); else the drawn ankh
 static const char* const* CheatIcon()
 {
 	return nullptr;
@@ -151,14 +151,14 @@ static const char* const* CheatIcon()
 
 static const char* const* CheatSign()
 {
-	static const char* const list[] = { "#798", nullptr };
+	static const char* const list[] = { "#590", nullptr };
 	return list;
 }
 
 static const IOSIconSignStyle* CheatSignStyle()
 {
-	static const IOSIconSignStyle ankh = { true, 0.0f, 0.0f, 0.0f, 0.78f, { 255, 190, 60 }, { 20, 40, 110 } };
-	return &ankh;
+	static const IOSIconSignStyle mask = { true, 0.0f, 0.0f, 0.0f, 0.86f, { 255, 195, 70 }, { 20, 40, 110 }, 1.0f };
+	return &mask;
 }
 
 // The game's own fanfare for a special item as the cheat comes on (its

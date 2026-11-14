@@ -188,7 +188,8 @@ the owner's call). Remembered (`iosTouchHud`, `iosTouchHudFace`,
   the fortune cookie (ICON_BOOSTER 1810, the owner's pick over the
   yin-yang), inset on a dark disc as before (`bEmblem`, 0.84 of the disc),
   in its own colour on (`fOnColour` 1.0), an amber glow;
-  PowerSlave the gold ankh (798) on a lapis disc, gold. Where the sign
+  PowerSlave the gold pharaoh mask (590, the owner's pick over the gold
+  ankh 798) on a lapis disc (0.86 of it), a gold glow. Where the sign
   isn't there, CheatIcon's picture is made into the button in that style
   (PowerSlave: the drawn ankh). Rig dumps: `<dump>.cheatpic.rgba` (on, off). While on (single
   player, where the game's cheats work): god mode, "give all" at each
