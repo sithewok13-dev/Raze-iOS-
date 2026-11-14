@@ -179,8 +179,10 @@ classic bars always show their face. Remembered (`iosTouchHud`,
   300-320 = 107.5 | 0-18 + 187-222.5 + 268-320 = 105.5); Blood gargoyle,
   armour, health and its skull (0-123.5) | the other skull, ammo, keys,
   gargoyle (192.5-254 + 276-320 = 105.5); Redneck without the weapon row
-  along its top (the piece's top is the wood bar's) Leonard, HEALTH, AMMO,
-  KEYS (0-174) | the gauges (229-320 = 91); PowerSlave cut at 145, before
+  along its top (the piece's top is the wood bar's; Rides Again's bar is
+  the same) Leonard, HEALTH, AMMO (0-128, half way to KEYS) | KEYS, the
+  gauges (128-170 + 229-320 = 133; 170 is just past KEYS' box shadow, so
+  the join is wood to wood); PowerSlave cut at 145, before
   the compass (145 | 175: its four glyphs are the keys, and the item shows
   on the magic pool, so nothing is left out). FIRE keeps 10 pt above the pieces' real top. SIZE small: the status bar's scale
   times 0.75 while it is drawn (`Raze.IOSBarScale`, `iosBarScale` in

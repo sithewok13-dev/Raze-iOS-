@@ -479,14 +479,14 @@ class RedneckStatusBar : DukeCommonStatusBar
 	override double IOSBarHeight() { return max(IOSBarH("BOTTOMSTATUSBAR", scale), 200 - 158); } // (the weapon bar from 158 down)
 	override double, double IOSBarSpan() { double a, b; [a, b] = IOSBarCentred("BOTTOMSTATUSBAR", scale); return a, b; }
 	// SPLIT leaves out the weapon bar along the top and YER STUFF (the item
-	// buttons show the items): Leonard, HEALTH, AMMO and KEYS left, the
-	// gauges right
+	// buttons show the items): Leonard, HEALTH and AMMO left (cut half way
+	// between AMMO's box and KEYS'), KEYS and the gauges right
 	override void IOSBarPieces()
 	{
 		double x0, x1;
 		[x0, x1] = IOSBarSpan();
 		double t = 200 - IOSBarH("BOTTOMSTATUSBAR", scale);
-		IOSBarPiece(0, x0, 174, t); IOSBarPiece(1, 229, x1, t);
+		IOSBarPiece(0, x0, 128, t); IOSBarPiece(1, 128, 170, t); IOSBarPiece(1, 229, x1, t);
 	}
 
 	override void IOSHudParts(bool face)
