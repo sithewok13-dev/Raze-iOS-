@@ -5305,6 +5305,8 @@ static CGImageRef IOSTouch_MakeIconImage(const unsigned char *pub, int w, int h)
   for (int k = 0; k < IOSTOUCH_ITEM_MAX; k++) {
     UILabel *l = aButtonViews[BTN_ITEM0 + k];
     l.clipsToBounds = NO;
+    l.backgroundColor = [UIColor clearColor];
+    l.layer.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.22].CGColor;
     l.layer.masksToBounds = NO;
     CAShapeLayer *track = [CAShapeLayer layer];
     track.fillColor = [UIColor clearColor].CGColor;
@@ -5409,7 +5411,11 @@ static CGImageRef IOSTouch_MakeIconImage(const unsigned char *pub, int w, int h)
     const int bHeld = _aButtonHeld[b] != 0;
     l.tag = bHeld;
     l.text = @"";
-    l.backgroundColor = [UIColor colorWithWhite:(bHeld ? 1.0 : 0.0) alpha:(bHeld ? 0.30 : 0.22)];
+    // (the button isn't clipped, so its glow shows round it: its backing is
+    // the layer's, which keeps to the round corners; the label's own
+    // background drew as a square)
+    l.backgroundColor = [UIColor clearColor];
+    l.layer.backgroundColor = [UIColor colorWithWhite:(bHeld ? 1.0 : 0.0) alpha:(bHeld ? 0.30 : 0.22)].CGColor;
     const int u = (item->iUse >= 1 && item->iUse < 8) ? item->iUse : 0;
     id img = u ? aItemImages[u][item->bDim ? 1 : 0] : nil;
     aItemIconLayers[k].contents = img;
