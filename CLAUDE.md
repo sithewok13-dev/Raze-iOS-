@@ -53,7 +53,11 @@ repository or anywhere public.
   asking SDL for events every frame). Signs: touches arriving seconds
   late in bursts, "moved but no turn", menus not answering. A touch log
   (each touch's lateness, `UITouch.timestamp` vs now) found it: branch
-  `ios-touchlog`. Every build keeps a light check of it (`i_ios.mm`,
+  `ios-touchlog`. It came back in the menus (Nov 15): the game waits
+  there for its next tic (`I_WaitForTic`, and `I_WaitVBL` in screen
+  wipes) and slept the main thread; both now wait in the run loop
+  (`IOS_WaitRunLoop` in `i_ios.mm`). Any wait on the main thread must.
+  Every build keeps a light check of it (`i_ios.mm`,
   `UIApplication sendEvent:`, every screen): "touch check: a touch N ms
   late" for each one 150 ms late or more, and a summary every 5 s with
   touches.

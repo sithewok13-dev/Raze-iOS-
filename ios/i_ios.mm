@@ -644,31 +644,34 @@ extern "C" void IOS_PerfFrame(uint64_t capNs, uint64_t ticsNs, uint64_t inputNs,
 // in, so both follow the steady pace (build 86 slept after reading them, at
 // the bottom of the loop: frames moved unevenly). Returns the ns slept, for
 // the log.
+// A wait spent in the main run loop, not asleep: UIKit hands out the
+// touches as they come and gets the idle moments it needs. Any wait on the
+// main thread must be this (a sleeping main thread had touches held back
+// for seconds, up to a minute: after a level started, and in the menus,
+// where the game waits for its next tic: I_WaitForTic)
+extern "C" void IOS_WaitRunLoop(uint64_t ns)
+{
+	const uint64_t until = IOS_Ns() + ns;
+	for (;;)
+	{
+		const uint64_t now = IOS_Ns();
+		if (now + 200000ull >= until) break;
+		CFRunLoopRunInMode(kCFRunLoopDefaultMode, (until - now - 100000ull) * 1e-9, true);
+	}
+	const uint64_t now = IOS_Ns();
+	if (now < until)
+	{
+		struct timespec ts = { 0, (long)(until - now) };
+		nanosleep(&ts, nullptr);
+	}
+}
+
 extern "C" uint64_t IOS_FrameCap(void)
 {
 	const int fps = IOSTouch_MaxFps();
 	const uint64_t period = (fps > 0 && fps < 120) ? 1000000000ull / (uint64_t)fps : 0;
 	const uint64_t wait = IOSPacer_Wake(iosPacer, IOS_Ns(), period);
-	if (wait > 0)
-	{
-		// the wait spent in the main run loop, not asleep: UIKit hands out
-		// the touches as they come and gets the idle moments it needs (a
-		// main thread that never waited had touches held back for seconds
-		// at a time after a level started)
-		const uint64_t until = IOS_Ns() + wait;
-		for (;;)
-		{
-			const uint64_t now = IOS_Ns();
-			if (now + 200000ull >= until) break;
-			CFRunLoopRunInMode(kCFRunLoopDefaultMode, (until - now - 100000ull) * 1e-9, true);
-		}
-		const uint64_t now = IOS_Ns();
-		if (now < until)
-		{
-			struct timespec ts = { 0, (long)(until - now) };
-			nanosleep(&ts, nullptr);
-		}
-	}
+	if (wait > 0) IOS_WaitRunLoop(wait); // (in the run loop: see above)
 	return wait;
 }
 

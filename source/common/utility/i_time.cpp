@@ -107,13 +107,22 @@ void I_SetFrameTime()
 	}
 }
 
+#ifdef RAZE_IOS
+// Added (iOS): a wait on the main thread runs its run loop (ios/i_ios.mm)
+extern "C" void IOS_WaitRunLoop(uint64_t ns);
+#endif
+
 void I_WaitVBL(int count)
 {
 	// I_WaitVBL is never used to actually synchronize to the vertical blank.
 	// Instead, it's used for delay purposes. Doom used a 70 Hz display mode,
 	// so that's what we use to determine how long to wait for.
 
+#ifdef RAZE_IOS
+	IOS_WaitRunLoop(1000000ull * (1000 * count / 70)); // (Added (iOS): never asleep, see I_WaitForTic)
+#else
 	std::this_thread::sleep_for(std::chrono::milliseconds(1000 * count / 70));
+#endif
 	I_SetFrameTime();
 }
 
@@ -137,7 +146,14 @@ int I_WaitForTic(int prevtic, double const ticrate)
 
 			if (sleepTime > 2)
 			{
+#ifdef RAZE_IOS
+				// Added (iOS): the wait in the main run loop, never asleep:
+				// asleep, UIKit held the touches back for up to a minute in
+				// the menus (ios/i_ios.mm, IOS_WaitRunLoop)
+				IOS_WaitRunLoop((sleepTime - 2) * 1000000ull);
+#else
 				std::this_thread::sleep_for(std::chrono::milliseconds(sleepTime - 2));
+#endif
 			}
 		}
 

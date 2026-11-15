@@ -568,6 +568,8 @@ void IOSGame_Frame()
 			if (gl_texture_filter != filter) gl_texture_filter = filter;
 			if (hq && gl_texture_hqresizemult != mult) gl_texture_hqresizemult = mult;
 			if (gl_texture_hqresizemode != hq) gl_texture_hqresizemode = hq;
+			Printf("iOS: graphics: pixels %s, detail %s (filter %d, upscale %d x%d)\n", (tex & 1) ? "sharp" : "smooth",
+				mult > 1 ? (mult == 2 ? "2x" : mult == 4 ? "4x" : "6x") : "original", filter, hq, mult);
 		}
 	}
 
