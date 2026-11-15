@@ -3276,6 +3276,7 @@ static void IOSTouch_LogLabel(const IOSTouchSlot *s, char *str, size_t size)
   else if (s->button >= 0) snprintf(str, size, " #%d", s->button);
   else str[0] = 0;
 }
+static void IOSTouch_TouchEndedCore(const void *touch, double x, double y, int bCancelled, double tTouch);
 static void IOSTouch_TouchBegan(const void *touch, double x, double y, double W, double now, double tTouch)
 {
   const int bPad = _bPadHidden, bList = _bLevelListOpen, bWheel = _bWheelOpen, bTray = _bTrayOpen;
