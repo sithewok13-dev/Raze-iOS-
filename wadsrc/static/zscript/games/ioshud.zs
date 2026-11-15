@@ -86,6 +86,12 @@ extend class RazeStatusBar
 	}
 	Array<double> mIOSCut;
 	void IOSBarPiece(int side, double a, double b, double top = 0) { mIOSCut.Push(side); mIOSCut.Push(a); mIOSCut.Push(b); mIOSCut.Push(top); }
+	// a part of the bar (a-b across, t-bt down) laid over a side's pieces
+	// dx across and dy down from where it is (Duke: AMMO's label and digits
+	// in INV's box)
+	Array<double> mIOSOver;
+	void IOSBarOverlay(int side, double a, double b, double t, double bt, double dx, double dy = 0) { mIOSOver.Push(side); mIOSOver.Push(a); mIOSOver.Push(b); mIOSOver.Push(t); mIOSOver.Push(bt); mIOSOver.Push(dx); mIOSOver.Push(dy); }
+	bool mIOSNoInv;	// CLASSIC SPLIT: the bar's item box left empty (a game may put something else there)
 
 	int IOSHudSize()
 	{
@@ -543,6 +549,8 @@ extend class RazeStatusBar
 				// clip ends where the next starts), the left side from the
 				// HUD frame's left edge, the right to its right edge
 				mIOSCut.Clear();
+				mIOSOver.Clear();
+				mIOSNoInv = true;
 				IOSBarPieces();
 				double top = 200;
 				for (int side = 0; side < 2; side++)
@@ -551,16 +559,34 @@ extend class RazeStatusBar
 					for (int i = 0; i + 3 < mIOSCut.Size(); i += 4)
 						if (mIOSCut[i] == side) total += int((mIOSCut[i + 2] - mIOSCut[i + 1]) * sx);
 					double X = side == 0 ? int(Raze.IOSHud(4) + 0.5) : int(Raze.IOSHud(5) + 0.5) - total;
+					Array<double> placed; // (each part: from, to, its offset across)
 					for (int i = 0; i + 3 < mIOSCut.Size(); i += 4)
 					{
 						if (mIOSCut[i] != side) continue;
 						double a = mIOSCut[i + 1], b = mIOSCut[i + 2], t = mIOSCut[i + 3];
 						if (b <= a) continue;
 						top = min(top, t);
-						drawOffset = ((X - bx) / sx - (a - x0), dy);
+						double ox = (X - bx) / sx - (a - x0);
+						placed.Push(a); placed.Push(b); placed.Push(ox);
+						drawOffset = (ox, dy);
 						SetClipRect(a, t, b - a, 200 - t);
 						IOSBarDraw();
 						X += int((b - a) * sx);
+					}
+					// the overlays, placed as the part they land in
+					for (int i = 0; i + 6 < mIOSOver.Size(); i += 7)
+					{
+						if (mIOSOver[i] != side) continue;
+						double a = mIOSOver[i + 1], b = mIOSOver[i + 2], t = mIOSOver[i + 3], bt = mIOSOver[i + 4];
+						double ddx = mIOSOver[i + 5], ddy = mIOSOver[i + 6];
+						for (int j = 0; j + 2 < placed.Size(); j += 3)
+						{
+							if (a + ddx < placed[j] || a + ddx >= placed[j + 1]) continue;
+							drawOffset = (placed[j + 2] + ddx, dy + ddy);
+							SetClipRect(a, t, b - a, bt - t);
+							IOSBarDraw();
+							break;
+						}
 					}
 				}
 				// FIRE keeps above the pieces' real top
@@ -568,6 +594,7 @@ extend class RazeStatusBar
 				Raze.IOSBarTop((Raze.IOSHud(3) - (200 - top) * sy) / Screen.GetHeight());
 			}
 			mIOSBar = false;
+			mIOSNoInv = false;
 		}
 		drawOffset = (0, 0);
 		Screen.ClearClipRect();

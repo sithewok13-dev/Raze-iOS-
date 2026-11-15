@@ -458,7 +458,7 @@ class DukeStatusBar : DukeCommonStatusBar
 		}
 
 		int icon = p.inven_icon;
-		if (icon)
+		if (icon && !mIOSNoInv) // (Added (iOS touch): CLASSIC SPLIT shows AMMO in this box)
 		{
 			int x = 232;
 			if (icon < Duke.ICON_MAX)
@@ -525,8 +525,15 @@ class DukeStatusBar : DukeCommonStatusBar
 	{
 		double a, b;
 		[a, b] = IOSBarSpan();
-		IOSBarPiece(0, a, 79); IOSBarPiece(0, 302, b);
-		IOSBarPiece(1, a, 17); IOSBarPiece(1, 190, 222.5); IOSBarPiece(1, 268.5, b);
+		// left: the bar's left arch, its end, HEALTH and ARMOR, to the post
+		// after ARMOR; right: its right arch from that post on, INV's box
+		// showing AMMO (its label and digits laid over it), KEYS and its end
+		// (the owner's design: two whole arches)
+		double top = 200 - IOSBarHeight();
+		IOSBarPiece(0, a, 81.6);
+		IOSBarPiece(1, 225.9, b);
+		IOSBarOverlay(1, 197.2, 216.5, top + 7.4, top + 16.6, 41.4, -2.7); // AMMO's label over INV's
+		IOSBarOverlay(1, 195.2, 219.6, top + 18.5, top + 34.5, 41.4);    // its digits in INV's box
 	}
 
 	override void IOSHudParts(bool face)

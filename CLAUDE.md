@@ -186,9 +186,12 @@ classic bars always show their face. Remembered (`iosTouchHud`,
   (`IOSBarPieces`/`IOSBarPiece`: side, from-to across, top; the default
   cuts at `IOSBarCut`), the weapons' list and the item box left out (the
   wheel shows the ammo, the item buttons the items; the owner's calls), in
-  the bar's 320 units: Duke HEALTH + ARMOR with both bar ends (-12-79 +
-  302-332 = 121) | an end + AMMO, the pillar before KEYS, KEYS + an end
-  (-12-17 + 190-222.5 + 268.5-332 = 125): Duke's bar runs 12 past its
+  the bar's 320 units: Duke two whole arches (the owner's design): its left
+  end, HEALTH, ARMOR to the post after ARMOR (-12-81.6) | the right arch from
+  the post before INV (225.9-332), INV's box showing AMMO: AMMO's label and
+  digits laid over it (`IOSBarOverlay`: a part drawn shifted, 41.4 across;
+  the bar's item box left empty while split, `mIOSNoInv`), then KEYS and the
+  end. Duke's bar runs 12 past its
   320 core at each end, STRIP too (`IOSBarSpan`, as CLASSIC shows the wider
   picture), so the curves at the ends land on the flat metal (the owner's
   call; cut at the core they ended in mid-air); Shadow Warrior the same (0-87.5 +
