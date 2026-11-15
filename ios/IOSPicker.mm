@@ -75,7 +75,7 @@ typedef struct
 static const Family families[FAM_COUNT] =
 {
 	{ "Duke Nukem 3D", "bolt.fill", "duke", { 0.88, 0.27, 0.05 }, { 0.30, 0.05, 0.02 } },
-	{ "Blood", "drop.fill", NULL, { 0.62, 0.02, 0.06 }, { 0.14, 0.00, 0.02 } },
+	{ "Blood", "drop.fill", "blood", { 0.62, 0.02, 0.06 }, { 0.14, 0.00, 0.02 } },
 	{ "Redneck Rampage", "hare.fill", "rr", { 0.70, 0.42, 0.12 }, { 0.20, 0.10, 0.03 } },
 	{ "Shadow Warrior", "flame.fill", "sw", { 0.05, 0.47, 0.36 }, { 0.02, 0.12, 0.10 } },
 	{ "PowerSlave", "sun.max.fill", "ps", { 0.82, 0.62, 0.20 }, { 0.30, 0.17, 0.04 } },
