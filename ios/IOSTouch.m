@@ -14,6 +14,7 @@
 
 #ifndef IOSTOUCH_RIG
 #import <UIKit/UIKit.h>
+#import <objc/runtime.h>
 #import <QuartzCore/QuartzCore.h>
 #import <CoreMotion/CoreMotion.h>
 #import <AudioToolbox/AudioToolbox.h>
@@ -3264,7 +3265,7 @@ static void IOSTouch_TouchBeganCore(const void *touch, double x, double y, doubl
 // goes down (where, what took it, the overlay's mode, how late UIKit gave
 // it) and as it lifts (how long, how far, cancelled by iOS or not)
 static const char *const _astrLogRoles[] = { "none", "stick", "look", "button", "IGNORED", "wheel" };
-static const char *const _astrLogModes[] = { "play", "console", "paused", "hidden" };
+static const char *const _astrLogModes[] = { "hidden", "play", "console", "paused" };
 static double _tLogStart = 0.0;
 static const char *IOSTouch_LogMode(int m) { return m >= 0 && m < 4 ? _astrLogModes[m] : "?"; }
 static void IOSTouch_LogLabel(const IOSTouchSlot *s, char *str, size_t size)
@@ -6017,6 +6018,19 @@ static void IOSTouch_DrawWheelTheme(const IOSTouchWheelTheme *t, CGPoint c, doub
     CGPoint p = [t locationInView:self];
     if (bRevealing) _bPadHidden = 1;
     IOSTouch_TouchBegan((__bridge const void *)t, p.x, p.y, W, now, t.timestamp);
+  }
+  // (the touch log: a touch that came late, what in UIKit held it)
+  for (UITouch *t in touches) {
+    const double late = now - t.timestamp;
+    if (late < 0.15) continue;
+    NSMutableString *m = [NSMutableString string];
+    for (UIGestureRecognizer *g in t.gestureRecognizers)
+      [m appendFormat:@" [%@ on %@ state %d delays %d/%d cancels %d]", NSStringFromClass(g.class), NSStringFromClass(g.view.class),
+                      (int)g.state, (int)g.delaysTouchesBegan, (int)g.delaysTouchesEnded, (int)g.cancelsTouchesInView];
+    UIWindow *w = t.window;
+    printf("iOS: touch late %.0f ms: phase %d, view %s, window %s level %.0f key %d, %d windows; recognizers:%s\n", late * 1e3,
+           (int)t.phase, class_getName(t.view.class), class_getName(w.class), (double)w.windowLevel, (int)w.isKeyWindow,
+           (int)w.windowScene.windows.count, m.length ? m.UTF8String : " none");
   }
   [self refreshAll];
 }
