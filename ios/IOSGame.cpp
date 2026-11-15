@@ -550,20 +550,23 @@ void IOSGame_Frame()
 	// (the level screens left skipped by an earlier run)
 	if (framesDrawn == 1) RestoreLevelScreens();
 
-	// the tray's TEX: the textures' look (smooth: trilinear, the games'
-	// default; crisp: nearest up close, smooth in the distance; HD: every
-	// texture upscaled 4x by xBRZ, smooth or crisp). The upscaler's settings
-	// only change when they must: changing them remakes every texture.
+	// the tray's GRAPHICS: the textures' look (PIXELS smooth: trilinear, the
+	// games' default; sharp: nearest up close, smooth in the distance; DETAIL
+	// the game's own or every texture upscaled 2x, 4x or 6x by xBRZ). The
+	// upscaler's settings only change when they must: that remakes every
+	// texture.
 	{
 		static int texApplied = -1;
 		const int tex = IOSTouch_TexMode();
 		if (tex != texApplied)
 		{
 			texApplied = tex;
-			const int filter = (tex == 1 || tex == 3) ? 5 : 4;
-			const int hq = tex >= 2 ? 4 : 0;
+			static const int mults[4] = { 1, 2, 4, 6 };
+			const int filter = (tex & 1) ? 5 : 4;
+			const int mult = mults[(tex >> 1) & 3];
+			const int hq = mult > 1 ? 4 : 0;
 			if (gl_texture_filter != filter) gl_texture_filter = filter;
-			if (hq && gl_texture_hqresizemult != 4) gl_texture_hqresizemult = 4;
+			if (hq && gl_texture_hqresizemult != mult) gl_texture_hqresizemult = mult;
 			if (gl_texture_hqresizemode != hq) gl_texture_hqresizemode = hq;
 		}
 	}

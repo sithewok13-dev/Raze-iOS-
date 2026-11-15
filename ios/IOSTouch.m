@@ -1154,8 +1154,9 @@ static float _fLookScale = 1.0f;
 static float _fLookRing = 0.0f;
 static int _ctLookResets = 0;
 // The textures' look (the tray's GRAPHICS and its panel): bit 0 the
-// pixels sharp (else smooth, the games' default), bit 1 the detail HD (each
-// texture upscaled 4x by xBRZ; else the game's own); GRAPHICS held: both
+// pixels sharp (else smooth, the games' default), bits 1-2 the detail: 0 the
+// game's own, 1-3 each texture upscaled 2x, 4x, 6x by xBRZ (6x for the
+// owner's testing: a lot of memory); GRAPHICS held: both
 // back to the defaults (a ring); the game applies it (IOSTouch_TexMode)
 static int _iTexMode = 0;
 static int _bGfxOpen = 0; // its panel
@@ -1190,26 +1191,31 @@ int IOSTouch_TexMode(void)
 }
 
 // GRAPHICS' panel (tapped open under the tray; as HUD's): PIXELS (SMOOTH,
-// SHARP) and DETAIL (ORIGINAL, HD), each a row: its name at its left (a tap:
-// that row's default), two choices, and what the chosen one does
+// SHARP) and DETAIL (ORIGINAL, 2X, 4X, 6X), each a row: its name at its left
+// (a tap: that row's default), its choices, and what the chosen one does
 enum { IOSTOUCH_GFXROW_PIXELS = 0, IOSTOUCH_GFXROW_DETAIL, IOSTOUCH_GFXROWS };
 static int IOSTouch_GfxChoice(int row)
 {
-  return row == IOSTOUCH_GFXROW_PIXELS ? (_iTexMode & 1) : ((_iTexMode >> 1) & 1);
+  return row == IOSTOUCH_GFXROW_PIXELS ? (_iTexMode & 1) : ((_iTexMode >> 1) & 3);
+}
+static int IOSTouch_GfxChoices(int row)
+{
+  return row == IOSTOUCH_GFXROW_PIXELS ? 2 : 4;
 }
 void IOSTouch_ShowMessage(const char *str, double fSeconds);
 static int _ctGfxResets = 0; // (each a thump: the view's)
 static void IOSTouch_GfxPick(int row, int choice)
 {
-  if (row < 0 || row >= IOSTOUCH_GFXROWS || choice < 0 || choice > 1 || IOSTouch_GfxChoice(row) == choice) return;
-  const int bit = row == IOSTOUCH_GFXROW_PIXELS ? 1 : 2;
-  _iTexMode = choice ? (_iTexMode | bit) : (_iTexMode & ~bit);
-  if (row == IOSTOUCH_GFXROW_DETAIL && choice) IOSTouch_ShowMessage("HD: the textures are being redrawn, a moment", 2.0);
+  if (row < 0 || row >= IOSTOUCH_GFXROWS || choice < 0 || choice >= IOSTouch_GfxChoices(row) || IOSTouch_GfxChoice(row) == choice) return;
+  if (row == IOSTOUCH_GFXROW_PIXELS) _iTexMode = (_iTexMode & ~1) | choice;
+  else _iTexMode = (_iTexMode & 1) | (choice << 1);
+  if (row == IOSTOUCH_GFXROW_DETAIL && choice == 3) IOSTouch_ShowMessage("6x: the textures are being redrawn (a test: it uses a lot of memory)", 2.5);
+  else if (row == IOSTOUCH_GFXROW_DETAIL && choice) IOSTouch_ShowMessage("The textures are being redrawn, a moment", 2.0);
 }
 static void IOSTouch_GfxRowReset(int row)
 {
   if (row == IOSTOUCH_GFXROW_PIXELS) { _iTexMode &= ~1; IOSTouch_ShowMessage("PIXELS back to the default: smooth", 2.0); }
-  else if (row == IOSTOUCH_GFXROW_DETAIL) { _iTexMode &= ~2; IOSTouch_ShowMessage("DETAIL back to the default: original", 2.0); }
+  else if (row == IOSTOUCH_GFXROW_DETAIL) { _iTexMode &= 1; IOSTouch_ShowMessage("DETAIL back to the default: original", 2.0); }
   else return;
   _ctGfxResets++;
 }
@@ -4181,7 +4187,7 @@ void IOSTouch_TakeGyro(float *pfYaw, float *pfPitch)
 // ...and the look speed (MENU's tray's LOOK; never set: 1x)
 #define IOSTOUCH_LOOKSCALE_DEFAULTS_KEY @"iosTouchLookScale"
 #define IOSTOUCH_MAXFPS_DEFAULTS_KEY @"iosTouchMaxFps"
-#define IOSTOUCH_TEX_DEFAULTS_KEY @"iosTouchTexMode" // (the tray's TEX, 0-3)
+#define IOSTOUCH_TEX_DEFAULTS_KEY @"iosTouchGraphics" // (the tray's GRAPHICS: _iTexMode, 0-7)
 #define IOSTOUCH_OPACITY_DEFAULTS_KEY @"iosTouchOpacity"
 // ...and the HUD: its look (0 SPLIT, 1 STRIP, 2 CLASSIC, 3 NONE, 4
 // CLASSIC SPLIT, 5 CLASSIC STRIP), the face in it, its strength (OPACITY's
@@ -4443,7 +4449,7 @@ typedef struct {
   int iHudPanelKey;          // (what the rows were laid out for: -1 not yet)
   UIView *gfxBack;           // GRAPHICS' panel under the tray...
   UIButton *gfxRowName[IOSTOUCH_GFXROWS]; // ...its rows' names (a tap: that row's default)...
-  UIButton *gfxChip[IOSTOUCH_GFXROWS][2]; // ...their two choices...
+  UIButton *gfxChip[IOSTOUCH_GFXROWS][4]; // ...their choices...
   UILabel *gfxNote[IOSTOUCH_GFXROWS];     // ...and what the chosen one does
   int iGfxPanelKey, ctGfxResetsFelt;
   UIImpactFeedbackGenerator *hudTap; // (a choice tapped: a light tap)
@@ -4621,7 +4627,7 @@ static CAShapeLayer *IOSTouch_MakeHoldRing(CGFloat r)
     ctLookResetsFelt = _ctLookResets;
     // TEX says the textures' look, goes back to smooth held (its ring)
     _iTexMode = (int)[dLook integerForKey:IOSTOUCH_TEX_DEFAULTS_KEY];
-    if (_iTexMode < 0 || _iTexMode > 3) _iTexMode = 0;
+    if (_iTexMode < 0 || _iTexMode > 7) _iTexMode = 0;
     iTexSaved = _iTexMode;
     aButtonViews[BTN_TRAYGFX].text = @"GRAPHICS"; // (its own size: one line)
     aButtonViews[BTN_TRAYGFX].font = IOSTouch_TrayFont(IOSTouch_FontSize("GRAPHICS", _aButtons[BTN_TRAYGFX].radius));
@@ -4723,7 +4729,7 @@ static CAShapeLayer *IOSTouch_MakeHoldRing(CGFloat r)
     gfxBack.layer.borderColor = opacityBack.layer.borderColor;
     gfxBack.hidden = YES;
     static NSString *const astrGfxRows[IOSTOUCH_GFXROWS] = { @"PIXELS", @"DETAIL" };
-    static NSString *const astrGfxChips[IOSTOUCH_GFXROWS][2] = { { @"SMOOTH", @"SHARP" }, { @"ORIGINAL", @"HD" } };
+    static NSString *const astrGfxChips[IOSTOUCH_GFXROWS][4] = { { @"SMOOTH", @"SHARP" }, { @"ORIGINAL", @"2X", @"4X", @"6X" } };
     for (int row = 0; row < IOSTOUCH_GFXROWS; row++) {
       UIButton *name = [UIButton buttonWithType:UIButtonTypeCustom];
       [name setTitle:astrGfxRows[row] forState:UIControlStateNormal];
@@ -4736,7 +4742,7 @@ static CAShapeLayer *IOSTouch_MakeHoldRing(CGFloat r)
       [name addTarget:self action:@selector(gfxRowNameTapped:) forControlEvents:UIControlEventTouchUpInside];
       [gfxBack addSubview:name];
       gfxRowName[row] = name;
-      for (int j = 0; j < 2; j++) {
+      for (int j = 0; j < IOSTouch_GfxChoices(row); j++) {
         UIButton *chip = [UIButton buttonWithType:UIButtonTypeCustom];
         [chip setTitle:astrGfxChips[row][j] forState:UIControlStateNormal];
         [chip setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
@@ -5268,22 +5274,25 @@ static UIBezierPath *IOSTouch_AnkhPath(CGFloat cx, CGFloat cy, CGFloat r)
   const int key = (int)w * 8 + _iTexMode;
   if (key == iGfxPanelKey) return;
   iGfxPanelKey = key;
-  static NSString *const astrNotes[IOSTOUCH_GFXROWS][2] = {
+  static NSString *const astrNotes[IOSTOUCH_GFXROWS][4] = {
     { @"Blended, a little soft up close", @"Blocky pixels, as the original game" },
-    { @"The game's own textures", @"Textures redrawn at 4x detail, cleaner edges" } };
-  const CGFloat rowH = IOSTOUCH_GFX_ROW_H, x0 = IOSTOUCH_OPACITY_LABEL_W, cw = 104.0;
+    { @"The game's own textures", @"Textures redrawn at 2x detail, smoother edges",
+      @"Textures redrawn at 4x detail, cleaner edges", @"6x detail: a test, uses a lot of memory" } };
+  const CGFloat rowH = IOSTOUCH_GFX_ROW_H, x0 = IOSTOUCH_OPACITY_LABEL_W, chipsW = 280.0;
   CGFloat y = IOSTOUCH_OPACITY_PANEL_PAD;
   for (int row = 0; row < IOSTOUCH_GFXROWS; row++) {
     const int sel = IOSTouch_GfxChoice(row);
     gfxRowName[row].frame = CGRectMake(14, y, x0 - 18, rowH);
-    for (int j = 0; j < 2; j++) {
+    const int n = IOSTouch_GfxChoices(row);
+    const CGFloat cw = chipsW / n;
+    for (int j = 0; j < n; j++) {
       UIButton *c = gfxChip[row][j];
       c.frame = CGRectMake(x0 + j * cw + 3, y + 8, cw - 6, rowH - 16);
       const int bOn = j == sel;
       c.backgroundColor = bOn ? [UIColor colorWithRed:1.0 green:0.75 blue:0.24 alpha:0.45] : [UIColor colorWithWhite:1.0 alpha:0.1];
       c.layer.borderColor = (bOn ? [UIColor colorWithRed:1.0 green:0.78 blue:0.31 alpha:1.0] : [UIColor colorWithWhite:1.0 alpha:0.45]).CGColor;
     }
-    const CGFloat nx = x0 + 2 * cw + 10;
+    const CGFloat nx = x0 + chipsW + 10;
     gfxNote[row].frame = CGRectMake(nx, y, fmax(w - nx - 14, 40), rowH);
     gfxNote[row].text = astrNotes[row][sel];
     y += rowH;

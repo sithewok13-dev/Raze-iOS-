@@ -343,10 +343,11 @@ the open MENU tray.
     stamp under it.
   - GRAPHICS: tap = its panel under the tray (as HUD's: dark, rounded,
     chips): PIXELS (SMOOTH, the default / SHARP: `gl_texture_filter` 4 / 5)
-    and DETAIL (ORIGINAL / HD: xBRZ 4x, `gl_texture_hqresizemode`), each
-    with a line saying what the chosen one does; a row's name = its
-    default; held 0.45 s = both defaults. Kept (`iosTouchTexMode`, bit 0
-    sharp, bit 1 HD). Opening it closes HUD's panel and back.
+    and DETAIL (ORIGINAL / 2X / 4X / 6X: xBRZ, `gl_texture_hqresizemode`
+    4 and `gl_texture_hqresizemult`; 6X is for the owner's test, to go
+    once tried), each with a line saying what the chosen one does; a
+    row's name = its default; held 0.45 s = both defaults. Kept
+    (`iosTouchGraphics`: bit 0 sharp, bits 1-2 the detail). Opening it closes HUD's panel and back.
   - LOOK: the drag's look speed ("LOOK 1x"); a tap steps 0.5, 0.75, 1,
     1.25, 1.5, 2, 2.5, 3x; held 0.45 s (ring) back to 1x. Remembered.
   - GYRO: OFF (default) / TOUCH (aims while either thumb is down) / ALWAYS.
