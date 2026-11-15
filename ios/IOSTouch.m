@@ -631,7 +631,7 @@ static float _fHudOpacity = 1.0f;
 // game's own scale), each remembered; medium and normal unless changed
 static int _iHudSize = 1, _iHudBarSize = 1;
 static const double _afPillSize[3] = { 30.6 / 39.8, 1.0, 1.3 };
-#define IOSTOUCH_BAR_SMALL 0.75
+static const double _afBarScale[3] = { 0.6, 0.75, 1.0 }; // the classic bars: small, medium (default), large (the game's own)
 static int IOSTouch_HudIsPills(int style) { return style == IOSTOUCH_HUD_SPLIT || style == IOSTOUCH_HUD_STRIP; }
 static int IOSTouch_HudIsBar(int style)
 {
@@ -647,7 +647,7 @@ static void IOSTouch_HudPrefs(void)
   if (_iHudStyle < 0 || _iHudStyle >= IOSTOUCH_HUD_COUNT) _iHudStyle = IOSTOUCH_HUD_SPLIT;
   _bHudFace = _bHudFace != 0;
   if (_iHudSize < 0 || _iHudSize > 2) _iHudSize = 1;
-  if (_iHudBarSize < 0 || _iHudBarSize > 1) _iHudBarSize = 1;
+  if (_iHudBarSize < 0 || _iHudBarSize > 2) _iHudBarSize = 1;
   if (!(_fHudOpacity >= 0.2f && _fHudOpacity <= 1.0f)) _fHudOpacity = 1.0f;
 }
 
@@ -1077,7 +1077,7 @@ void IOSTouch_GetHudLayout(IOSTouchHudLayout *p)
     p->fLeft = 0.023f;
     p->fRight = 0.977f;
     p->fStripHalf = 0.3f;
-    p->fBarScale = (float)(_iHudBarSize ? 1.0 : IOSTOUCH_BAR_SMALL);
+    p->fBarScale = (float)_afBarScale[_iHudBarSize];
     p->fMsgTop = 0.125f;
     p->fMsgLeft = 0.065f;
     return;
@@ -1089,7 +1089,7 @@ void IOSTouch_GetHudLayout(IOSTouchHudLayout *p)
   p->fStripHalf = (float)(_fStripHalf / _fPillW);
   p->fMsgTop = (float)(_fMsgTop / _fPillScreenH);
   p->fMsgLeft = (float)(_fMsgLeft / _fPillW);
-  p->fBarScale = (float)(_iHudBarSize ? 1.0 : IOSTOUCH_BAR_SMALL);
+  p->fBarScale = (float)_afBarScale[_iHudBarSize];
 }
 
 // ---------------------------------------------------------------- touches
@@ -1237,7 +1237,7 @@ static void IOSTouch_HudPick(int row, int choice)
   IOSTouch_HudPrefs();
   if (row == IOSTOUCH_HUDROW_LOOK && choice >= 0 && choice < 6) _iHudStyle = _aiHudLooks[choice];
   else if (row == IOSTOUCH_HUDROW_SIZE && IOSTouch_HudIsPills(_iHudStyle) && choice >= 0 && choice <= 2) _iHudSize = choice;
-  else if (row == IOSTOUCH_HUDROW_SIZE && IOSTouch_HudRowShown(row) && choice >= 0 && choice <= 1) _iHudBarSize = choice;
+  else if (row == IOSTOUCH_HUDROW_SIZE && IOSTouch_HudRowShown(row) && choice >= 0 && choice <= 2) _iHudBarSize = choice;
   else if (row == IOSTOUCH_HUDROW_FACE && IOSTouch_HudRowShown(row) && choice >= 0 && choice <= 1) _bHudFace = (choice == 0);
   else return;
   IOSTouch_SaveHudPrefs();
@@ -5054,7 +5054,7 @@ static UIBezierPath *IOSTouch_AnkhPath(CGFloat cx, CGFloat cy, CGFloat r)
     hudRowName[row].hidden = !bShown;
     hudRowName[row].frame = CGRectMake(14, y, x0 - 18, rowH);
     if (row <= IOSTOUCH_HUDROW_FACE) {
-      const int n = row == IOSTOUCH_HUDROW_LOOK ? 6 : row == IOSTOUCH_HUDROW_FACE ? 2 : (bPills ? 3 : 2);
+      const int n = row == IOSTOUCH_HUDROW_LOOK ? 6 : row == IOSTOUCH_HUDROW_FACE ? 2 : 3;
       const int sel = row == IOSTOUCH_HUDROW_LOOK ? iLook : row == IOSTOUCH_HUDROW_FACE ? (_bHudFace ? 0 : 1)
                     : (bPills ? _iHudSize : _iHudBarSize);
       const CGFloat cw = row == IOSTOUCH_HUDROW_LOOK ? avail / 6.0 : fmin(avail / 3.0, 120.0);
@@ -5063,7 +5063,7 @@ static UIBezierPath *IOSTouch_AnkhPath(CGFloat cx, CGFloat cy, CGFloat r)
         c.hidden = !bShown || j >= n;
         if (c.hidden) continue;
         if (row == IOSTOUCH_HUDROW_SIZE)
-          [c setTitle:(bPills ? astrPills[j] : (j ? @"NORMAL" : @"SMALL")) forState:UIControlStateNormal];
+          [c setTitle:astrPills[j] forState:UIControlStateNormal];
         c.frame = CGRectMake(x0 + j * cw + 3, y + 5, cw - 6, rowH - 10);
         const int bOn = j == sel;
         c.backgroundColor = bOn ? [UIColor colorWithRed:1.0 green:0.75 blue:0.24 alpha:0.45] : [UIColor colorWithWhite:1.0 alpha:0.1];

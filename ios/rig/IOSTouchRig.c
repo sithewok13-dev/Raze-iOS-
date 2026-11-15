@@ -296,7 +296,7 @@ static void RigRun(double t)
     else if (!strcmp(cmd, "hudsize")) {
       IOSTouch_HudPrefs();
       if (IOSTouch_HudIsPills(_iHudStyle)) _iHudSize = !strcmp(a, "small") ? 0 : !strcmp(a, "large") ? 2 : 1;
-      else if (_iHudStyle == IOSTOUCH_HUD_CSPLIT || _iHudStyle == IOSTOUCH_HUD_CSTRIP) _iHudBarSize = strcmp(a, "small") != 0;
+      else if (_iHudStyle == IOSTOUCH_HUD_CSPLIT || _iHudStyle == IOSTOUCH_HUD_CSTRIP) _iHudBarSize = !strcmp(a, "small") ? 0 : !strcmp(a, "medium") ? 1 : 2; // (normal: large)
       IOSTouch_SaveHudPrefs();
       RigLog("hud size: pills %d bars %d", _iHudSize, _iHudBarSize);
     }

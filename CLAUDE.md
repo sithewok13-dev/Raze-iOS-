@@ -129,12 +129,12 @@ Six looks (`IOSTOUCH_HUD_*`, kept values: SPLIT 0, STRIP 1, CLASSIC 2, NONE
 3, CLASSIC SPLIT 4, CLASSIC STRIP 5), in the panel's order SPLIT, STRIP,
 CLASSIC SPLIT, CLASSIC STRIP, CLASSIC, NONE (default SPLIT). SIZE: the
 pills small / medium / large (30.6, 39.8, 51.7 pt at 440 pt high; default
-medium), the classic bars small / normal (0.75 of the game's own scale, or
-it; default normal); CLASSIC and NONE one size. FACE (default on) only for
+medium), the classic bars small / medium / large (0.6, 0.75 of the game's
+own scale, or it; default medium); CLASSIC and NONE one size. FACE (default on) only for
 the pills, and only where the game's own status bar has a face: Redneck
 (Leonard's head; Duke's face doesn't go in the HUD, the owner's call); the
 classic bars always show their face. Remembered (`iosTouchHud`,
-`iosTouchHudFace`, `iosTouchHudSize` 0-2, `iosTouchHudBarSize` 0-1,
+`iosTouchHudFace`, `iosTouchHudSize` 0-2, `iosTouchHudBarSize` 0-2,
 `iosTouchHudOpacity`, `iosTouchOpacity`; the rig's `$HOME/.iosrig-hud`).
 
 - The tray's HUD (its label the look: "HUD\nSPLIT", "CLASSIC\nSPLIT"...,
@@ -184,8 +184,8 @@ classic bars always show their face. Remembered (`iosTouchHud`,
   gauges (128-170 + 229-320 = 133; 170 is just past KEYS' box shadow, so
   the join is wood to wood); PowerSlave cut at 145, before
   the compass (145 | 175: its four glyphs are the keys, and the item shows
-  on the magic pool, so nothing is left out). FIRE keeps 10 pt above the pieces' real top. SIZE small: the status bar's scale
-  times 0.75 while it is drawn (`Raze.IOSBarScale`, `iosBarScale` in
+  on the magic pool, so nothing is left out). FIRE keeps 10 pt above the pieces' real top. SIZE small / medium: the status bar's scale
+  times 0.6 / 0.75 while it is drawn (`Raze.IOSBarScale`, `iosBarScale` in
   `base_sbar.cpp`). Its top as drawn goes to the overlay
   (`Raze.IOSBarTop`, `IOSGame_SetBarTop`). The HUD slider fades it, numbers
   and all (the status bar's `Alpha`; its text follows it too:
