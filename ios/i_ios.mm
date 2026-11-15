@@ -748,7 +748,7 @@ __attribute__((constructor(102))) static void IOS_LogDocuments()
 }
 
 // ---------------------------------------------------------------- touch check
-// (a test-build check) every touch on every screen as UIKit hands it to the
+// (kept in every build: cheap, one subtraction a touch) every touch on every screen as UIKit hands it to the
 // app: how late it came (now - UITouch.timestamp). A summary every 5 s with
 // touches, and a line for each one 150 ms late or more: the "touches held
 // back" problem (CLAUDE.md) shows there first, menus included.

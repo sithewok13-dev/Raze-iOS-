@@ -53,7 +53,10 @@ repository or anywhere public.
   asking SDL for events every frame). Signs: touches arriving seconds
   late in bursts, "moved but no turn", menus not answering. A touch log
   (each touch's lateness, `UITouch.timestamp` vs now) found it: branch
-  `ios-touchlog`.
+  `ios-touchlog`. Every build keeps a light check of it (`i_ios.mm`,
+  `UIApplication sendEvent:`, every screen): "touch check: a touch N ms
+  late" for each one 150 ms late or more, and a summary every 5 s with
+  touches.
 - **iOS code:** `ios/`: `i_ios.mm` (main, paths, the log, alerts, the frame
   pace `IOS_FrameCap`), `IOSPacer.h`, `IOSPicker.mm`, `IOSTouch.m`/`.h` (the overlay: a C
   core plus a UIKit view), `IOSGame.cpp`/`.h` (the game side for every
