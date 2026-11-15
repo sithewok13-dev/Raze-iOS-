@@ -44,6 +44,16 @@ repository or anywhere public.
   rig's `frames` and `lookstats` commands print its frame rate and the
   look line. (The display link's ticks can't measure the screen: build
   86's "the screen runs at 5 Hz" was that.)
+- **Touches held back (Nov 2026, fixed):** the pace's wait between frames
+  must run the main run loop (`CFRunLoopRunInMode` until the frame's time,
+  in `IOS_FrameCap`), never sleep the main thread (`nanosleep`). Asleep,
+  UIKit never saw the main thread idle and held touches back for seconds,
+  up to a minute, in the menus and the first minute after a level started,
+  then let them all through at once (the game kept drawing at 60 fps and
+  asking SDL for events every frame). Signs: touches arriving seconds
+  late in bursts, "moved but no turn", menus not answering. A touch log
+  (each touch's lateness, `UITouch.timestamp` vs now) found it: branch
+  `ios-touchlog`.
 - **iOS code:** `ios/`: `i_ios.mm` (main, paths, the log, alerts, the frame
   pace `IOS_FrameCap`), `IOSPacer.h`, `IOSPicker.mm`, `IOSTouch.m`/`.h` (the overlay: a C
   core plus a UIKit view), `IOSGame.cpp`/`.h` (the game side for every
