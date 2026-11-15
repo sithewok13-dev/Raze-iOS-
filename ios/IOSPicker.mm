@@ -195,8 +195,10 @@ static int TapTarget(int fam)
 	if (art)
 	{
 		badge.contentMode = UIViewContentModeScaleAspectFit;
+		// the pictures are 512 x 640: the emblem in the top square, room under it
+		// for what hangs below (Blood's drip), which is left out of the layout
 		[badge.widthAnchor constraintEqualToConstant:34].active = YES;
-		[badge.heightAnchor constraintEqualToConstant:34].active = YES;
+		[badge.heightAnchor constraintEqualToConstant:34 * 1.25].active = YES;
 	}
 	[self addSubview:badge];
 
@@ -235,16 +237,22 @@ static int TapTarget(int fam)
 	text.translatesAutoresizingMaskIntoConstraints = NO;
 	[self addSubview:text];
 
+	UILayoutGuide* square = [[UILayoutGuide alloc] init];	// where the emblem's square goes
+	[self addLayoutGuide:square];
 	NSMutableArray* cons = [NSMutableArray arrayWithArray:@[
 		[badge.leadingAnchor constraintEqualToAnchor:self.leadingAnchor constant:14],
 		[badge.topAnchor constraintEqualToAnchor:self.topAnchor constant:14],
-		[emblem.trailingAnchor constraintEqualToAnchor:self.trailingAnchor constant:24],
-		[emblem.bottomAnchor constraintEqualToAnchor:self.bottomAnchor constant:20],
-		[emblem.widthAnchor constraintEqualToAnchor:self.widthAnchor multiplier:art ? 0.95 : 0.85],
-		[emblem.heightAnchor constraintEqualToAnchor:emblem.widthAnchor],
+		[square.trailingAnchor constraintEqualToAnchor:self.trailingAnchor constant:24],
+		[square.bottomAnchor constraintEqualToAnchor:self.bottomAnchor constant:20],
+		[square.widthAnchor constraintEqualToAnchor:self.widthAnchor multiplier:art ? 0.95 : 0.85],
+		[square.heightAnchor constraintEqualToAnchor:square.widthAnchor],
+		[emblem.leadingAnchor constraintEqualToAnchor:square.leadingAnchor],
+		[emblem.topAnchor constraintEqualToAnchor:square.topAnchor],
+		[emblem.widthAnchor constraintEqualToAnchor:square.widthAnchor],
+		[emblem.heightAnchor constraintEqualToAnchor:square.widthAnchor multiplier:art ? 1.25 : 1.0],
 		[text.leadingAnchor constraintEqualToAnchor:self.leadingAnchor constant:14],
 		[text.trailingAnchor constraintEqualToAnchor:self.trailingAnchor constant:-12],
-		[text.topAnchor constraintEqualToAnchor:badge.bottomAnchor constant:10],
+		art ? [text.topAnchor constraintEqualToAnchor:badge.topAnchor constant:34 + 10] : [text.topAnchor constraintEqualToAnchor:badge.bottomAnchor constant:10],
 		[text.bottomAnchor constraintEqualToAnchor:self.bottomAnchor constant:-12],
 	]];
 	if (_iLast >= 0 && _iLast < _ctEntries && FamilyOf(_aEntries[_iLast].flags) == fam)
