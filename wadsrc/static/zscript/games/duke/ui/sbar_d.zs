@@ -513,11 +513,20 @@ class DukeStatusBar : DukeCommonStatusBar
 	// before its pillar), the pillar before KEYS, KEYS and its right end
 	override void IOSBarDraw() { Statusbar(Duke.GetViewPlayer()); }
 	override double IOSBarHeight() { return IOSBarH("BOTTOMSTATUSBAR"); }
-	override double, double IOSBarSpan() { double a, b; [a, b] = IOSBarCentred("BOTTOMSTATUSBAR"); return a, b; }
+	// the bar's ends run 12 past its 320 core where the picture is wider (as
+	// CLASSIC shows it): the curves at the ends land on the flat metal
+	// instead of being cut off (the owner's call)
+	override double, double IOSBarSpan()
+	{
+		Vector2 v = TexMan.GetScaledSize(TexMan.CheckForTexture("BOTTOMSTATUSBAR", TexMan.Type_Any));
+		return max(160 - v.X / 2, -12), min(160 + v.X / 2, 332);
+	}
 	override void IOSBarPieces()
 	{
-		IOSBarPiece(0, 0, 79); IOSBarPiece(0, 302, 320);
-		IOSBarPiece(1, 0, 17); IOSBarPiece(1, 190, 222.5); IOSBarPiece(1, 268.5, 320);
+		double a, b;
+		[a, b] = IOSBarSpan();
+		IOSBarPiece(0, a, 79); IOSBarPiece(0, 302, b);
+		IOSBarPiece(1, a, 17); IOSBarPiece(1, 190, 222.5); IOSBarPiece(1, 268.5, b);
 	}
 
 	override void IOSHudParts(bool face)

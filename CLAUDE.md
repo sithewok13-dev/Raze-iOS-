@@ -186,9 +186,12 @@ classic bars always show their face. Remembered (`iosTouchHud`,
   (`IOSBarPieces`/`IOSBarPiece`: side, from-to across, top; the default
   cuts at `IOSBarCut`), the weapons' list and the item box left out (the
   wheel shows the ammo, the item buttons the items; the owner's calls), in
-  the bar's 320 units: Duke HEALTH + ARMOR with both bar ends (0-79 +
-  302-320 = 97) | an end + AMMO, the pillar before KEYS, KEYS + an end
-  (0-17 + 190-222.5 + 268.5-320 = 101); Shadow Warrior the same (0-87.5 +
+  the bar's 320 units: Duke HEALTH + ARMOR with both bar ends (-12-79 +
+  302-332 = 121) | an end + AMMO, the pillar before KEYS, KEYS + an end
+  (-12-17 + 190-222.5 + 268.5-332 = 125): Duke's bar runs 12 past its
+  320 core at each end, STRIP too (`IOSBarSpan`, as CLASSIC shows the wider
+  picture), so the curves at the ends land on the flat metal (the owner's
+  call; cut at the core they ended in mid-air); Shadow Warrior the same (0-87.5 +
   300-320 = 107.5 | 0-18 + 187-222.5 + 268-320 = 105.5); Blood gargoyle,
   armour, health and its skull (0-123.5) | the other skull, ammo, keys,
   gargoyle (192.5-254 + 276-320 = 105.5); Redneck without the weapon row
