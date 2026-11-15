@@ -194,7 +194,7 @@ classic bars always show their face. Remembered (`iosTouchHud`,
   end. Duke's bar runs 12 past its
   320 core at each end, STRIP too (`IOSBarSpan`, as CLASSIC shows the wider
   picture), so the curves at the ends land on the flat metal (the owner's
-  call; cut at the core they ended in mid-air); Shadow Warrior the same (0-87.5 +
+  call; cut at the core they ended in mid-air); Shadow Warrior HEALTH + ARMOR with both ends | an end, AMMO, the pillar, KEYS, an end (0-87.5 +
   300-320 = 107.5 | 0-18 + 187-222.5 + 268-320 = 105.5); Blood gargoyle,
   armour, health and its skull (0-123.5) | the other skull, ammo, keys,
   gargoyle (192.5-254 + 276-320 = 105.5); Redneck without the weapon row
