@@ -15,6 +15,7 @@
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
 #import <AVFoundation/AVFoundation.h>
+#import <QuartzCore/QuartzCore.h>
 #include "SDL.h"
 #include "SDL_syswm.h"
 
@@ -744,4 +745,49 @@ __attribute__((constructor(102))) static void IOS_LogDocuments()
 	printf("Documents: %s, %d items\n", docs.UTF8String, (int)items.count);
 	for (NSString* name in items) printf("  %s\n", name.UTF8String);
 	fflush(stdout);
+}
+
+// ---------------------------------------------------------------- touch check
+// (a test-build check) every touch on every screen as UIKit hands it to the
+// app: how late it came (now - UITouch.timestamp). A summary every 5 s with
+// touches, and a line for each one 150 ms late or more: the "touches held
+// back" problem (CLAUDE.md) shows there first, menus included.
+static IMP iosSendEventOrig = nullptr;
+static double iosTouchCheckStart = 0, iosTouchCheckWorst = 0;
+static int iosTouchCheckDowns = 0, iosTouchCheckLate = 0;
+static void IOS_SendEventChecked(id self, SEL cmd, UIEvent* event)
+{
+	if (event.type == UIEventTypeTouches)
+	{
+		const double now = CACurrentMediaTime();
+		for (UITouch* t in event.allTouches)
+		{
+			if (t.phase != UITouchPhaseBegan) continue;
+			const double late = now - t.timestamp;
+			iosTouchCheckDowns++;
+			if (late > iosTouchCheckWorst) iosTouchCheckWorst = late;
+			if (late >= 0.15)
+			{
+				iosTouchCheckLate++;
+				printf("iOS: touch check: a touch %.0f ms late (%s)\n", late * 1e3, class_getName([t.view class]));
+			}
+		}
+		if (iosTouchCheckStart <= 0) iosTouchCheckStart = now;
+		if (now - iosTouchCheckStart >= 5.0 && iosTouchCheckDowns)
+		{
+			printf("iOS: touch check: %d touches in %.0f s, %d late, the latest %.0f ms\n", iosTouchCheckDowns,
+				now - iosTouchCheckStart, iosTouchCheckLate, iosTouchCheckWorst * 1e3);
+			fflush(stdout);
+			iosTouchCheckStart = now;
+			iosTouchCheckDowns = iosTouchCheckLate = 0;
+			iosTouchCheckWorst = 0;
+		}
+	}
+	((void (*)(id, SEL, UIEvent*))iosSendEventOrig)(self, cmd, event);
+}
+
+__attribute__((constructor(103))) static void IOS_TouchCheckInstall()
+{
+	Method m = class_getInstanceMethod([UIApplication class], @selector(sendEvent:));
+	if (m) iosSendEventOrig = method_setImplementation(m, (IMP)IOS_SendEventChecked);
 }
