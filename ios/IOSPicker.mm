@@ -195,8 +195,8 @@ static int TapTarget(int fam)
 	if (art)
 	{
 		badge.contentMode = UIViewContentModeScaleAspectFit;
-		[badge.widthAnchor constraintEqualToConstant:30].active = YES;
-		[badge.heightAnchor constraintEqualToConstant:30].active = YES;
+		[badge.widthAnchor constraintEqualToConstant:34].active = YES;
+		[badge.heightAnchor constraintEqualToConstant:34].active = YES;
 	}
 	[self addSubview:badge];
 
@@ -240,7 +240,7 @@ static int TapTarget(int fam)
 		[badge.topAnchor constraintEqualToAnchor:self.topAnchor constant:14],
 		[emblem.trailingAnchor constraintEqualToAnchor:self.trailingAnchor constant:24],
 		[emblem.bottomAnchor constraintEqualToAnchor:self.bottomAnchor constant:20],
-		[emblem.widthAnchor constraintEqualToAnchor:self.widthAnchor multiplier:0.85],
+		[emblem.widthAnchor constraintEqualToAnchor:self.widthAnchor multiplier:art ? 0.95 : 0.85],
 		[emblem.heightAnchor constraintEqualToAnchor:emblem.widthAnchor],
 		[text.leadingAnchor constraintEqualToAnchor:self.leadingAnchor constant:14],
 		[text.trailingAnchor constraintEqualToAnchor:self.trailingAnchor constant:-12],
