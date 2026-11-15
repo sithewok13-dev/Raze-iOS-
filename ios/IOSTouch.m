@@ -195,7 +195,7 @@ enum {
   KIND_CHEAT,    // CHEAT: held IOSTOUCH_CHEAT_HOLD, the cheat on or off; a tap does nothing
   KIND_CHEATSWITCH, // (MENU's tray) shows CHEAT and switches the cheat on, or leaves cheat mode, when the touch lifts on it
   KIND_LEVELPICK,// (MENU's tray, the cheat on) opens the list of levels, when the touch lifts on it
-  KIND_TEX,      // (MENU's tray) the textures' next look (smooth, crisp, HD, HD crisp), when the touch lifts on it; held IOSTOUCH_MENU_HOLD, back to smooth
+  KIND_GFX,      // (MENU's tray: GRAPHICS) opens or closes its panel under the tray (PIXELS, DETAIL), when the touch lifts on it; held IOSTOUCH_MENU_HOLD, both back to the defaults
   KIND_LOOKSPEED,// (MENU's tray) the next look speed, when the touch lifts on it; held IOSTOUCH_MENU_HOLD, back to 1x
   KIND_GAMES,    // (MENU's tray) "Switch game" (ios/IOSPicker.mm), when the touch lifts on it
   KIND_OPACITY,  // (MENU's tray: HUD) opens or closes its panel under the tray (LOOK, SIZE, FACE, the HUD's and the buttons' opacity), when the touch lifts on it; held IOSTOUCH_MENU_HOLD, all back to the defaults
@@ -243,7 +243,7 @@ enum {
   BTN_CHEAT,
   BTN_ITEM0, BTN_ITEM1, BTN_ITEM2, BTN_ITEM3, BTN_ITEM4, BTN_ITEM5, // the item buttons, top row (IOSTouch_PlaceItems)
   BTN_RESUME,
-  BTN_TRAYLOOK, BTN_TRAYSENS, BTN_TRAYGYRO, BTN_TRAYFPS, BTN_TRAYHUD, BTN_TRAYTEX, BTN_TRAYCAM, BTN_TRAYCHEAT, BTN_TRAYLEVEL, BTN_TRAYGAMES, BTN_TRAYKEYS, // MENU's tray (left to right), hidden unless it is open
+  BTN_TRAYLOOK, BTN_TRAYSENS, BTN_TRAYGYRO, BTN_TRAYFPS, BTN_TRAYHUD, BTN_TRAYGFX, BTN_TRAYCAM, BTN_TRAYCHEAT, BTN_TRAYLEVEL, BTN_TRAYGAMES, BTN_TRAYKEYS, // MENU's tray (left to right), hidden unless it is open
   BTN_COUNT
 };
 static IOSTouchButton _aButtons[] = {
@@ -267,7 +267,7 @@ static IOSTouchButton _aButtons[] = {
   [BTN_ITEM5]     = { "",            KIND_USEITEM,  0,                      22.0, 0, SHOW_PLAY },
   [BTN_RESUME]    = { "RESUME",      KIND_TAP,      IOSTOUCH_REQ_RESUME,    44.0, 0, SHOW_PAUSE },
   [BTN_TRAYLOOK]  = { "LOOK",        KIND_LOOKSPEED, 0,                     20.0, 0, SHOW_ALL },
-  [BTN_TRAYTEX]   = { "TEX",         KIND_TEX,      0,                      20.0, 0, SHOW_ALL },
+  [BTN_TRAYGFX]   = { "GRAPHICS",    KIND_GFX,      0,                      20.0, 0, SHOW_ALL },
   [BTN_TRAYSENS]  = { "SENS",        KIND_GYROSENS, 0,                      20.0, 0, SHOW_ALL },
   [BTN_TRAYGYRO]  = { "GYRO",        KIND_GYRO,     0,                      20.0, 0, SHOW_ALL },
   [BTN_TRAYFPS]   = { "FPS",         KIND_FPS,      0,                      20.0, 0, SHOW_ALL },
@@ -1153,10 +1153,12 @@ static int _bTrayOpen = 0;                 // MENU's tray
 static float _fLookScale = 1.0f;
 static float _fLookRing = 0.0f;
 static int _ctLookResets = 0;
-// The textures' look (the tray's TEX): 0 smooth (the games' default), 1
-// crisp pixels, 2 HD (each texture upscaled 4x by xBRZ, smooth), 3 HD crisp;
-// TEX held back to smooth (a ring); the game applies it (IOSTouch_TexMode)
+// The textures' look (the tray's GRAPHICS and its panel): bit 0 the
+// pixels sharp (else smooth, the games' default), bit 1 the detail HD (each
+// texture upscaled 4x by xBRZ; else the game's own); GRAPHICS held: both
+// back to the defaults (a ring); the game applies it (IOSTouch_TexMode)
 static int _iTexMode = 0;
+static int _bGfxOpen = 0; // its panel
 static float _fTexRing = 0.0f;
 static int _ctTexResets = 0;
 static int _bShowFps = 0;                  // the FPS readout (the view keeps it in the app's settings)
@@ -1186,7 +1188,31 @@ int IOSTouch_TexMode(void)
 {
   return _iTexMode;
 }
-static const char *const _astrTexNames[4] = { "smooth", "crisp pixels", "HD (upscaled, smooth)", "HD crisp (upscaled, sharp)" };
+
+// GRAPHICS' panel (tapped open under the tray; as HUD's): PIXELS (SMOOTH,
+// SHARP) and DETAIL (ORIGINAL, HD), each a row: its name at its left (a tap:
+// that row's default), two choices, and what the chosen one does
+enum { IOSTOUCH_GFXROW_PIXELS = 0, IOSTOUCH_GFXROW_DETAIL, IOSTOUCH_GFXROWS };
+static int IOSTouch_GfxChoice(int row)
+{
+  return row == IOSTOUCH_GFXROW_PIXELS ? (_iTexMode & 1) : ((_iTexMode >> 1) & 1);
+}
+void IOSTouch_ShowMessage(const char *str, double fSeconds);
+static int _ctGfxResets = 0; // (each a thump: the view's)
+static void IOSTouch_GfxPick(int row, int choice)
+{
+  if (row < 0 || row >= IOSTOUCH_GFXROWS || choice < 0 || choice > 1 || IOSTouch_GfxChoice(row) == choice) return;
+  const int bit = row == IOSTOUCH_GFXROW_PIXELS ? 1 : 2;
+  _iTexMode = choice ? (_iTexMode | bit) : (_iTexMode & ~bit);
+  if (row == IOSTOUCH_GFXROW_DETAIL && choice) IOSTouch_ShowMessage("HD: the textures are being redrawn, a moment", 2.0);
+}
+static void IOSTouch_GfxRowReset(int row)
+{
+  if (row == IOSTOUCH_GFXROW_PIXELS) { _iTexMode &= ~1; IOSTouch_ShowMessage("PIXELS back to the default: smooth", 2.0); }
+  else if (row == IOSTOUCH_GFXROW_DETAIL) { _iTexMode &= ~2; IOSTouch_ShowMessage("DETAIL back to the default: original", 2.0); }
+  else return;
+  _ctGfxResets++;
+}
 
 static float IOSTouch_OpacityStep(float k)
 {
@@ -1235,6 +1261,21 @@ static IOSTouchRect IOSTouch_OpacityPanel(void)
   const double w = fmin(IOSTOUCH_OPACITY_PANEL_W, right - left);
   const double h = IOSTouch_HudRowsShown() * IOSTOUCH_OPACITY_ROW_H + 2 * IOSTOUCH_OPACITY_PANEL_PAD;
   const IOSTouchButton *o = &_aButtons[BTN_TRAYHUD];
+  const double cx = fmax(fmin(o->x, right - w * 0.5), left + w * 0.5);
+  double y0 = o->y + o->radius + 10.0;
+  y0 = fmin(y0, _fLaidH - fmax(_fLaidInB, 8.0) - h);
+  IOSTouchRect r = { 1, round(cx - w * 0.5), round(y0), round(cx - w * 0.5) + w, round(y0) + h };
+  return r;
+}
+// GRAPHICS' panel: as HUD's, under GRAPHICS, a taller row each (its
+// choice's words under the chips' height)
+#define IOSTOUCH_GFX_ROW_H 46.0
+static IOSTouchRect IOSTouch_GfxPanel(void)
+{
+  const double left = _fLaidInL + 8.0, right = _fLaidW - _fLaidInR - 8.0;
+  const double w = fmin(IOSTOUCH_OPACITY_PANEL_W, right - left);
+  const double h = IOSTOUCH_GFXROWS * IOSTOUCH_GFX_ROW_H + 2 * IOSTOUCH_OPACITY_PANEL_PAD;
+  const IOSTouchButton *o = &_aButtons[BTN_TRAYGFX];
   const double cx = fmax(fmin(o->x, right - w * 0.5), left + w * 0.5);
   double y0 = o->y + o->radius + 10.0;
   y0 = fmin(y0, _fLaidH - fmax(_fLaidInB, 8.0) - h);
@@ -1500,6 +1541,7 @@ static void IOSTouch_SetTrayOpen(int bOpen)
   if (_bTrayOpen == bOpen) return;
   _bTrayOpen = bOpen;
   if (!bOpen) _bOpacityOpen = 0;
+  if (!bOpen) _bGfxOpen = 0;
   if (!bOpen) {
     for (int i = 0; i < IOSTOUCH_MAX_TOUCHES; i++) {
       IOSTouchSlot *s = &_aSlots[i];
@@ -1607,11 +1649,9 @@ static void IOSTouch_UseTrayButton(int button)
     IOSTouch_LookNextStep(); // (the tray stays)
     return;
   }
-  else if (kind == KIND_TEX) {
-    _iTexMode = (_iTexMode + 1) % 4; // (the tray stays)
-    char str[96];
-    snprintf(str, sizeof(str), "Textures: %s%s", _astrTexNames[_iTexMode], _iTexMode >= 2 ? " (a moment to make them)" : "");
-    IOS_ShowCameraMessage(str);
+  else if (kind == KIND_GFX) {
+    _bGfxOpen = !_bGfxOpen; // its panel (the tray stays; HUD's closes)
+    if (_bGfxOpen) _bOpacityOpen = 0;
     return;
   }
   else if (kind == KIND_KEYBOARD) {
@@ -1621,7 +1661,8 @@ static void IOSTouch_UseTrayButton(int button)
     _iRequests |= _aButtons[button].ulAction; // "Switch game", over the game
   }
   else if (kind == KIND_OPACITY) {
-    _bOpacityOpen = !_bOpacityOpen; // its panel (the tray stays)
+    _bOpacityOpen = !_bOpacityOpen; // its panel (the tray stays; GRAPHICS' closes)
+    if (_bOpacityOpen) _bGfxOpen = 0;
     return;
   }
   else if (kind == KIND_FPS) {
@@ -3489,7 +3530,7 @@ static void IOSTouch_TouchEnded(const void *touch, double x, double y, int bCanc
           _ctCheatTicks++; // (a haptic tick, the view's selection tick)
         }
       }
-      else if (IOSTouch_IsTrayButton(s->button) && !((s->button == BTN_TRAYCAM || s->button == BTN_TRAYLOOK || s->button == BTN_TRAYFPS || s->button == BTN_TRAYHUD || s->button == BTN_TRAYTEX) && s->bFired)) {
+      else if (IOSTouch_IsTrayButton(s->button) && !((s->button == BTN_TRAYCAM || s->button == BTN_TRAYLOOK || s->button == BTN_TRAYFPS || s->button == BTN_TRAYHUD || s->button == BTN_TRAYGFX) && s->bFired)) {
         IOSTouch_UseTrayButton(s->button); // (not the tray's CAMERA, LOOK, FPS or HUD once held: that opened its options, set 1x, switched 60/120, or put the HUD back to its defaults)
       }
       else if (b->kind == KIND_MENU && !s->bFired) {
@@ -3505,7 +3546,7 @@ static void IOSTouch_TouchEnded(const void *touch, double x, double y, int bCanc
     if (s->button == BTN_CAMERA) _fCameraRing = 0.0f;
     if (s->button == BTN_TRAYCAM) _fCamSwitchRing = 0.0f;
     if (s->button == BTN_TRAYLOOK) _fLookRing = 0.0f;
-    if (s->button == BTN_TRAYTEX) _fTexRing = 0.0f;
+    if (s->button == BTN_TRAYGFX) _fTexRing = 0.0f;
     if (s->button == BTN_TRAYFPS) _fFpsRing = 0.0f;
     if (s->button == BTN_TRAYHUD) _fOpacityRing = 0.0f;
     // MENU held until its tray opened, then slid onto one of its buttons
@@ -3694,9 +3735,10 @@ static void IOSTouch_TickHolds(double now)
         _fLookRing = (float)progress;
       }
     }
-    else if (s->button == BTN_TRAYTEX) {
-      // the tray's TEX held: back to smooth (the lift then does nothing)
-      if (!IOSTouch_LiftsOnButton(s->x, s->y, BTN_TRAYTEX)) {
+    else if (s->button == BTN_TRAYGFX) {
+      // the tray's GRAPHICS held: both back to the defaults, its panel
+      // closed (the lift then does nothing)
+      if (!IOSTouch_LiftsOnButton(s->x, s->y, BTN_TRAYGFX)) {
         s->bFired = 1;
         _fTexRing = 0.0f;
         continue;
@@ -3706,8 +3748,9 @@ static void IOSTouch_TickHolds(double now)
         s->bFired = 1;
         _fTexRing = 0.0f;
         _iTexMode = 0;
+        _bGfxOpen = 0;
         _ctTexResets++;
-        IOS_ShowCameraMessage("Textures back to the default: smooth");
+        IOS_ShowCameraMessage("GRAPHICS back to the defaults: smooth pixels, original detail");
       }
       else {
         _fTexRing = (float)progress;
@@ -4383,7 +4426,7 @@ typedef struct {
   // settings have, the times it went back to 1x already felt (a thump each)
   CAShapeLayer *lookRing;
   CAShapeLayer *texRing;
-  int iTexSaved, iTexLabel, ctTexResetsFelt;
+  int iTexSaved, ctTexResetsFelt;
   // The tray's FPS: its hold's ring, the frame rate its label says, the
   // app's settings have and the screen was asked for (a display link)
   CAShapeLayer *fpsRing;
@@ -4398,6 +4441,11 @@ typedef struct {
   UIButton *hudRowName[IOSTOUCH_HUDROWS]; // the HUD panel's rows' names (a tap: that row's default)
   UIButton *hudChip[3][6];   // ...LOOK's, SIZE's and FACE's choices
   int iHudPanelKey;          // (what the rows were laid out for: -1 not yet)
+  UIView *gfxBack;           // GRAPHICS' panel under the tray...
+  UIButton *gfxRowName[IOSTOUCH_GFXROWS]; // ...its rows' names (a tap: that row's default)...
+  UIButton *gfxChip[IOSTOUCH_GFXROWS][2]; // ...their two choices...
+  UILabel *gfxNote[IOSTOUCH_GFXROWS];     // ...and what the chosen one does
+  int iGfxPanelKey, ctGfxResetsFelt;
   UIImpactFeedbackGenerator *hudTap; // (a choice tapped: a light tap)
   int ctOpacityResetsFelt;
   int iMaxFpsLabel;
@@ -4556,7 +4604,7 @@ static CAShapeLayer *IOSTouch_MakeHoldRing(CGFloat r)
     iGyroModeSaved = _iGyroMode;
     iGyroSensSaved = _iGyroSens;
     iGyroLabels = -1;
-    for (int i = BTN_TRAYLOOK; i <= BTN_TRAYTEX; i++) { // (FPS, HUD and TEX too: "FPS\n120", "CLASSIC\nSPLIT")
+    for (int i = BTN_TRAYLOOK; i <= BTN_TRAYGFX; i++) { // (FPS, HUD and TEX too: "FPS\n120", "CLASSIC\nSPLIT")
       aButtonViews[i].font = IOSTouch_TrayFont(IOSTouch_FontSize("GYRO\nALWAYS", _aButtons[i].radius));
     }
     // LOOK says the look speed on its second line too (set in
@@ -4575,9 +4623,10 @@ static CAShapeLayer *IOSTouch_MakeHoldRing(CGFloat r)
     _iTexMode = (int)[dLook integerForKey:IOSTOUCH_TEX_DEFAULTS_KEY];
     if (_iTexMode < 0 || _iTexMode > 3) _iTexMode = 0;
     iTexSaved = _iTexMode;
-    iTexLabel = -1;
-    texRing = IOSTouch_MakeHoldRing(_aButtons[BTN_TRAYTEX].radius);
-    [aButtonViews[BTN_TRAYTEX].layer addSublayer:texRing];
+    aButtonViews[BTN_TRAYGFX].text = @"GRAPHICS"; // (its own size: one line)
+    aButtonViews[BTN_TRAYGFX].font = IOSTouch_TrayFont(IOSTouch_FontSize("GRAPHICS", _aButtons[BTN_TRAYGFX].radius));
+    texRing = IOSTouch_MakeHoldRing(_aButtons[BTN_TRAYGFX].radius);
+    [aButtonViews[BTN_TRAYGFX].layer addSublayer:texRing];
     ctTexResetsFelt = _ctTexResets;
     // The tray's FPS says the frame rate asked for ("FPS\n60"), switched held
     const NSInteger iMaxFps = [dLook integerForKey:IOSTOUCH_MAXFPS_DEFAULTS_KEY];
@@ -4664,6 +4713,56 @@ static CAShapeLayer *IOSTouch_MakeHoldRing(CGFloat r)
     iHudPanelKey = -1;
     iOpacityValues = -1;
     [self addSubview:opacityBack];
+    // GRAPHICS' panel: as HUD's (its look), a row each: the name (a tap: that
+    // row's default), two choices, what the chosen one does (layoutGfxPanel)
+    gfxBack = [[UIView alloc] initWithFrame:CGRectMake(0, 0, IOSTOUCH_OPACITY_PANEL_W,
+                                                       IOSTOUCH_GFXROWS * IOSTOUCH_GFX_ROW_H + 2 * IOSTOUCH_OPACITY_PANEL_PAD)];
+    gfxBack.backgroundColor = opacityBack.backgroundColor;
+    gfxBack.layer.cornerRadius = 22.0;
+    gfxBack.layer.borderWidth = 1.5;
+    gfxBack.layer.borderColor = opacityBack.layer.borderColor;
+    gfxBack.hidden = YES;
+    static NSString *const astrGfxRows[IOSTOUCH_GFXROWS] = { @"PIXELS", @"DETAIL" };
+    static NSString *const astrGfxChips[IOSTOUCH_GFXROWS][2] = { { @"SMOOTH", @"SHARP" }, { @"ORIGINAL", @"HD" } };
+    for (int row = 0; row < IOSTOUCH_GFXROWS; row++) {
+      UIButton *name = [UIButton buttonWithType:UIButtonTypeCustom];
+      [name setTitle:astrGfxRows[row] forState:UIControlStateNormal];
+      [name setTitleColor:[UIColor colorWithWhite:1.0 alpha:0.9] forState:UIControlStateNormal];
+      name.titleLabel.font = IOSTouch_TrayFont(12);
+      name.titleLabel.adjustsFontSizeToFitWidth = YES;
+      name.titleLabel.minimumScaleFactor = 0.7;
+      name.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeft;
+      name.tag = row;
+      [name addTarget:self action:@selector(gfxRowNameTapped:) forControlEvents:UIControlEventTouchUpInside];
+      [gfxBack addSubview:name];
+      gfxRowName[row] = name;
+      for (int j = 0; j < 2; j++) {
+        UIButton *chip = [UIButton buttonWithType:UIButtonTypeCustom];
+        [chip setTitle:astrGfxChips[row][j] forState:UIControlStateNormal];
+        [chip setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+        chip.titleLabel.font = IOSTouch_TrayFont(11);
+        chip.titleLabel.adjustsFontSizeToFitWidth = YES;
+        chip.titleLabel.minimumScaleFactor = 0.6;
+        chip.layer.cornerRadius = 15.0;
+        chip.layer.borderWidth = 1.5;
+        chip.tag = row * 10 + j;
+        [chip addTarget:self action:@selector(gfxChipTapped:) forControlEvents:UIControlEventTouchUpInside];
+        [gfxBack addSubview:chip];
+        gfxChip[row][j] = chip;
+      }
+      UILabel *note = [[UILabel alloc] init];
+      note.font = [UIFont systemFontOfSize:11 weight:UIFontWeightMedium];
+      note.textColor = [UIColor colorWithWhite:1.0 alpha:0.75];
+      note.numberOfLines = 2;
+      note.adjustsFontSizeToFitWidth = YES;
+      note.minimumScaleFactor = 0.75;
+      note.userInteractionEnabled = NO;
+      [gfxBack addSubview:note];
+      gfxNote[row] = note;
+    }
+    iGfxPanelKey = -1;
+    ctGfxResetsFelt = _ctGfxResets;
+    [self addSubview:gfxBack];
     [self applyMaxFps];
     UIImageSymbolConfiguration *cfg = [UIImageSymbolConfiguration configurationWithPointSize:14 weight:UIImageSymbolWeightSemibold];
     UIImage *kb = [UIImage systemImageNamed:@"keyboard" withConfiguration:cfg];
@@ -5162,6 +5261,52 @@ static UIBezierPath *IOSTouch_AnkhPath(CGFloat cx, CGFloat cy, CGFloat r)
   [self refreshStick];
 }
 
+// GRAPHICS' panel laid out: the choices on lit, what each chosen one does
+- (void)layoutGfxPanel
+{
+  const CGFloat w = gfxBack.bounds.size.width;
+  const int key = (int)w * 8 + _iTexMode;
+  if (key == iGfxPanelKey) return;
+  iGfxPanelKey = key;
+  static NSString *const astrNotes[IOSTOUCH_GFXROWS][2] = {
+    { @"Blended, a little soft up close", @"Blocky pixels, as the original game" },
+    { @"The game's own textures", @"Textures redrawn at 4x detail, cleaner edges" } };
+  const CGFloat rowH = IOSTOUCH_GFX_ROW_H, x0 = IOSTOUCH_OPACITY_LABEL_W, cw = 104.0;
+  CGFloat y = IOSTOUCH_OPACITY_PANEL_PAD;
+  for (int row = 0; row < IOSTOUCH_GFXROWS; row++) {
+    const int sel = IOSTouch_GfxChoice(row);
+    gfxRowName[row].frame = CGRectMake(14, y, x0 - 18, rowH);
+    for (int j = 0; j < 2; j++) {
+      UIButton *c = gfxChip[row][j];
+      c.frame = CGRectMake(x0 + j * cw + 3, y + 8, cw - 6, rowH - 16);
+      const int bOn = j == sel;
+      c.backgroundColor = bOn ? [UIColor colorWithRed:1.0 green:0.75 blue:0.24 alpha:0.45] : [UIColor colorWithWhite:1.0 alpha:0.1];
+      c.layer.borderColor = (bOn ? [UIColor colorWithRed:1.0 green:0.78 blue:0.31 alpha:1.0] : [UIColor colorWithWhite:1.0 alpha:0.45]).CGColor;
+    }
+    const CGFloat nx = x0 + 2 * cw + 10;
+    gfxNote[row].frame = CGRectMake(nx, y, fmax(w - nx - 14, 40), rowH);
+    gfxNote[row].text = astrNotes[row][sel];
+    y += rowH;
+  }
+}
+
+// A choice tapped in GRAPHICS' panel: at once (the game applies it, kept)
+- (void)gfxChipTapped:(UIButton *)chip
+{
+  if (!_bGfxOpen || !_bTrayOpen) return;
+  IOSTouch_GfxPick((int)chip.tag / 10, (int)chip.tag % 10);
+  [hudTap impactOccurred];
+  [self refreshButtonLooks];
+}
+
+// A row's name tapped in GRAPHICS' panel: that row back to its default
+- (void)gfxRowNameTapped:(UIButton *)name
+{
+  if (!_bGfxOpen || !_bTrayOpen) return;
+  IOSTouch_GfxRowReset((int)name.tag);
+  [self refreshButtonLooks];
+}
+
 // HUD's panel's sliders: BUTTONS, the controls follow it as it slides;
 // HUD, the game's HUD; each kept as it lifts
 - (void)opacitySlid:(UISlider *)slider
@@ -5201,11 +5346,6 @@ static UIBezierPath *IOSTouch_AnkhPath(CGFloat cx, CGFloat cy, CGFloat r)
 // What the tray's LOOK says: the look speed ("LOOK\n1x", "LOOK\n0.75x")
 - (void)refreshLookLabel
 {
-  if (iTexLabel != _iTexMode) {
-    static NSString *const astrTex[4] = { @"TEX\nSMOOTH", @"TEX\nCRISP", @"TEX\nHD", @"HD\nCRISP" };
-    iTexLabel = _iTexMode;
-    aButtonViews[BTN_TRAYTEX].text = astrTex[_iTexMode];
-  }
   if (fLookLabel == _fLookScale) return;
   fLookLabel = _fLookScale;
   aButtonViews[BTN_TRAYLOOK].text = [NSString stringWithFormat:@"LOOK\n%gx", (double)_fLookScale];
@@ -5243,6 +5383,17 @@ static UIBezierPath *IOSTouch_AnkhPath(CGFloat cx, CGFloat cy, CGFloat r)
     }
     if (opacityBack.hidden == bShow) opacityBack.hidden = !bShow;
   }
+  // GRAPHICS' panel: under GRAPHICS, while it's open
+  {
+    const int bShow = _bGfxOpen && _bTrayOpen;
+    if (bShow) {
+      const IOSTouchRect r = IOSTouch_GfxPanel();
+      gfxBack.frame = CGRectMake(r.x0, r.y0, r.x1 - r.x0, r.y1 - r.y0);
+      [self layoutGfxPanel];
+      [self bringSubviewToFront:gfxBack];
+    }
+    if (gfxBack.hidden == bShow) gfxBack.hidden = !bShow;
+  }
   const int bGyro = IOSTouch_GyroAvailable();
   for (int i = 0; i < IOSTOUCH_NUM_BUTTONS; i++) {
     UILabel *l = aButtonViews[i];
@@ -5269,7 +5420,8 @@ static UIBezierPath *IOSTouch_AnkhPath(CGFloat cx, CGFloat cy, CGFloat r)
                     || (i == BTN_TRAYGYRO && bGyro && _iGyroMode != IOSTOUCH_GYRO_OFF)
                     || (i == BTN_TRAYCAM && _bShowCamera)
                     || (i == BTN_TRAYCHEAT && _bShowCheat)
-                    || (i == BTN_TRAYHUD && _bOpacityOpen);
+                    || (i == BTN_TRAYHUD && _bOpacityOpen)
+                    || (i == BTN_TRAYGFX && _bGfxOpen);
     const int bTray = IOSTouch_IsTrayButton(i); // only there while the tray is open
     CGFloat alpha = (bHeld || bOn || bTray || bCheatLit) ? 1.0 : IOSTOUCH_IDLE_ALPHA;
     if (i == BTN_TRAYGYRO && !bGyro) alpha *= 0.45;                                       // no gyro here
@@ -6109,7 +6261,12 @@ static void IOSTouch_DrawWheelTheme(const IOSTouchWheelTheme *t, CGPoint c, doub
     [lookThump impactOccurred];
     [self refreshButtonLooks];
   }
-  // TEX held back to smooth: a thump, and its label says so
+  // a GRAPHICS row's name tapped: a thump
+  if (ctGfxResetsFelt != _ctGfxResets) {
+    ctGfxResetsFelt = _ctGfxResets;
+    [lookThump impactOccurred];
+  }
+  // GRAPHICS held back to the defaults: a thump
   if (ctTexResetsFelt != _ctTexResets) {
     ctTexResetsFelt = _ctTexResets;
     [lookThump impactOccurred];
@@ -6150,7 +6307,8 @@ static void IOSTouch_DrawWheelTheme(const IOSTouchWheelTheme *t, CGPoint c, doub
   if (aButtonViews[BTN_SECONDARY].hidden == IOSTouch_IsShown(BTN_SECONDARY)
       || aButtonViews[BTN_TRAYLEVEL].hidden == IOSTouch_IsShown(BTN_TRAYLEVEL)
       || _bTrayOpen != bTrayWasOpen || _iFpsShown != iFpsWas || iCamNow != iCamWas
-      || opacityBack.hidden == (_bOpacityOpen && _bTrayOpen)) {
+      || opacityBack.hidden == (_bOpacityOpen && _bTrayOpen)
+      || gfxBack.hidden == (_bGfxOpen && _bTrayOpen)) {
     [self refreshButtonLooks];
   }
 }

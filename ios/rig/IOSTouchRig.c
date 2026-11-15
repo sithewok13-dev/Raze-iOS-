@@ -101,7 +101,7 @@ static void RigLog(const char *fmt, ...)
 
 static const char *const _rigNames[BTN_COUNT] = {
   "FIRE", "SECONDARY", "CROUCH", "USE", "JUMP", "NEXTWPN", "PREVWPN", "QUICKSAVE", "QUICKLOAD", "MENU",
-  "CAMERA", "CHEAT", "ITEM0", "ITEM1", "ITEM2", "ITEM3", "ITEM4", "ITEM5", "RESUME", "TRAYLOOK", "TRAYSENS", "TRAYGYRO", "TRAYFPS", "TRAYHUD", "TRAYTEX", "TRAYCAM", "TRAYCHEAT",
+  "CAMERA", "CHEAT", "ITEM0", "ITEM1", "ITEM2", "ITEM3", "ITEM4", "ITEM5", "RESUME", "TRAYLOOK", "TRAYSENS", "TRAYGYRO", "TRAYFPS", "TRAYHUD", "TRAYGFX", "TRAYCAM", "TRAYCHEAT",
   "TRAYLEVEL", "TRAYGAMES", "TRAYKEYS",
 };
 
@@ -306,6 +306,19 @@ static void RigRun(double t)
       IOSTouch_HudPick(atoi(a), atoi(b));
       RigLog("hud panel: style %d size %d bars %d face %d; rows %d%d%d%d%d", _iHudStyle, _iHudSize, _iHudBarSize, _bHudFace,
              IOSTouch_HudRowShown(0), IOSTouch_HudRowShown(1), IOSTouch_HudRowShown(2), IOSTouch_HudRowShown(3), IOSTouch_HudRowShown(4));
+    }
+    else if (!strcmp(cmd, "gfxpick")) {
+      // a choice in GRAPHICS' panel (as the view's chips): row (0 PIXELS, 1 DETAIL), choice
+      IOSTouch_GfxPick(atoi(a), atoi(b));
+      RigLog("gfx panel: open %d tex %d", _bGfxOpen, _iTexMode);
+    }
+    else if (!strcmp(cmd, "gfxreset")) {
+      IOSTouch_GfxRowReset(atoi(a));
+      RigLog("gfx panel reset %s: tex %d", a, _iTexMode);
+    }
+    else if (!strcmp(cmd, "gfxpanel")) {
+      const IOSTouchRect r = IOSTouch_GfxPanel();
+      RigLog("gfx panel: open %d hud open %d rect %.0f %.0f %.0f %.0f tex %d", _bGfxOpen && _bTrayOpen, _bOpacityOpen, r.x0, r.y0, r.x1, r.y1, _iTexMode);
     }
     else if (!strcmp(cmd, "hudreset")) {
       // a row's name tapped in HUD's panel (0 LOOK .. 4 BUTTONS)
