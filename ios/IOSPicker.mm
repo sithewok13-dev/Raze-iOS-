@@ -177,9 +177,10 @@ static int TapTarget(int fam)
 
 	// the emblem, big and faint behind the name, and small and bright above it
 	UIImageSymbolConfiguration* big = [UIImageSymbolConfiguration configurationWithPointSize:120 weight:UIImageSymbolWeightBold];
-	// the pictures (512 x 640): picker-<art>.png the badge's, its left edge at
-	// the picture's; picker-<art>-big.png the faint one's, its right edge and
-	// bottom at the top square's, so each sits the same in the card's corner
+	// the pictures: picker-<art>.png the badge's (512 x 640), its left edge at
+	// the picture's; picker-<art>-big.png the faint one's (768 x 896), its
+	// right edge and bottom at its square's, each the same height there (the
+	// cow's horns and Anubis's ears above it), so each sits alike in the corner
 	UIImage *art = nil, *artBig = nil;
 	if (f->art)
 	{
@@ -248,6 +249,8 @@ static int TapTarget(int fam)
 
 	UILayoutGuide* square = [[UILayoutGuide alloc] init];	// where the emblem's square goes
 	[self addLayoutGuide:square];
+	UILayoutGuide* under = [[UILayoutGuide alloc] init];	// the room under it
+	[self addLayoutGuide:under];
 	NSMutableArray* cons = [NSMutableArray arrayWithArray:@[
 		[badge.leadingAnchor constraintEqualToAnchor:self.leadingAnchor constant:14],
 		[badge.topAnchor constraintEqualToAnchor:self.topAnchor constant:14],
@@ -255,10 +258,14 @@ static int TapTarget(int fam)
 		[square.bottomAnchor constraintEqualToAnchor:self.bottomAnchor constant:art ? 8 : 20],
 		[square.widthAnchor constraintEqualToAnchor:self.widthAnchor multiplier:0.85],
 		[square.heightAnchor constraintEqualToAnchor:square.widthAnchor],
-		[emblem.leadingAnchor constraintEqualToAnchor:square.leadingAnchor],
-		[emblem.topAnchor constraintEqualToAnchor:square.topAnchor],
-		[emblem.widthAnchor constraintEqualToAnchor:square.widthAnchor],
-		[emblem.heightAnchor constraintEqualToAnchor:square.widthAnchor multiplier:art ? 1.25 : 1.0],
+		// the faint picture (768 x 896) has the square at its bottom right
+		// (512 of 768) with room above it (horns, ears) and under it (a drip)
+		[under.topAnchor constraintEqualToAnchor:square.bottomAnchor],
+		[under.heightAnchor constraintEqualToAnchor:square.widthAnchor multiplier:art ? 0.25 : 0.0],
+		[emblem.trailingAnchor constraintEqualToAnchor:square.trailingAnchor],
+		[emblem.bottomAnchor constraintEqualToAnchor:under.bottomAnchor],
+		[emblem.widthAnchor constraintEqualToAnchor:square.widthAnchor multiplier:art ? 1.5 : 1.0],
+		[emblem.heightAnchor constraintEqualToAnchor:square.widthAnchor multiplier:art ? 1.75 : 1.0],
 		[text.leadingAnchor constraintEqualToAnchor:self.leadingAnchor constant:14],
 		[text.trailingAnchor constraintEqualToAnchor:self.trailingAnchor constant:-12],
 		art ? [text.topAnchor constraintEqualToAnchor:badge.topAnchor constant:34 + 10] : [text.topAnchor constraintEqualToAnchor:badge.bottomAnchor constant:10],
