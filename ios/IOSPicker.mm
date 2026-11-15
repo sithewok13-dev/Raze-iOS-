@@ -177,13 +177,22 @@ static int TapTarget(int fam)
 
 	// the emblem, big and faint behind the name, and small and bright above it
 	UIImageSymbolConfiguration* big = [UIImageSymbolConfiguration configurationWithPointSize:120 weight:UIImageSymbolWeightBold];
-	UIImage* art = nil;
+	// the pictures (512 x 640): picker-<art>.png the badge's, its left edge at
+	// the picture's; picker-<art>-big.png the faint one's, its right edge and
+	// bottom at the top square's, so each sits the same in the card's corner
+	UIImage *art = nil, *artBig = nil;
 	if (f->art)
 	{
 		NSString* path = [NSBundle.mainBundle pathForResource:[NSString stringWithFormat:@"picker-%s", f->art] ofType:@"png"];
-		art = path ? [[UIImage imageWithContentsOfFile:path] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate] : nil;
+		NSString* pathBig = [NSBundle.mainBundle pathForResource:[NSString stringWithFormat:@"picker-%s-big", f->art] ofType:@"png"];
+		if (path && pathBig)
+		{
+			art = [[UIImage imageWithContentsOfFile:path] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+			artBig = [[UIImage imageWithContentsOfFile:pathBig] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+		}
+		if (!art || !artBig) art = artBig = nil;
 	}
-	UIImageView* emblem = [[UIImageView alloc] initWithImage:art ? art : [UIImage systemImageNamed:@(f->symbol) withConfiguration:big]];
+	UIImageView* emblem = [[UIImageView alloc] initWithImage:art ? artBig : [UIImage systemImageNamed:@(f->symbol) withConfiguration:big]];
 	emblem.tintColor = [UIColor colorWithWhite:1.0 alpha:0.10];
 	emblem.contentMode = UIViewContentModeScaleAspectFit;
 	emblem.translatesAutoresizingMaskIntoConstraints = NO;
@@ -195,8 +204,8 @@ static int TapTarget(int fam)
 	if (art)
 	{
 		badge.contentMode = UIViewContentModeScaleAspectFit;
-		// the pictures are 512 x 640: the emblem in the top square, room under it
-		// for what hangs below (Blood's drip), which is left out of the layout
+		// the top square is the emblem; under it, room for what hangs below
+		// (Blood's drip), left out of the layout
 		[badge.widthAnchor constraintEqualToConstant:34].active = YES;
 		[badge.heightAnchor constraintEqualToConstant:34 * 1.25].active = YES;
 	}
@@ -242,9 +251,9 @@ static int TapTarget(int fam)
 	NSMutableArray* cons = [NSMutableArray arrayWithArray:@[
 		[badge.leadingAnchor constraintEqualToAnchor:self.leadingAnchor constant:14],
 		[badge.topAnchor constraintEqualToAnchor:self.topAnchor constant:14],
-		[square.trailingAnchor constraintEqualToAnchor:self.trailingAnchor constant:24],
-		[square.bottomAnchor constraintEqualToAnchor:self.bottomAnchor constant:20],
-		[square.widthAnchor constraintEqualToAnchor:self.widthAnchor multiplier:art ? 0.95 : 0.85],
+		[square.trailingAnchor constraintEqualToAnchor:self.trailingAnchor constant:art ? 22 : 24],
+		[square.bottomAnchor constraintEqualToAnchor:self.bottomAnchor constant:art ? 8 : 20],
+		[square.widthAnchor constraintEqualToAnchor:self.widthAnchor multiplier:0.85],
 		[square.heightAnchor constraintEqualToAnchor:square.widthAnchor],
 		[emblem.leadingAnchor constraintEqualToAnchor:square.leadingAnchor],
 		[emblem.topAnchor constraintEqualToAnchor:square.topAnchor],
