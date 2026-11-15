@@ -650,8 +650,23 @@ extern "C" uint64_t IOS_FrameCap(void)
 	const uint64_t wait = IOSPacer_Wake(iosPacer, IOS_Ns(), period);
 	if (wait > 0)
 	{
-		struct timespec ts = { (time_t)(wait / 1000000000ull), (long)(wait % 1000000000ull) };
-		nanosleep(&ts, nullptr);
+		// the wait spent in the main run loop, not asleep: UIKit hands out
+		// the touches as they come and gets the idle moments it needs (a
+		// main thread that never waited had touches held back for seconds
+		// at a time after a level started)
+		const uint64_t until = IOS_Ns() + wait;
+		for (;;)
+		{
+			const uint64_t now = IOS_Ns();
+			if (now + 200000ull >= until) break;
+			CFRunLoopRunInMode(kCFRunLoopDefaultMode, (until - now - 100000ull) * 1e-9, true);
+		}
+		const uint64_t now = IOS_Ns();
+		if (now < until)
+		{
+			struct timespec ts = { 0, (long)(until - now) };
+			nanosleep(&ts, nullptr);
+		}
 	}
 	return wait;
 }
