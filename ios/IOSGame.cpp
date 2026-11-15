@@ -56,6 +56,9 @@ EXTERN_CVAR(Bool, invertmousex)
 EXTERN_CVAR(Int, quicksavecount)
 EXTERN_CVAR(Bool, cl_noexitscreens)
 EXTERN_CVAR(Bool, cl_nostartscreens)
+EXTERN_CVAR(Int, gl_texture_filter)
+EXTERN_CVAR(Int, gl_texture_hqresizemode)
+EXTERN_CVAR(Int, gl_texture_hqresizemult)
 
 extern TArray<TPointer<MapRecord>> mapList;
 extern bool pausedWithKey;
@@ -546,6 +549,24 @@ void IOSGame_Frame()
 
 	// (the level screens left skipped by an earlier run)
 	if (framesDrawn == 1) RestoreLevelScreens();
+
+	// the tray's TEX: the textures' look (smooth: trilinear, the games'
+	// default; crisp: nearest up close, smooth in the distance; HD: every
+	// texture upscaled 4x by xBRZ, smooth or crisp). The upscaler's settings
+	// only change when they must: changing them remakes every texture.
+	{
+		static int texApplied = -1;
+		const int tex = IOSTouch_TexMode();
+		if (tex != texApplied)
+		{
+			texApplied = tex;
+			const int filter = (tex == 1 || tex == 3) ? 5 : 4;
+			const int hq = tex >= 2 ? 4 : 0;
+			if (gl_texture_filter != filter) gl_texture_filter = filter;
+			if (hq && gl_texture_hqresizemult != 4) gl_texture_hqresizemult = 4;
+			if (gl_texture_hqresizemode != hq) gl_texture_hqresizemode = hq;
+		}
+	}
 
 	// a level started, restarted or loaded: the world changed
 	if (levelStarts != levelStartsSeen)

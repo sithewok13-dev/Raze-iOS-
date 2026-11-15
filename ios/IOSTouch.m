@@ -195,6 +195,7 @@ enum {
   KIND_CHEAT,    // CHEAT: held IOSTOUCH_CHEAT_HOLD, the cheat on or off; a tap does nothing
   KIND_CHEATSWITCH, // (MENU's tray) shows CHEAT and switches the cheat on, or leaves cheat mode, when the touch lifts on it
   KIND_LEVELPICK,// (MENU's tray, the cheat on) opens the list of levels, when the touch lifts on it
+  KIND_TEX,      // (MENU's tray) the textures' next look (smooth, crisp, HD, HD crisp), when the touch lifts on it; held IOSTOUCH_MENU_HOLD, back to smooth
   KIND_LOOKSPEED,// (MENU's tray) the next look speed, when the touch lifts on it; held IOSTOUCH_MENU_HOLD, back to 1x
   KIND_GAMES,    // (MENU's tray) "Switch game" (ios/IOSPicker.mm), when the touch lifts on it
   KIND_OPACITY,  // (MENU's tray: HUD) opens or closes its panel under the tray (LOOK, SIZE, FACE, the HUD's and the buttons' opacity), when the touch lifts on it; held IOSTOUCH_MENU_HOLD, all back to the defaults
@@ -242,7 +243,7 @@ enum {
   BTN_CHEAT,
   BTN_ITEM0, BTN_ITEM1, BTN_ITEM2, BTN_ITEM3, BTN_ITEM4, BTN_ITEM5, // the item buttons, top row (IOSTouch_PlaceItems)
   BTN_RESUME,
-  BTN_TRAYLOOK, BTN_TRAYSENS, BTN_TRAYGYRO, BTN_TRAYFPS, BTN_TRAYHUD, BTN_TRAYCAM, BTN_TRAYCHEAT, BTN_TRAYLEVEL, BTN_TRAYGAMES, BTN_TRAYKEYS, // MENU's tray (left to right), hidden unless it is open
+  BTN_TRAYLOOK, BTN_TRAYSENS, BTN_TRAYGYRO, BTN_TRAYFPS, BTN_TRAYHUD, BTN_TRAYTEX, BTN_TRAYCAM, BTN_TRAYCHEAT, BTN_TRAYLEVEL, BTN_TRAYGAMES, BTN_TRAYKEYS, // MENU's tray (left to right), hidden unless it is open
   BTN_COUNT
 };
 static IOSTouchButton _aButtons[] = {
@@ -266,6 +267,7 @@ static IOSTouchButton _aButtons[] = {
   [BTN_ITEM5]     = { "",            KIND_USEITEM,  0,                      22.0, 0, SHOW_PLAY },
   [BTN_RESUME]    = { "RESUME",      KIND_TAP,      IOSTOUCH_REQ_RESUME,    44.0, 0, SHOW_PAUSE },
   [BTN_TRAYLOOK]  = { "LOOK",        KIND_LOOKSPEED, 0,                     20.0, 0, SHOW_ALL },
+  [BTN_TRAYTEX]   = { "TEX",         KIND_TEX,      0,                      20.0, 0, SHOW_ALL },
   [BTN_TRAYSENS]  = { "SENS",        KIND_GYROSENS, 0,                      20.0, 0, SHOW_ALL },
   [BTN_TRAYGYRO]  = { "GYRO",        KIND_GYRO,     0,                      20.0, 0, SHOW_ALL },
   [BTN_TRAYFPS]   = { "FPS",         KIND_FPS,      0,                      20.0, 0, SHOW_ALL },
@@ -1151,6 +1153,12 @@ static int _bTrayOpen = 0;                 // MENU's tray
 static float _fLookScale = 1.0f;
 static float _fLookRing = 0.0f;
 static int _ctLookResets = 0;
+// The textures' look (the tray's TEX): 0 smooth (the games' default), 1
+// crisp pixels, 2 HD (each texture upscaled 4x by xBRZ, smooth), 3 HD crisp;
+// TEX held back to smooth (a ring); the game applies it (IOSTouch_TexMode)
+static int _iTexMode = 0;
+static float _fTexRing = 0.0f;
+static int _ctTexResets = 0;
 static int _bShowFps = 0;                  // the FPS readout (the view keeps it in the app's settings)
 // The frame rate asked of the screen: 60, or 120 on a ProMotion screen
 // (smoother, more battery). The tray's FPS held switches it, with a ring;
@@ -1172,6 +1180,13 @@ int IOSTouch_MaxFps(void)
 {
   return _iMaxFps;
 }
+
+// The textures' look the tray's TEX chose (0-3), for the game to apply
+int IOSTouch_TexMode(void)
+{
+  return _iTexMode;
+}
+static const char *const _astrTexNames[4] = { "smooth", "crisp pixels", "HD (upscaled, smooth)", "HD crisp (upscaled, sharp)" };
 
 static float IOSTouch_OpacityStep(float k)
 {
@@ -1590,6 +1605,13 @@ static void IOSTouch_UseTrayButton(int button)
   }
   else if (kind == KIND_LOOKSPEED) {
     IOSTouch_LookNextStep(); // (the tray stays)
+    return;
+  }
+  else if (kind == KIND_TEX) {
+    _iTexMode = (_iTexMode + 1) % 4; // (the tray stays)
+    char str[96];
+    snprintf(str, sizeof(str), "Textures: %s%s", _astrTexNames[_iTexMode], _iTexMode >= 2 ? " (a moment to make them)" : "");
+    IOS_ShowCameraMessage(str);
     return;
   }
   else if (kind == KIND_KEYBOARD) {
@@ -3467,7 +3489,7 @@ static void IOSTouch_TouchEnded(const void *touch, double x, double y, int bCanc
           _ctCheatTicks++; // (a haptic tick, the view's selection tick)
         }
       }
-      else if (IOSTouch_IsTrayButton(s->button) && !((s->button == BTN_TRAYCAM || s->button == BTN_TRAYLOOK || s->button == BTN_TRAYFPS || s->button == BTN_TRAYHUD) && s->bFired)) {
+      else if (IOSTouch_IsTrayButton(s->button) && !((s->button == BTN_TRAYCAM || s->button == BTN_TRAYLOOK || s->button == BTN_TRAYFPS || s->button == BTN_TRAYHUD || s->button == BTN_TRAYTEX) && s->bFired)) {
         IOSTouch_UseTrayButton(s->button); // (not the tray's CAMERA, LOOK, FPS or HUD once held: that opened its options, set 1x, switched 60/120, or put the HUD back to its defaults)
       }
       else if (b->kind == KIND_MENU && !s->bFired) {
@@ -3483,6 +3505,7 @@ static void IOSTouch_TouchEnded(const void *touch, double x, double y, int bCanc
     if (s->button == BTN_CAMERA) _fCameraRing = 0.0f;
     if (s->button == BTN_TRAYCAM) _fCamSwitchRing = 0.0f;
     if (s->button == BTN_TRAYLOOK) _fLookRing = 0.0f;
+    if (s->button == BTN_TRAYTEX) _fTexRing = 0.0f;
     if (s->button == BTN_TRAYFPS) _fFpsRing = 0.0f;
     if (s->button == BTN_TRAYHUD) _fOpacityRing = 0.0f;
     // MENU held until its tray opened, then slid onto one of its buttons
@@ -3549,6 +3572,7 @@ static void IOSTouch_TickHolds(double now)
   _afWheelRing[1] = afWheelRing[1];
   // the furthest along of SAVE's and of LOAD's holds (a touch each)
   _fLookRing = 0.0f; // (set again below while LOOK is held)
+  _fTexRing = 0.0f; // (...and TEX)
   _fFpsRing = 0.0f; // (...and FPS)
   _fOpacityRing = 0.0f; // (...and OPACITY)
   float fSaveRing = 0.0f, fLoadRing = 0.0f;
@@ -3668,6 +3692,25 @@ static void IOSTouch_TickHolds(double now)
       }
       else {
         _fLookRing = (float)progress;
+      }
+    }
+    else if (s->button == BTN_TRAYTEX) {
+      // the tray's TEX held: back to smooth (the lift then does nothing)
+      if (!IOSTouch_LiftsOnButton(s->x, s->y, BTN_TRAYTEX)) {
+        s->bFired = 1;
+        _fTexRing = 0.0f;
+        continue;
+      }
+      const double progress = (now - s->tDown) / IOSTOUCH_MENU_HOLD;
+      if (progress >= 1.0) {
+        s->bFired = 1;
+        _fTexRing = 0.0f;
+        _iTexMode = 0;
+        _ctTexResets++;
+        IOS_ShowCameraMessage("Textures back to the default: smooth");
+      }
+      else {
+        _fTexRing = (float)progress;
       }
     }
     else if (s->button == BTN_MENU) {
@@ -3954,6 +3997,7 @@ static void IOSTouch_ResetTouches(int bReading)
   _afCheatActRing[0] = _afCheatActRing[1] = 0.0f;
   _bLevelListOpen = 0;
   _fLookRing = 0.0f;
+  _fTexRing = 0.0f;
   _fFpsRing = 0.0f;
   _fOpacityRing = 0.0f;
   IOSTouch_ResetShared(bReading);
@@ -4094,6 +4138,7 @@ void IOSTouch_TakeGyro(float *pfYaw, float *pfPitch)
 // ...and the look speed (MENU's tray's LOOK; never set: 1x)
 #define IOSTOUCH_LOOKSCALE_DEFAULTS_KEY @"iosTouchLookScale"
 #define IOSTOUCH_MAXFPS_DEFAULTS_KEY @"iosTouchMaxFps"
+#define IOSTOUCH_TEX_DEFAULTS_KEY @"iosTouchTexMode" // (the tray's TEX, 0-3)
 #define IOSTOUCH_OPACITY_DEFAULTS_KEY @"iosTouchOpacity"
 // ...and the HUD: its look (0 SPLIT, 1 STRIP, 2 CLASSIC, 3 NONE, 4
 // CLASSIC SPLIT, 5 CLASSIC STRIP), the face in it, its strength (OPACITY's
@@ -4337,6 +4382,8 @@ typedef struct {
   // The tray's LOOK: its hold's ring, the speed its label says and the app's
   // settings have, the times it went back to 1x already felt (a thump each)
   CAShapeLayer *lookRing;
+  CAShapeLayer *texRing;
+  int iTexSaved, iTexLabel, ctTexResetsFelt;
   // The tray's FPS: its hold's ring, the frame rate its label says, the
   // app's settings have and the screen was asked for (a display link)
   CAShapeLayer *fpsRing;
@@ -4509,7 +4556,7 @@ static CAShapeLayer *IOSTouch_MakeHoldRing(CGFloat r)
     iGyroModeSaved = _iGyroMode;
     iGyroSensSaved = _iGyroSens;
     iGyroLabels = -1;
-    for (int i = BTN_TRAYLOOK; i <= BTN_TRAYHUD; i++) { // (FPS and HUD too: "FPS\n120", "CLASSIC\nSPLIT")
+    for (int i = BTN_TRAYLOOK; i <= BTN_TRAYTEX; i++) { // (FPS, HUD and TEX too: "FPS\n120", "CLASSIC\nSPLIT")
       aButtonViews[i].font = IOSTouch_TrayFont(IOSTouch_FontSize("GYRO\nALWAYS", _aButtons[i].radius));
     }
     // LOOK says the look speed on its second line too (set in
@@ -4524,6 +4571,14 @@ static CAShapeLayer *IOSTouch_MakeHoldRing(CGFloat r)
     [aButtonViews[BTN_TRAYLOOK].layer addSublayer:lookRing];
     lookThump = [[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleMedium];
     ctLookResetsFelt = _ctLookResets;
+    // TEX says the textures' look, goes back to smooth held (its ring)
+    _iTexMode = (int)[dLook integerForKey:IOSTOUCH_TEX_DEFAULTS_KEY];
+    if (_iTexMode < 0 || _iTexMode > 3) _iTexMode = 0;
+    iTexSaved = _iTexMode;
+    iTexLabel = -1;
+    texRing = IOSTouch_MakeHoldRing(_aButtons[BTN_TRAYTEX].radius);
+    [aButtonViews[BTN_TRAYTEX].layer addSublayer:texRing];
+    ctTexResetsFelt = _ctTexResets;
     // The tray's FPS says the frame rate asked for ("FPS\n60"), switched held
     const NSInteger iMaxFps = [dLook integerForKey:IOSTOUCH_MAXFPS_DEFAULTS_KEY];
     _iMaxFps = (iMaxFps == 120) ? 120 : 60;
@@ -5146,6 +5201,11 @@ static UIBezierPath *IOSTouch_AnkhPath(CGFloat cx, CGFloat cy, CGFloat r)
 // What the tray's LOOK says: the look speed ("LOOK\n1x", "LOOK\n0.75x")
 - (void)refreshLookLabel
 {
+  if (iTexLabel != _iTexMode) {
+    static NSString *const astrTex[4] = { @"TEX\nSMOOTH", @"TEX\nCRISP", @"TEX\nHD", @"HD\nCRISP" };
+    iTexLabel = _iTexMode;
+    aButtonViews[BTN_TRAYTEX].text = astrTex[_iTexMode];
+  }
   if (fLookLabel == _fLookScale) return;
   fLookLabel = _fLookScale;
   aButtonViews[BTN_TRAYLOOK].text = [NSString stringWithFormat:@"LOOK\n%gx", (double)_fLookScale];
@@ -5260,6 +5320,10 @@ static UIBezierPath *IOSTouch_AnkhPath(CGFloat cx, CGFloat cy, CGFloat r)
     iMaxFpsSaved = _iMaxFps;
     [[NSUserDefaults standardUserDefaults] setInteger:_iMaxFps forKey:IOSTOUCH_MAXFPS_DEFAULTS_KEY];
   }
+  if (iTexSaved != _iTexMode) {
+    iTexSaved = _iTexMode;
+    [[NSUserDefaults standardUserDefaults] setInteger:_iTexMode forKey:IOSTOUCH_TEX_DEFAULTS_KEY];
+  }
   if (fLookSaved != _fLookScale) {
     fLookSaved = _fLookScale;
     [[NSUserDefaults standardUserDefaults] setFloat:_fLookScale forKey:IOSTOUCH_LOOKSCALE_DEFAULTS_KEY];
@@ -5284,6 +5348,7 @@ static UIBezierPath *IOSTouch_AnkhPath(CGFloat cx, CGFloat cy, CGFloat r)
   [self setRing:loadRing progress:_fLoadRing];
   [self setRing:menuRing progress:_fMenuRing];
   [self setRing:lookRing progress:_fLookRing];
+  [self setRing:texRing progress:_fTexRing];
   [self setRing:fpsRing progress:_fFpsRing];
   [self setRing:opacityRing progress:_fOpacityRing];
   [self setRing:aWheelRings[0] progress:_afWheelRing[0]];
@@ -6031,6 +6096,7 @@ static void IOSTouch_DrawWheelTheme(const IOSTouchWheelTheme *t, CGPoint c, doub
   [self setRing:loadRing progress:_fLoadRing];
   [self setRing:menuRing progress:_fMenuRing];
   [self setRing:lookRing progress:_fLookRing];
+  [self setRing:texRing progress:_fTexRing];
   [self setRing:fpsRing progress:_fFpsRing];
   [self setRing:opacityRing progress:_fOpacityRing];
   [self setRing:aWheelRings[0] progress:_afWheelRing[0]];
@@ -6040,6 +6106,12 @@ static void IOSTouch_DrawWheelTheme(const IOSTouchWheelTheme *t, CGPoint c, doub
   // LOOK held back to 1x: a thump, and its label says so
   if (ctLookResetsFelt != _ctLookResets) {
     ctLookResetsFelt = _ctLookResets;
+    [lookThump impactOccurred];
+    [self refreshButtonLooks];
+  }
+  // TEX held back to smooth: a thump, and its label says so
+  if (ctTexResetsFelt != _ctTexResets) {
+    ctTexResetsFelt = _ctTexResets;
     [lookThump impactOccurred];
     [self refreshButtonLooks];
   }

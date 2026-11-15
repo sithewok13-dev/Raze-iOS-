@@ -230,6 +230,8 @@ void IOSTouch_GetHudLayout(IOSTouchHudLayout *pLayout);
 /* The frame rate asked for in the tray (FPS held): 60 or 120. The screen is
    asked for it; the game keeps to it too (i_ios.mm: IOS_FrameCap) */
 int IOSTouch_MaxFps(void);
+/* the tray's TEX: the textures' look, 0 smooth, 1 crisp pixels, 2 HD (xBRZ 4x), 3 HD crisp */
+int IOSTouch_TexMode(void);
 /* Hide now (a level is loading, or the app is going to the background), and
    stop tilt aiming's motion updates; the next update shows it again */
 void IOSTouch_Hide(void);
