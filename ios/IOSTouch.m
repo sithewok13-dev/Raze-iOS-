@@ -1132,6 +1132,7 @@ typedef struct {
   double wheelOriginX, wheelOriginY;
   double wheelAim;
   unsigned int uSeq;    // the order the touches went down in (IOSTouch_WheelPointed: the newest finger)
+  double logX0, logY0, logLen; // (the touch log: where it went down, how far it went)
   // The cheat: CHEAT's hold, or JUMP's or USE's, is over (done, slid, or nothing to do)
   int bCheatDone;
 } IOSTouchSlot;
@@ -3164,7 +3165,7 @@ static int IOSTouch_WheelNeedle(double *px0, double *py0, double *px1, double *p
 // A finger came down at (x,y) on a screen W points wide; now: when it
 // reached us (as IOSTouch_TickHolds counts), tTouch: when it went down by
 // the touch's own clock
-static void IOSTouch_TouchBegan(const void *touch, double x, double y, double W, double now, double tTouch)
+static void IOSTouch_TouchBeganCore(const void *touch, double x, double y, double W, double now, double tTouch)
 {
   IOSTouchSlot *s = IOSTouch_FindSlot(NULL);
   if (!s || !touch) return;
@@ -3259,6 +3260,57 @@ static void IOSTouch_TouchBegan(const void *touch, double x, double y, double W,
   IOSTouch_SetHeld(IOSTouch_HeldButtons(), 0);
 }
 
+// The touch log (a diagnostic build): every touch into raze-log.txt as it
+// goes down (where, what took it, the overlay's mode, how late UIKit gave
+// it) and as it lifts (how long, how far, cancelled by iOS or not)
+static const char *const _astrLogRoles[] = { "none", "stick", "look", "button", "IGNORED", "wheel" };
+static const char *const _astrLogModes[] = { "play", "console", "paused", "hidden" };
+static double _tLogStart = 0.0;
+static const char *IOSTouch_LogMode(int m) { return m >= 0 && m < 4 ? _astrLogModes[m] : "?"; }
+static void IOSTouch_LogLabel(const IOSTouchSlot *s, char *str, size_t size)
+{
+  if (s->button >= 0 && s->button < (int)(sizeof(_aButtons) / sizeof(_aButtons[0])) && _aButtons[s->button].label) {
+    snprintf(str, size, " %s", _aButtons[s->button].label);
+    for (char *c = str; *c; c++) if (*c == '\n') *c = ' ';
+  }
+  else if (s->button >= 0) snprintf(str, size, " #%d", s->button);
+  else str[0] = 0;
+}
+static void IOSTouch_TouchBegan(const void *touch, double x, double y, double W, double now, double tTouch)
+{
+  const int bPad = _bPadHidden, bList = _bLevelListOpen, bWheel = _bWheelOpen, bTray = _bTrayOpen;
+  IOSTouch_TouchBeganCore(touch, x, y, W, now, tTouch);
+  IOSTouchSlot *s = touch ? IOSTouch_FindSlot(touch) : NULL;
+  if (!s) {
+    printf("iOS: touch DROPPED at %.0f,%.0f (no free slot)\n", x, y);
+    return;
+  }
+  s->logX0 = x;
+  s->logY0 = y;
+  s->logLen = 0.0;
+  if (_tLogStart <= 0.0) _tLogStart = now;
+  char lab[48];
+  IOSTouch_LogLabel(s, lab, sizeof(lab));
+  printf("iOS: touch %u down %.2fs at %.0f,%.0f -> %s%s (mode %s%s%s%s%s) %.0f ms late\n", s->uSeq, now - _tLogStart, x, y,
+         (unsigned)s->role < 6 ? _astrLogRoles[s->role] : "?", lab, IOSTouch_LogMode(_iMode), bPad ? ", pad hid the controls" : "",
+         bList ? ", level list open" : "", bWheel ? ", wheel open" : "", bTray ? ", tray open" : "",
+         tTouch > 0.0 ? (CACurrentMediaTime() - tTouch) * 1e3 : -1.0);
+}
+static void IOSTouch_TouchEnded(const void *touch, double x, double y, int bCancelled, double tTouch)
+{
+  IOSTouchSlot *s = touch ? IOSTouch_FindSlot(touch) : NULL;
+  if (s) {
+    char lab[48];
+    IOSTouch_LogLabel(s, lab, sizeof(lab));
+    const double now = CACurrentMediaTime();
+    printf("iOS: touch %u %s %.2fs at %.0f,%.0f, held %.2fs, moved %.0f (path %.0f) pt, %s%s\n", s->uSeq,
+           bCancelled ? "CANCELLED by iOS" : "up", now - _tLogStart, x, y, now - s->tDown, hypot(x - s->logX0, y - s->logY0),
+           s->logLen + hypot(x - s->x, y - s->y), (unsigned)s->role < 6 ? _astrLogRoles[s->role] : "?", lab);
+  }
+  else printf("iOS: touch %s at %.0f,%.0f: not one the overlay knew\n", bCancelled ? "cancelled" : "up", x, y);
+  IOSTouch_TouchEndedCore(touch, x, y, bCancelled, tTouch);
+}
+
 // A finger moved to (x,y). Returns whether the buttons' looks changed (a
 // thumb held on MENU slid onto or off a tray button, the weapon wheel opened).
 static int IOSTouch_TouchMoved(const void *touch, double x, double y)
@@ -3343,6 +3395,7 @@ static int IOSTouch_TouchMoved(const void *touch, double x, double y)
   }
   // the cheat's holds: only a finger keeping still
   IOSTouch_CheatMoved(s, x, y);
+  s->logLen += hypot(x - s->x, y - s->y);
   s->x = x;
   s->y = y;
   return bLooksChanged;
@@ -3366,7 +3419,7 @@ static void IOSTouch_TouchPassed(const void *touch, double x, double y)
 // A finger lifted at (x,y), at tTouch by its own clock. bCancelled: iOS
 // took the touch away (a call, a system gesture...) -- release whatever it
 // held, but don't treat it as a finished tap.
-static void IOSTouch_TouchEnded(const void *touch, double x, double y, int bCancelled, double tTouch)
+static void IOSTouch_TouchEndedCore(const void *touch, double x, double y, int bCancelled, double tTouch)
 {
   IOSTouchSlot *s = touch ? IOSTouch_FindSlot(touch) : NULL;
   if (!s) return;
@@ -3933,6 +3986,11 @@ void IOSTouch_SetPadHidden(int bHidden)
 // bReading: whether the game gets input now
 static void IOSTouch_ResetTouches(int bReading)
 {
+  {
+    int ct = 0;
+    for (int k = 0; k < IOSTOUCH_MAX_TOUCHES; k++) if (_aSlots[k].touch) ct++;
+    if (ct) printf("iOS: touch reset: %d finger(s) down are forgotten until they lift\n", ct);
+  }
   IOSTouch_SetTrayOpen(0);
   memset(_aSlots, 0, sizeof(_aSlots));
   memset(_aButtonHeld, 0, sizeof(_aButtonHeld));
@@ -6264,6 +6322,7 @@ static void IOSTouch_GameWindowKey(void)
 static void IOSTouch_SetMode(int iMode)
 {
   const int iOld = _iMode;
+  if (iMode != iOld) printf("iOS: touch mode %s -> %s (every touch reset)\n", IOSTouch_LogMode(iOld), IOSTouch_LogMode(iMode));
   _iMode = iMode;
   if (_pOverlay) {
     _pOverlay.hidden = (iMode == IOSTOUCH_HIDDEN);
