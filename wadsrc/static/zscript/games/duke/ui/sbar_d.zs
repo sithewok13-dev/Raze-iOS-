@@ -454,7 +454,8 @@ class DukeStatusBar : DukeCommonStatusBar
 		{
 			int wep = (p.curr_weapon == DukeWpn.HANDREMOTE_WEAPON)? DukeWpn.HANDBOMB_WEAPON : p.curr_weapon;
 			format = String.Format("%d", p.ammo_amount[wep]);
-			DrawString(digiFont, format, (207, top + 17), DI_TEXT_ALIGN_CENTER);
+			// (Added (iOS touch): in CLASSIC SPLIT, in INV's box, 41.4 to the right)
+			DrawString(digiFont, format, (mIOSNoInv ? 207 + 41.4 : 207, top + 17), DI_TEXT_ALIGN_CENTER);
 		}
 
 		int icon = p.inven_icon;
@@ -533,7 +534,7 @@ class DukeStatusBar : DukeCommonStatusBar
 		IOSBarPiece(0, a, 81.6);
 		IOSBarPiece(1, 225.9, b);
 		IOSBarOverlay(1, 197.2, 216.5, top + 7.4, top + 16.6, 41.4, -2.7); // AMMO's label over INV's
-		IOSBarOverlay(1, 195.2, 219.6, top + 18.5, top + 34.5, 41.4);    // its digits in INV's box
+		// (its digits are drawn in INV's box itself: Statusbar, mIOSNoInv)
 	}
 
 	override void IOSHudParts(bool face)

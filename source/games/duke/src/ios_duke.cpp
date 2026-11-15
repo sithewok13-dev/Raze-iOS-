@@ -312,9 +312,24 @@ CCMD(ios_riginv_duke)
 }
 #endif
 
+// Flying the jetpack by the view: the stick's forward times the sine of the
+// view's pitch (past a few degrees either way, so level flight stays level),
+// doubled, as up/down; backward with the view up sinks
+static float Soar(float fForward)
+{
+	auto p = getPlayer(myconnectindex);
+	auto act = p ? p->GetActor() : nullptr;
+	if (!act || !p->jetpack_on || act->spr.extra <= 0 || fForward == 0.f) return 0.f;
+	double up = -act->spr.Angles.Pitch.Degrees();	// (the game's pitch is + down)
+	const double dead = 8;
+	if (fabs(up) <= dead) return 0.f;
+	up -= up > 0 ? dead : -dead;
+	return (float)clamp(fForward * sin(up * pi::pi() / 180) * 2.0, -1.0, 1.0);
+}
+
 END_DUKE_NS
 
 const IOSGamePart iosDukePart = { DUKE_NS::Weapons, DUKE_NS::Pick, DUKE_NS::PickTick, DUKE_NS::State, DUKE_NS::FillAmmo, false,
                                   DUKE_NS::Alive, DUKE_NS::GodOn, DUKE_NS::Reset, DUKE_NS::Icon, DUKE_NS::CheatIcon, DUKE_NS::CheatSound,
                                   DUKE_NS::Items, DUKE_NS::ItemIcon, DUKE_NS::ItemPictures, DUKE_NS::CheatSign,
-                                  DUKE_NS::CheatSignStyle };
+                                  DUKE_NS::CheatSignStyle, 0.f, DUKE_NS::Soar };

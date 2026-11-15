@@ -741,6 +741,8 @@ void IOSGame_Input(float* joyAxes, bool bTic)
 	IOSTouch_ReadMove(&mx, &my);
 	joyAxes[JOYAXIS_Forward] += my;
 	joyAxes[JOYAXIS_Side] -= mx;
+	// flying (Duke's jetpack): the stick pushed the way the view looks
+	if (part && part->Soar && !paused) joyAxes[JOYAXIS_Up] += part->Soar(my);
 
 	// the look, as the mouse (its sensitivity and invert settings apply)
 	float dx, dy;

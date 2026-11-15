@@ -77,6 +77,9 @@ the input bits the games read (`IOSGame_Input`), whatever keys are bound;
 the look goes in as mouse counts (so the mouse sensitivity and invert
 apply), tilt aiming straight into the view's angles.
 
+- Duke's jetpack also flies by the view: the stick pushed while looking
+  up rises, looking down sinks (`Soar` in the game part; 8 degrees each
+  way stay level; JUMP / CROUCH still work).
 - Bottom right: FIRE, CROUCH / USE / JUMP on an arc round it, the
   secondary button (KICK in Duke, ALT FIRE in Blood, none in the others).
   Dragging on them also looks. In the HUD SPLIT and STRIP they sit 14 pt
@@ -188,8 +191,9 @@ classic bars always show their face. Remembered (`iosTouchHud`,
   wheel shows the ammo, the item buttons the items; the owner's calls), in
   the bar's 320 units: Duke two whole arches (the owner's design): its left
   end, HEALTH, ARMOR to the post after ARMOR (-12-81.6) | the right arch from
-  the post before INV (225.9-332), INV's box showing AMMO: AMMO's label and
-  digits laid over it (`IOSBarOverlay`: a part drawn shifted, 41.4 across;
+  the post before INV (225.9-332), INV's box showing AMMO: AMMO's label laid
+  over it (`IOSBarOverlay`: a part drawn shifted, 41.4 across; the digits
+  drawn there by the bar itself, so three fit;
   the bar's item box left empty while split, `mIOSNoInv`), then KEYS and the
   end. Duke's bar runs 12 past its
   320 core at each end, STRIP too (`IOSBarSpan`, as CLASSIC shows the wider

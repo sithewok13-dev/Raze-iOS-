@@ -48,6 +48,10 @@ struct IOSGamePart
 	// how much the item pictures are lifted (0: as Duke's, 1; PowerSlave's
 	// art is already bright and saturated)
 	float fItemEnhance;
+	// Flying by the view (nullptr: none): the stick's forward (-1..1) and the
+	// view's pitch made into up/down (-1..1), while the player flies (Duke's
+	// jetpack): forward looking up rises, looking down sinks
+	float (*Soar)(float fForward);
 };
 extern const IOSGamePart iosDukePart, iosBloodPart, iosSWPart, iosExhumedPart;
 
