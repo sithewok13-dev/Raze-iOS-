@@ -5487,10 +5487,22 @@ static UIBezierPath *IOSTouch_WedgePath(CGPoint c, CGFloat deg0, CGFloat deg1, C
 // An icon (RGBA, not premultiplied) as an image; its owner releases it
 static CGImageRef IOSTouch_MakeIconImage(const unsigned char *pub, int w, int h)
 {
-  CFDataRef data = CFDataCreate(NULL, pub, (CFIndex)w * h * 4);
+  // premultiplied for Core Animation: a pixel's colour scaled by its alpha
+  // (the item pictures keep white in their clear pixels, which showed as a
+  // pale square behind them)
+  CFMutableDataRef data = CFDataCreateMutable(NULL, (CFIndex)w * h * 4);
+  CFDataSetLength(data, (CFIndex)w * h * 4);
+  unsigned char *pm = CFDataGetMutableBytePtr(data);
+  for (int i = 0; i < w * h; i++) {
+    const unsigned a = pub[i * 4 + 3];
+    pm[i * 4 + 0] = (unsigned char)((pub[i * 4 + 0] * a + 127) / 255);
+    pm[i * 4 + 1] = (unsigned char)((pub[i * 4 + 1] * a + 127) / 255);
+    pm[i * 4 + 2] = (unsigned char)((pub[i * 4 + 2] * a + 127) / 255);
+    pm[i * 4 + 3] = (unsigned char)a;
+  }
   CGDataProviderRef dp = CGDataProviderCreateWithCFData(data);
   CGColorSpaceRef cs = CGColorSpaceCreateDeviceRGB();
-  CGImageRef im = CGImageCreate(w, h, 8, 32, (size_t)w * 4, cs, (CGBitmapInfo)kCGBitmapByteOrderDefault | (CGBitmapInfo)kCGImageAlphaLast,
+  CGImageRef im = CGImageCreate(w, h, 8, 32, (size_t)w * 4, cs, (CGBitmapInfo)kCGBitmapByteOrderDefault | (CGBitmapInfo)kCGImageAlphaPremultipliedLast,
                                 dp, NULL, true, kCGRenderingIntentDefault);
   CGColorSpaceRelease(cs);
   CGDataProviderRelease(dp);
