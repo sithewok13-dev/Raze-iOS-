@@ -68,16 +68,17 @@ typedef struct
 {
 	const char* title;	// the card's name
 	const char* symbol;	// an SF Symbol, the card's emblem
+	const char* art;	// or a picture in the app (ios/art/picker-<art>.png), drawn as the symbol is
 	CGFloat top[3], bottom[3];	// the card's gradient
 } Family;
 
 static const Family families[FAM_COUNT] =
 {
-	{ "Duke Nukem 3D", "bolt.fill", { 0.88, 0.27, 0.05 }, { 0.30, 0.05, 0.02 } },
-	{ "Blood", "drop.fill", { 0.62, 0.02, 0.06 }, { 0.14, 0.00, 0.02 } },
-	{ "Redneck Rampage", "hare.fill", { 0.70, 0.42, 0.12 }, { 0.20, 0.10, 0.03 } },
-	{ "Shadow Warrior", "flame.fill", { 0.05, 0.47, 0.36 }, { 0.02, 0.12, 0.10 } },
-	{ "PowerSlave", "sun.max.fill", { 0.82, 0.62, 0.20 }, { 0.30, 0.17, 0.04 } },
+	{ "Duke Nukem 3D", "bolt.fill", "duke", { 0.88, 0.27, 0.05 }, { 0.30, 0.05, 0.02 } },
+	{ "Blood", "drop.fill", NULL, { 0.62, 0.02, 0.06 }, { 0.14, 0.00, 0.02 } },
+	{ "Redneck Rampage", "hare.fill", NULL, { 0.70, 0.42, 0.12 }, { 0.20, 0.10, 0.03 } },
+	{ "Shadow Warrior", "flame.fill", "sw", { 0.05, 0.47, 0.36 }, { 0.02, 0.12, 0.10 } },
+	{ "PowerSlave", "sun.max.fill", "ps", { 0.82, 0.62, 0.20 }, { 0.30, 0.17, 0.04 } },
 };
 
 static int FamilyOf(int flags)
@@ -176,15 +177,27 @@ static int TapTarget(int fam)
 
 	// the emblem, big and faint behind the name, and small and bright above it
 	UIImageSymbolConfiguration* big = [UIImageSymbolConfiguration configurationWithPointSize:120 weight:UIImageSymbolWeightBold];
-	UIImageView* emblem = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@(f->symbol) withConfiguration:big]];
+	UIImage* art = nil;
+	if (f->art)
+	{
+		NSString* path = [NSBundle.mainBundle pathForResource:[NSString stringWithFormat:@"picker-%s", f->art] ofType:@"png"];
+		art = path ? [[UIImage imageWithContentsOfFile:path] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate] : nil;
+	}
+	UIImageView* emblem = [[UIImageView alloc] initWithImage:art ? art : [UIImage systemImageNamed:@(f->symbol) withConfiguration:big]];
 	emblem.tintColor = [UIColor colorWithWhite:1.0 alpha:0.10];
 	emblem.contentMode = UIViewContentModeScaleAspectFit;
 	emblem.translatesAutoresizingMaskIntoConstraints = NO;
 	[self addSubview:emblem];
 	UIImageSymbolConfiguration* small = [UIImageSymbolConfiguration configurationWithPointSize:22 weight:UIImageSymbolWeightSemibold];
-	UIImageView* badge = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@(f->symbol) withConfiguration:small]];
+	UIImageView* badge = [[UIImageView alloc] initWithImage:art ? art : [UIImage systemImageNamed:@(f->symbol) withConfiguration:small]];
 	badge.tintColor = [UIColor colorWithWhite:1.0 alpha:0.9];
 	badge.translatesAutoresizingMaskIntoConstraints = NO;
+	if (art)
+	{
+		badge.contentMode = UIViewContentModeScaleAspectFit;
+		[badge.widthAnchor constraintEqualToConstant:30].active = YES;
+		[badge.heightAnchor constraintEqualToConstant:30].active = YES;
+	}
 	[self addSubview:badge];
 
 	UILabel* name = [[UILabel alloc] init];

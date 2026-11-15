@@ -1,0 +1,8 @@
+The picker's pictures (picker-*.png)
+
+picker-sw.png, the fortune cookie, is made from Twemoji's "fortune cookie"
+(U+1F960), copyright Twitter, Inc. and other contributors, licensed under
+CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Changed: made
+one colour, its inner lines cut out. https://github.com/twitter/twemoji
+
+picker-duke.png and picker-ps.png were drawn for this port.

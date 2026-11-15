@@ -130,6 +130,8 @@ jobs:
         echo "App bundle: $APP"
         ls -la "$APP"
         test -f "$APP/raze.pk3"
+        # the picker's pictures (drawn for the port, or open-licensed: ios/art/CREDITS.txt)
+        cp ios/art/picker-*.png ios/art/CREDITS.txt "$APP/"
         PL="$APP/Info.plist"
         /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${{ github.run_number }}" "$PL"
         /usr/libexec/PlistBuddy -c "Delete :SWBuildNumber" "$PL" 2>/dev/null || true
