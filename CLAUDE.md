@@ -85,9 +85,10 @@ the input bits the games read (`IOSGame_Input`), whatever keys are bound;
 the look goes in as mouse counts (so the mouse sensitivity and invert
 apply), tilt aiming straight into the view's angles.
 
-- Duke's jetpack also flies by the view: the stick pushed while looking
-  up rises, looking down sinks (`Soar` in the game part; 8 degrees each
-  way stay level; JUMP / CROUCH still work).
+- Duke's jetpack, and swimming under water (Duke and Redneck), also go
+  by the view: the stick pushed while looking up rises, looking down
+  sinks (`Soar` in the game part; 8 degrees each way stay level; JUMP /
+  CROUCH still work).
 - Bottom right: FIRE, CROUCH / USE / JUMP on an arc round it, the
   secondary button (KICK in Duke, ALT FIRE in Blood, none in the others).
   Dragging on them also looks. In the HUD SPLIT and STRIP they sit 14 pt
@@ -309,7 +310,8 @@ classic bars always show their face. Remembered (`iosTouchHud`,
   `hudpick <row> <choice>` and `hudreset <row>` (HUD's panel), `hudopacity`,
   `opacity`, `frames`, `lookstats`, `dump <name>`, `xshot <png>`, `cmd <console
   command>` (`give all`, `ios_rigpos`, `ios_riginv_duke`, `ios_rigset_duke
-  health|ammo <n>`), `picklevel`, `quit`.
+  health|ammo <n>`, `ios_rigset_duke water <n>`: into the n'th
+  under-water sector), `picklevel`, `quit`.
 - The rig draws no overlay: `dump` writes its state (buttons, items, HUD)
   and the items' pictures, to draw it over an `xshot` outside the rig.
 - Objective-C (the overlay's view, `i_ios.mm`, the picker, `iosPhotos.mm`)

@@ -300,6 +300,25 @@ CCMD(ios_rigset_duke)
 	const int v = atoi(argv[2]);
 	if (!stricmp(argv[1], "health")) p->GetActor()->spr.extra = p->last_extra = v;
 	else if (!stricmp(argv[1], "ammo")) p->ammo_amount[p->curr_weapon] = v;
+	else if (!stricmp(argv[1], "water"))	// into the v'th under-water sector, mid height
+	{
+		int n = 0;
+		for (auto& sec : sector)
+		{
+			if (sec.lotag != ST_2_UNDERWATER || n++ != v) continue;
+			DVector2 c(0, 0);
+			for (auto& w : sec.walls) c += w.pos;
+			c /= sec.walls.Size();
+			auto act = p->GetActor();
+			act->spr.pos = DVector3(c, (sec.floorz + sec.ceilingz) / 2 + act->viewzoffset);
+			act->backuppos();
+			p->setCursector(&sec);
+			ChangeActorSect(act, &sec);
+			Printf("rig: water sector %d at %.0f %.0f, floor %.0f ceiling %.0f\n", sectindex(&sec), c.X, c.Y, sec.floorz, sec.ceilingz);
+			return;
+		}
+		Printf("rig: %d water sectors\n", n);
+	}
 }
 
 // The Linux test rig's: the player's items, for its log
@@ -321,7 +340,10 @@ static float Soar(float fForward)
 {
 	auto p = getPlayer(myconnectindex);
 	auto act = p ? p->GetActor() : nullptr;
-	if (!act || !p->jetpack_on || act->spr.extra <= 0 || fForward == 0.f) return 0.f;
+	if (!act || act->spr.extra <= 0 || fForward == 0.f) return 0.f;
+	// the jetpack, or swimming under water (Duke and Redneck)
+	bool swim = p->insector() && p->cursector->lotag == ST_2_UNDERWATER;
+	if (!p->jetpack_on && !swim) return 0.f;
 	double up = -act->spr.Angles.Pitch.Degrees();	// (the game's pitch is + down)
 	const double dead = 8;
 	if (fabs(up) <= dead) return 0.f;
