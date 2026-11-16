@@ -228,6 +228,12 @@ int FindNode (const sockaddr_in *address)
 //
 // PacketSend
 //
+// Added (iOS LAN games): counts for the network log line (d_net.cpp,
+// Net_LogStatus): packets sent and failed, got from a player, got from an
+// address that isn't one, the last failure and the last stranger
+int netSent, netSendFails, netGot, netGotStranger, netLastSendErr;
+uint32_t netStrangerAddr; uint16_t netStrangerPort;
+
 void PacketSend (void)
 {
 	int c;
@@ -273,6 +279,7 @@ void PacketSend (void)
 				sizeof(sendaddress[doomcom.remotenode]));
 		}
 	}
+	if (c == -1) { netSendFails++; netLastSendErr = errno; } else netSent++; // (Added: the log's counts)
 	//	if (c == -1)
 	//			I_Error ("SendPacket error: %s",strerror(errno));
 }
@@ -351,6 +358,7 @@ void PacketGet (void)
 	}
 	else if (c > 0)
 	{	//The packet is not from any in-game node, so we might as well discard it.
+		netGotStranger++; netStrangerAddr = ntohl(fromaddress.sin_addr.s_addr); netStrangerPort = ntohs(fromaddress.sin_port); // (Added: the log's)
 		if (TransmitBuffer[0] == PRE_FAKE)
 		{
 			// If it's someone waiting in the lobby, let them know the game already started
@@ -363,6 +371,15 @@ void PacketGet (void)
 
 	doomcom.remotenode = node;
 	doomcom.datalength = (short)c;
+	netGot++; // (Added: the log's counts)
+}
+
+// Added (iOS LAN games): each player's address, as this machine sends to it
+void Net_NodeAddress(int node, char* buf, int len)
+{
+	if (node < 0 || node >= doomcom.numnodes) { snprintf(buf, len, "-"); return; }
+	const uint32_t a = ntohl(sendaddress[node].sin_addr.s_addr);
+	snprintf(buf, len, "%u.%u.%u.%u:%u", a >> 24, (a >> 16) & 255, (a >> 8) & 255, a & 255, ntohs(sendaddress[node].sin_port));
 }
 
 sockaddr_in *PreGet (void *buffer, int bufferlen, bool noabort)

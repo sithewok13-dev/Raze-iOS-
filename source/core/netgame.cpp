@@ -37,6 +37,7 @@
 #include "maptypes.h"
 #include "d_eventbase.h"
 #include "keydef.h"
+#include "i_time.h"
 
 extern int gametic;
 
@@ -255,4 +256,53 @@ CCMD(net_presskey)
 	D_PostEvent(&ev);
 	ev.type = EV_KeyUp;
 	D_PostEvent(&ev);
+}
+
+//---------------------------------------------------------------------------
+//
+// Added (iOS LAN games): a line in the log every 5 s of a network game:
+// the game's tic, the tics made here and got from each player, packets sent
+// (and failed), got, and got from an address that isn't a player's, each
+// player's address and place and the move their last command carried
+//
+//---------------------------------------------------------------------------
+
+extern int netSent, netSendFails, netGot, netGotStranger, netLastSendErr;
+extern uint32_t netStrangerAddr; extern uint16_t netStrangerPort;
+extern int maketic, nettics[];
+void Net_NodeAddress(int node, char* buf, int len);
+
+void Net_LogStatus()
+{
+	static uint64_t last;
+	static int sent0, fails0, got0, stranger0, tic0;
+	if (!netgame) { last = 0; return; }
+	const uint64_t now = I_msTime();
+	if (last == 0) { last = now; sent0 = netSent; fails0 = netSendFails; got0 = netGot; stranger0 = netGotStranger; tic0 = gametic; return; }
+	if (now - last < 5000) return;
+	FString s;
+	s.Format("Network: %.1f s: tic %d (+%d), made %d, got", (now - last) / 1000., gametic, gametic - tic0, maketic);
+	for (int i = 0; i < doomcom.numnodes; i++) s.AppendFormat(" %d", nettics[i]);
+	s.AppendFormat("; packets sent %d (failed %d", netSent - sent0, netSendFails - fails0);
+	if (netSendFails > fails0) s.AppendFormat(", error %d", netLastSendErr);
+	s.AppendFormat("), got %d, from strangers %d", netGot - got0, netGotStranger - stranger0);
+	if (netGotStranger > stranger0)
+		s.AppendFormat(" (last %u.%u.%u.%u:%u)", netStrangerAddr >> 24, (netStrangerAddr >> 16) & 255, (netStrangerAddr >> 8) & 255, netStrangerAddr & 255, netStrangerPort);
+	for (int i = 0; i < doomcom.numnodes; i++)
+	{
+		char a[40];
+		Net_NodeAddress(i, a, sizeof(a));
+		s.AppendFormat("; node %d %s", i, a);
+	}
+	for (int p = 0; p < MAXPLAYERS; p++)
+	{
+		if (!playeringame[p] || !PlayerArray[p]) continue;
+		auto act = PlayerArray[p]->GetActor();
+		const auto& v = PlayerArray[p]->cmd.ucmd.vel;
+		s.AppendFormat("; player %d", p + 1);
+		if (act) s.AppendFormat(" at %.0f %.0f %.0f", act->spr.pos.X, act->spr.pos.Y, act->spr.pos.Z);
+		s.AppendFormat(" move %.2f %.2f", v.X, v.Y);
+	}
+	Printf("%s\n", s.GetChars());
+	last = now; sent0 = netSent; fails0 = netSendFails; got0 = netGot; stranger0 = netGotStranger; tic0 = gametic;
 }

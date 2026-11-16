@@ -856,6 +856,7 @@ void MainLoop ()
 #ifdef RAZE_TOUCH
 			IOSGame_Frame(); // Added: the iOS touch controls (after the frame's touches came in)
 #endif
+			Net_LogStatus(); // Added: LAN games: the network's state in the log every 5 s
 #ifdef RAZE_IOS
 			const uint64_t tFrame2 = I_nsTime();
 #endif

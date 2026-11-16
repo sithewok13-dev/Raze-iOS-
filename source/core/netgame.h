@@ -8,6 +8,7 @@ void Net_SetupPlayers();
 void Net_HostSettings();
 void Net_InitCommands();
 bool Net_StartGame(MapRecord* map, int skill);
+void Net_LogStatus(); // (Added: iOS LAN games: the log every 5 s)
 void Net_LogChecksum();
 void Net_WritePending();
 void Net_ResetRandom();
