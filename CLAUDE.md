@@ -272,8 +272,9 @@ classic bars always show their face. Remembered (`iosTouchHud`,
   player, where the game's cheats work): god mode, "give all" at each
   level, ammo kept full; JUMP / USE holds for fly (Shadow Warrior) and
   noclip.
-- **LEVEL** (tray, any single-player level): the game's levels; a tap goes
-  there.
+- **LEVEL** (tray, any single-player level, and the host's in a network
+  game): the game's levels; a tap goes there (in a network game a new game
+  of that level for everyone, `Net_StartGame`, as the menu's New Game).
 - **CAMERA** (top row): tap = photo, hold 0.5 s = selfie, slide sideways =
   burst, down = Action Freeze, up = the cinematic burst; the tray's CAMERA
   shows/hides it, held its options. `source/core/ioscamera.cpp` and each

@@ -23,6 +23,7 @@
 SDL_Window* IOS_GetGameWindow(); // sdlglvideo.cpp: the game's window (OpenGL ES or Vulkan)
 
 #include "gamecontrol.h"
+#include "netgame.h"
 #include "gameinput.h"
 #include "inputstate.h"
 #include "c_console.h"
@@ -603,7 +604,8 @@ void IOSGame_Frame()
 	hud.strCheatRefusal = hud.bCheatAllowed ? nullptr : CheatRefusal();
 	// The tray's LEVEL: every game's own levels, in single player whether or
 	// not the cheat is on (the owner's choice)
-	const bool levelPick = !netgame && gamestate == GS_LEVEL && currentLevel != nullptr && part != nullptr;
+	// (in a network game, the host's: a level picked takes everyone there)
+	const bool levelPick = (!netgame || myconnectindex == 0) && gamestate == GS_LEVEL && currentLevel != nullptr && part != nullptr;
 	if (levelPick && cheatLevels.Size() == 0) FindLevels();
 	hud.ctLevels = levelPick ? cheatLevels.Size() : 0;
 	hud.uWorld = levelStarts;
@@ -703,8 +705,17 @@ void IOSGame_Frame()
 				// game carries the player over as it does), with the exit
 				// and start screens skipped until the new level is there
 				Printf(PRINT_NONOTIFY, "iOS: level %d picked: %s\n", i, cheatLevels[i - 1]->labelName.GetChars());
-				SkipLevelScreens();
-				ChangeLevel(cheatLevels[i - 1], g_nextskill);
+				if (netgame)
+				{
+					// the host's pick: a new game of that level for everyone,
+					// as the menu's New Game is (netgame.cpp, Net_StartGame)
+					Net_StartGame(cheatLevels[i - 1], g_nextskill);
+				}
+				else
+				{
+					SkipLevelScreens();
+					ChangeLevel(cheatLevels[i - 1], g_nextskill);
+				}
 			}
 			else
 			{
