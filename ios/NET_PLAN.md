@@ -26,6 +26,16 @@ the wait for players as the phone's Cancel does.
 - Shadow Warrior: WangBang (with a level change), WangBang (no respawn),
   co-op.
 
+## Found on real phones
+
+- Duke / Redneck network games: the view stayed where the level starts
+  while the players moved (build 113-114): Duke's camera and map took the
+  old prediction's position (`mypos`, never updated in Raze) for the
+  phone's own player when there was more than one; now the player's own
+  (render.cpp `displayrooms`, game_misc.cpp). The rig's checksums never
+  saw it: they check the game, not the picture; the log's "Network:" line
+  now says where the view is drawn from.
+
 ## Not done / not tested
 
 - Exhumed / PowerSlave: two players spawn, but the second doesn't move and

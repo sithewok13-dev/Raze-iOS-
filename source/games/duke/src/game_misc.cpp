@@ -247,7 +247,8 @@ void drawoverlays(double interpfrac)
 
 			if (pp->newOwner == nullptr && playrunning())
 			{
-				if (screenpeek == myconnectindex && numplayers > 1)
+				// Added (LAN games): not the old prediction's (render.cpp, displayrooms)
+				if (false && screenpeek == myconnectindex && numplayers > 1)
 				{
 					cposxy = interpolatedvalue(omypos, mypos, interpfrac).XY();
 					cang = interpolatedvalue(omyang, myang, interpfrac);

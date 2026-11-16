@@ -315,6 +315,8 @@ static void CheckTimer(FRenderState &state, uint64_t ShaderStartTime)
 void animatecamsprite(double s);
 
 
+DVector3 iosViewPos; int iosViewDraws; // (Added: iOS LAN games' log, netgame.cpp)
+
 #ifdef RAZE_IOSCAMERA
 static void render_drawrooms_(DCoreActor* playersprite, const DVector3& position, sectortype* sect, const DRotator& angles, double interpfrac, float fov);
 
@@ -366,6 +368,8 @@ static void render_drawrooms_(DCoreActor* playersprite, const DVector3& position
 void render_drawrooms(DCoreActor* playersprite, const DVector3& position, sectortype* sect, const DRotator& angles, double interpfrac, float fov)
 #endif
 {
+	// (Added: iOS LAN games' log: where the view is drawn from, and how often)
+	iosViewPos = position; iosViewDraws++;
 	updatesector(position.XY(), &sect);
 	if (sect == nullptr) return;
 

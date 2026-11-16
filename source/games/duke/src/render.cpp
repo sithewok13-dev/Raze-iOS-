@@ -273,7 +273,9 @@ void displayrooms(int snum, double interpfrac, bool sceneonly)
 		// use player's actor initially.
 		viewer = p->GetActor();
 
-		if ((snum == myconnectindex) && (numplayers > 1))
+		// Added (LAN games): never the old prediction's position (mypos): nothing
+		// updates it, so in a network game the view stayed where the level starts
+		if (false && (snum == myconnectindex) && (numplayers > 1))
 		{
 			cpos = interpolatedvalue(omypos, mypos, interpfrac);
 			cangles = DRotator(interpolatedvalue(omyhoriz + omyhorizoff, myhoriz + myhorizoff, interpfrac), interpolatedvalue(omyang, myang, interpfrac), nullAngle);

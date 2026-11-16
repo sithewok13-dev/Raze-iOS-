@@ -271,14 +271,15 @@ extern int netSent, netSendFails, netGot, netGotStranger, netLastSendErr;
 extern uint32_t netStrangerAddr; extern uint16_t netStrangerPort;
 extern int maketic, nettics[];
 void Net_NodeAddress(int node, char* buf, int len);
+extern DVector3 iosViewPos; extern int iosViewDraws;
 
 void Net_LogStatus()
 {
 	static uint64_t last;
-	static int sent0, fails0, got0, stranger0, tic0;
+	static int sent0, fails0, got0, stranger0, tic0, draws0;
 	if (!netgame) { last = 0; return; }
 	const uint64_t now = I_msTime();
-	if (last == 0) { last = now; sent0 = netSent; fails0 = netSendFails; got0 = netGot; stranger0 = netGotStranger; tic0 = gametic; return; }
+	if (last == 0) { last = now; sent0 = netSent; fails0 = netSendFails; got0 = netGot; stranger0 = netGotStranger; tic0 = gametic; draws0 = iosViewDraws; return; }
 	if (now - last < 5000) return;
 	FString s;
 	s.Format("Network: %.1f s: tic %d (+%d), made %d, got", (now - last) / 1000., gametic, gametic - tic0, maketic);
@@ -303,6 +304,8 @@ void Net_LogStatus()
 		if (act) s.AppendFormat(" at %.0f %.0f %.0f", act->spr.pos.X, act->spr.pos.Y, act->spr.pos.Z);
 		s.AppendFormat(" move %.2f %.2f", v.X, v.Y);
 	}
+	s.AppendFormat("; view drawn %d times, last at %.0f %.0f %.0f", iosViewDraws - draws0, iosViewPos.X, iosViewPos.Y, iosViewPos.Z);
 	Printf("%s\n", s.GetChars());
+	draws0 = iosViewDraws;
 	last = now; sent0 = netSent; fails0 = netSendFails; got0 = netGot; stranger0 = netGotStranger; tic0 = gametic;
 }
