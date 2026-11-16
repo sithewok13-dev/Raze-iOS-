@@ -301,8 +301,9 @@ void Net_LogStatus()
 		auto act = PlayerArray[p]->GetActor();
 		const auto& v = PlayerArray[p]->cmd.ucmd.vel;
 		s.AppendFormat("; player %d", p + 1);
-		if (act) s.AppendFormat(" at %.0f %.0f %.0f", act->spr.pos.X, act->spr.pos.Y, act->spr.pos.Z);
-		s.AppendFormat(" move %.2f %.2f", v.X, v.Y);
+		if (act) s.AppendFormat(" at %.0f %.0f %.0f facing %.0f health %d", act->spr.pos.X, act->spr.pos.Y, act->spr.pos.Z,
+			act->spr.Angles.Yaw.Normalized360().Degrees(), (int)act->spr.extra);
+		s.AppendFormat(" move %.2f %.2f turn %.1f use %d", v.X, v.Y, PlayerArray[p]->cmd.ucmd.ang.Yaw.Degrees(), (PlayerArray[p]->cmd.ucmd.actions & SB_OPEN) ? 1 : 0);
 	}
 	s.AppendFormat("; view drawn %d times, last at %.0f %.0f %.0f", iosViewDraws - draws0, iosViewPos.X, iosViewPos.Y, iosViewPos.Z);
 	Printf("%s\n", s.GetChars());
