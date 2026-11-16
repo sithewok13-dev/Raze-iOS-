@@ -36,6 +36,11 @@ the wait for players as the phone's Cancel does.
   saw it: they check the game, not the picture; the log's "Network:" line
   now says where the view is drawn from.
 
+- Duke / Redneck: the other player showed as their gun lying on the floor
+  and a small copy of them floating (build 115): Raze put the held
+  weapon's picture on the player's sprite and left the player's on the
+  weapon's (animatesprites_d/r.cpp); now each on its own.
+
 ## Not done / not tested
 
 - Exhumed / PowerSlave: two players spawn, but the second doesn't move and

@@ -167,7 +167,9 @@ void animatesprites_r(tspriteArray& tsprites, const DVector2& viewVec, DAngle vi
 				case ALIENBLASTER_WEAPON:     texname = "ALIENBLASTERSPRITE";   break;
 				case TIT_WEAPON:              texname = "TITSPRITE";            break;
 				}
-				t->setspritetexture(TexMan.CheckForTexture(texname, ETextureType::Any));
+				// Added (LAN games): the weapon's picture on the weapon's sprite (it was
+				// put on the player's: the gun lay where they stood, they floated)
+				newtspr->setspritetexture(TexMan.CheckForTexture(texname, ETextureType::Any));
 
 				if (h->GetOwner()) newtspr->pos.Z = h->getOffsetZ() - 12;
 				else newtspr->pos.Z = h->spr.pos.Z - 51;
