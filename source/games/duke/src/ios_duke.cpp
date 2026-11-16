@@ -283,7 +283,9 @@ static const IOSIconSignStyle* CheatSignStyle()
 // damn"
 static void CheatSound()
 {
-	static const int duke[] = { DUKE_GETWEAPON6, DUKE_GETWEAPON2, DUKE_GETWEAPON3, BONUS_SPEECH1 };
+	// (Duke's "Hail to the king, baby", "Come get some", "Groovy", "Let's rock";
+	// and the Assault Commander's "Suck it down", the owner's pick)
+	static const int duke[] = { DUKE_GETWEAPON6, DUKE_GETWEAPON2, DUKE_GETWEAPON3, BONUS_SPEECH1, COMM_ATTACK };
 	static const int rr[] = { 390 /* YEHAA16 */, 78 /* LN_HOTDM */ };
 	const int id = isRR() ? rr[rand() % countof(rr)] : duke[rand() % countof(duke)];
 	S_PlaySound(id, CHAN_VOICE, CHANF_UI, 1.f);
