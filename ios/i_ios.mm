@@ -172,7 +172,7 @@ static bool ChooseHost(const NetMode* modes, int ctModes)
 	NSMutableArray<NSString*>* titles = [NSMutableArray array];
 	for (int i = 0; i < ctModes; i++) [titles addObject:[NSString stringWithUTF8String:modes[i].name]];
 	[titles addObject:@"Back"];
-	const int m = RunAlert(Sheet(@"Host a LAN game", @"Which game?"), titles, ctModes);
+	const int m = RunAlert(Sheet(@"Host a LAN game", @"Which kind of game?"), titles, ctModes);
 	if (m < 0 || m >= ctModes) return false;
 
 	titles = [NSMutableArray array];
@@ -203,9 +203,21 @@ static bool ChooseHost(const NetMode* modes, int ctModes)
 	return true;
 }
 
-// Joining: the hosts found on the Wi-Fi, or a typed address. false: back
-static bool ChooseJoin()
+// A join chosen and then gone back on: its "-join <address>" taken off the
+// command line again
+static void DropJoin()
 {
+	const int i = Args->CheckParm("-join");
+	if (i <= 0) return;
+	Args->RemoveArg(i);
+	if (i < Args->NumArgs()) Args->RemoveArg(i);
+}
+
+// Joining: the hosts found on the Wi-Fi, or a typed address. false: back.
+// The game a found host plays goes to strGame (empty for a typed address)
+static bool ChooseJoin(char* strGame = nullptr, int ctGame = 0)
+{
+	if (strGame && ctGame > 0) strGame[0] = 0;
 	IOSNet_TouchNetwork();
 	for (;;)
 	{
@@ -236,14 +248,18 @@ static bool ChooseJoin()
 		[titles addObject:@"Type an address"];
 		[titles addObject:@"Search again"];
 		[titles addObject:@"Back"];
-		NSString* msg = ctHosts > 0 ? @"Tap a game to join it (the same game as yours: the same files)."
+		NSString* msg = ctHosts > 0 ? @"Tap a game to join it. Raze opens that game (you need its files too)."
 			: @"No game found. The host must be waiting for players, on this Wi-Fi.";
 		const int pick = RunAlert(Sheet(@"Join a LAN game", msg), titles, iType + 2);
 		if (pick < 0 || pick == iType + 2) return false;
 		if (pick == iType + 1) continue;
 
 		NSString* address = nil;
-		if (pick < ctHosts) address = [NSString stringWithUTF8String:hosts[pick].strAddress];
+		if (pick < ctHosts)
+		{
+			address = [NSString stringWithUTF8String:hosts[pick].strAddress];
+			if (strGame && ctGame > 0) snprintf(strGame, ctGame, "%s", hosts[pick].strGame);
+		}
 		else
 		{
 			UIAlertController* ask = [UIAlertController alertControllerWithTitle:@"Join a LAN game"
@@ -268,18 +284,6 @@ static bool ChooseJoin()
 	}
 }
 
-// Host or join, for the game picked. false: back
-static bool ChooseNetwork(const char* gameName, const NetMode* modes, int ctModes)
-{
-	for (;;)
-	{
-		const int c = RunAlert(Sheet([NSString stringWithUTF8String:gameName], @"A game with others on this Wi-Fi"),
-			@[ @"Host a LAN game", @"Join a LAN game", @"Back" ], 2);
-		if (c == 0 && ChooseHost(modes, ctModes)) return true;
-		if (c == 1 && ChooseJoin()) return true;
-		if (c < 0 || c == 2) return false;
-	}
-}
 
 // LAN multiplayer from "Switch game" (ios/IOSPicker.mm): the games here
 // that have network games
@@ -337,7 +341,53 @@ int I_PickIWad_Cocoa(WadStuff* wads, int numwads, bool showwin, int defaultiwad)
 		}
 		if (chosen != iLan) return chosen;
 
-		// LAN multiplayer: which game, then host or join (Back: the picker again)
+		// LAN multiplayer: host or join first. Joining needs no game picked: the
+		// host's game is found among this phone's (Back: the picker again)
+		const int hj = RunAlert(Sheet(@"LAN multiplayer", @"A game with others on this Wi-Fi"),
+			@[ @"Host a LAN game", @"Join a LAN game", @"Back" ], 2);
+		if (hj < 0 || hj == 2) continue;
+		if (hj == 1)
+		{
+			char hostGame[96];
+			for (;;)
+			{
+				if (!ChooseJoin(hostGame, sizeof(hostGame))) { DropJoin(); break; }
+				int found = -1;
+				if (hostGame[0])
+				{
+					for (unsigned i = 0; i < netGames.Size() && found < 0; i++)
+						if (wads[netGames[i]].Name.CompareNoCase(hostGame) == 0) found = netGames[i];
+					if (found < 0)
+					{
+						RunAlert([UIAlertController alertControllerWithTitle:@"Join a LAN game"
+							message:[NSString stringWithFormat:@"The host plays %s, which isn't on this phone. Copy its game files into Files > On My iPhone > Raze, then try again.", hostGame]
+							preferredStyle:UIAlertControllerStyleAlert], @[ @"OK" ], 0);
+						DropJoin();
+						continue;
+					}
+				}
+				else
+				{
+					// a typed address: the game isn't known, so ask
+					NSMutableArray<NSString*>* list = [NSMutableArray array];
+					for (unsigned i = 0; i < netGames.Size(); i++)
+					{
+						NSString* name = [NSString stringWithUTF8String:wads[netGames[i]].Name.GetChars()];
+						[list addObject:name ? name : @"?"];
+					}
+					[list addObject:@"Back"];
+					const int g = RunAlert(Sheet(@"Join a LAN game", @"Which game is the host playing?"), list, (int)netGames.Size());
+					if (g < 0 || g >= (int)netGames.Size()) { DropJoin(); continue; }
+					found = netGames[g];
+				}
+				printf("LAN game: the host's game, %s\n", wads[found].Name.GetChars());
+				IOSPicker_Close(); // (it stayed up under the questions)
+				return found;
+			}
+			continue;
+		}
+
+		// hosting: which game
 		NSMutableArray<NSString*>* games = [NSMutableArray array];
 		for (unsigned i = 0; i < netGames.Size(); i++)
 		{
@@ -345,13 +395,13 @@ int I_PickIWad_Cocoa(WadStuff* wads, int numwads, bool showwin, int defaultiwad)
 			[games addObject:name ? name : @"?"];
 		}
 		[games addObject:@"Back"];
-		const int g = RunAlert(Sheet(@"LAN multiplayer", @"Which game? (Everyone needs the same game files.)"), games, (int)netGames.Size());
+		const int g = RunAlert(Sheet(@"Host a LAN game", @"Which game? (Everyone needs its files.)"), games, (int)netGames.Size());
 		if (g < 0 || g >= (int)netGames.Size()) continue;
 		const int pick = netGames[g];
 		const NetMode* modes = nullptr;
 		int ctModes = 0;
 		NetModes(wads[pick].Name.GetChars(), &ctModes, &modes);
-		if (ChooseNetwork(wads[pick].Name.GetChars(), modes, ctModes))
+		if (ChooseHost(modes, ctModes))
 		{
 			IOSPicker_Close(); // (it stayed up under the questions)
 			return pick;

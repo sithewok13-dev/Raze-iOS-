@@ -18,8 +18,12 @@ repository or anywhere public.
   for a "Tap to start <game>" notification and closes the app (Raze plays
   one game a run); the next start within 10 minutes goes straight to it.
 - **LAN games** (`ios/IOSNet.c`, `source/core/netgame.cpp`, notes in
-  `ios/NET_PLAN.md`): host or join after the game is picked; Duke, Redneck,
-  Blood and Shadow Warrior. No saving or loading in a network game.
+  `ios/NET_PLAN.md`): the picker's LAN multiplayer asks Host or Join
+  first; the host picks the game, a guest just picks a host from the
+  search (its game and mode shown) and Raze opens that game (matched by
+  name, `GameStartupInfo.Name` in the host's answer; a typed address asks
+  which game). Duke, Redneck, Blood and Shadow Warrior. No saving or
+  loading in a network game.
 - **Game controllers** (`ios/IOSPad.cpp`): through the engine's own pad
   bindings; a pad hides the touch controls until a touch.
 - **Frame rate** (all five games: one main loop, `source/core/mainloop.cpp`,
