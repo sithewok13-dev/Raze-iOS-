@@ -81,7 +81,9 @@ void pickrandomspot(DDukePlayer* const p)
 static void resetplayerstats(DDukePlayer* const p)
 {
 	gFullMap = 0; 
-	p->pnum             = 0;
+	// (Added (LAN games): the player's number is who they are, never reset: it
+	// was set to 0 here, so the second player's own messages, USE and the
+	// rest went to the first player's in a network game)
 	p->dead_flag        = 0;
 	p->wackedbyactor    = nullptr;
 	p->falling_counter  = 0;

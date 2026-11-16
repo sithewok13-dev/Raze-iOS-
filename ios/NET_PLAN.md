@@ -47,6 +47,14 @@ the wait for players as the phone's Cancel does.
   (actors.cpp `TickActor`, `findotherplayer`); now for itself, the other
   giving only the distance, as the original game's moveplayers.
 
+- Duke / Redneck: the second player stayed dead (looking only up and
+  down, no pickups) and the first got its respawn prompt and respawned
+  it with USE (build 119): `resetplayerstats` (premap.cpp) set every
+  player's number (`pnum`) to 0 at each level, so the second player's
+  script, messages and USE were the first's. Now never reset. Rig:
+  co-op with friendly fire on, the host shoots the guest: the prompt on
+  the guest only, the guest's USE respawns it, the checksums the same.
+
 ## Not done / not tested
 
 - Exhumed / PowerSlave: two players spawn, but the second doesn't move and
