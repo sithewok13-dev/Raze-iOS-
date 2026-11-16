@@ -232,6 +232,8 @@ void IOSTouch_GetHudLayout(IOSTouchHudLayout *pLayout);
 int IOSTouch_MaxFps(void);
 /* the tray's TEX: the textures' look, 0 smooth, 1 crisp pixels, 2 HD (xBRZ 4x), 3 HD crisp */
 int IOSTouch_TexMode(void);
+/* GUNS in the HUD panel (network games): the other players' guns above them */
+int IOSTouch_ShowGuns(void);
 /* Hide now (a level is loading, or the app is going to the background), and
    stop tilt aiming's motion updates; the next update shows it again */
 void IOSTouch_Hide(void);

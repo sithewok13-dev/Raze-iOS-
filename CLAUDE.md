@@ -166,7 +166,10 @@ classic bars always show their face. Remembered (`iosTouchHud`,
   standard, from the DOOM port): dark, rounded, a 1.5 pt white border at
   40%, up to 560 pt wide inside the safe area, 40 pt rows, the row's name
   at the left (78 pt): LOOK (six chips), SIZE (not for CLASSIC or NONE),
-  FACE (ON / OFF: the pills, in Redneck), HUD (the HUD's opacity;
+  FACE (ON / OFF: the pills, in Redneck), GUNS (ON / OFF, only in a
+  network game: the other players' guns above their heads, the games'
+  `cl_showweapon`; default OFF, the owner's call; `iosTouchHudGuns`),
+  HUD (the HUD's opacity;
   not for CLASSIC, always at full, the owner's call, nor NONE) and
   BUTTONS (the controls', always shown), each a slider, 20-100% in 5%
   steps, live, kept on lift, the value at its right. Hidden rows close up. Chips: radius 15,

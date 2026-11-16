@@ -627,6 +627,10 @@ static double _fLaidW = 0.0, _fLaidH = 0.0, _fLaidInL = 0.0, _fLaidInR = 0.0, _f
 #define IOSTOUCH_PILL_CLEAR 14.0
 #define IOSTOUCH_BAR_CLEAR 10.0
 static int _iHudStyle = IOSTOUCH_HUD_SPLIT, _bHudFace = 1, _bHudPrefsLoaded = 0;
+// GUNS (the HUD panel, in a network game): the small picture of the gun
+// each other player holds, above their head (the games' cl_showweapon);
+// off unless chosen (the owner's call)
+static int _bHudGuns = 0;
 static float _fHudOpacity = 1.0f;
 // SIZE: the pills' (SPLIT, STRIP: 0 small, 1 medium, 2 large) and the
 // classic bars' (CLASSIC SPLIT, CLASSIC STRIP: 0 small, 1 normal, the
@@ -648,6 +652,7 @@ static void IOSTouch_HudPrefs(void)
   IOSTouch_LoadHudPrefs();
   if (_iHudStyle < 0 || _iHudStyle >= IOSTOUCH_HUD_COUNT) _iHudStyle = IOSTOUCH_HUD_SPLIT;
   _bHudFace = _bHudFace != 0;
+  _bHudGuns = _bHudGuns != 0;
   if (_iHudSize < 0 || _iHudSize > 2) _iHudSize = 1;
   if (_iHudBarSize < 0 || _iHudBarSize > 2) _iHudBarSize = 1;
   if (!(_fHudOpacity >= 0.2f && _fHudOpacity <= 1.0f)) _fHudOpacity = 1.0f;
@@ -1184,6 +1189,13 @@ int IOSTouch_MaxFps(void)
   return _iMaxFps;
 }
 
+// GUNS (the HUD panel): the other players' guns shown above them, for the game
+int IOSTouch_ShowGuns(void)
+{
+  IOSTouch_HudPrefs();
+  return _bHudGuns;
+}
+
 // The textures' look the tray's TEX chose (0-3), for the game to apply
 int IOSTouch_TexMode(void)
 {
@@ -1241,7 +1253,7 @@ static float IOSTouch_OpacityStep(float k)
 #define IOSTOUCH_OPACITY_PANEL_PAD 6.0
 #define IOSTOUCH_OPACITY_LABEL_W 78.0
 #define IOSTOUCH_OPACITY_VALUE_W 44.0
-enum { IOSTOUCH_HUDROW_LOOK = 0, IOSTOUCH_HUDROW_SIZE, IOSTOUCH_HUDROW_FACE, IOSTOUCH_HUDROW_HUD, IOSTOUCH_HUDROW_BUTTONS, IOSTOUCH_HUDROWS };
+enum { IOSTOUCH_HUDROW_LOOK = 0, IOSTOUCH_HUDROW_SIZE, IOSTOUCH_HUDROW_FACE, IOSTOUCH_HUDROW_GUNS, IOSTOUCH_HUDROW_HUD, IOSTOUCH_HUDROW_BUTTONS, IOSTOUCH_HUDROWS };
 // LOOK's choices, left to right
 static const int _aiHudLooks[6] = { IOSTOUCH_HUD_SPLIT, IOSTOUCH_HUD_STRIP, IOSTOUCH_HUD_CSPLIT, IOSTOUCH_HUD_CSTRIP,
                                     IOSTOUCH_HUD_CLASSIC, IOSTOUCH_HUD_NONE };
@@ -1250,6 +1262,7 @@ static int IOSTouch_HudRowShown(int row)
   IOSTouch_HudPrefs();
   if (row == IOSTOUCH_HUDROW_SIZE) return _iHudStyle != IOSTOUCH_HUD_CLASSIC && _iHudStyle != IOSTOUCH_HUD_NONE;
   if (row == IOSTOUCH_HUDROW_FACE) return IOSTouch_HudIsPills(_iHudStyle) && _hud.bValid && _hud.bFace;
+  if (row == IOSTOUCH_HUDROW_GUNS) return _hud.bValid && _hud.bNoSaves; // (a network game)
   // (the HUD's opacity: not for CLASSIC, always at full (the owner's call), nor NONE: nothing to fade)
   if (row == IOSTOUCH_HUDROW_HUD) return _iHudStyle != IOSTOUCH_HUD_CLASSIC && _iHudStyle != IOSTOUCH_HUD_NONE;
   return row >= 0 && row < IOSTOUCH_HUDROWS;
@@ -1301,6 +1314,7 @@ static void IOSTouch_HudPick(int row, int choice)
   else if (row == IOSTOUCH_HUDROW_SIZE && IOSTouch_HudIsPills(_iHudStyle) && choice >= 0 && choice <= 2) _iHudSize = choice;
   else if (row == IOSTOUCH_HUDROW_SIZE && IOSTouch_HudRowShown(row) && choice >= 0 && choice <= 2) _iHudBarSize = choice;
   else if (row == IOSTOUCH_HUDROW_FACE && IOSTouch_HudRowShown(row) && choice >= 0 && choice <= 1) _bHudFace = (choice == 0);
+  else if (row == IOSTOUCH_HUDROW_GUNS && IOSTouch_HudRowShown(row) && choice >= 0 && choice <= 1) _bHudGuns = (choice == 0);
   else return;
   IOSTouch_SaveHudPrefs();
 }
@@ -1312,10 +1326,12 @@ static void IOSTouch_HudRowReset(int row)
   IOSTouch_HudPrefs();
   static const char *const astr[IOSTOUCH_HUDROWS] = {
     "LOOK back to the default: split", "SIZE back to the default", "FACE back to the default: on",
+    "GUNS back to the default: off",
     "HUD opacity back to the default: 100%", "BUTTONS opacity back to the default: 100%" };
   if (row == IOSTOUCH_HUDROW_LOOK) _iHudStyle = IOSTOUCH_HUD_SPLIT;
   else if (row == IOSTOUCH_HUDROW_SIZE) { if (IOSTouch_HudIsPills(_iHudStyle)) _iHudSize = 1; else _iHudBarSize = 1; }
   else if (row == IOSTOUCH_HUDROW_FACE) _bHudFace = 1;
+  else if (row == IOSTOUCH_HUDROW_GUNS) _bHudGuns = 0;
   else if (row == IOSTOUCH_HUDROW_HUD) _fHudOpacity = 1.0f;
   else if (row == IOSTOUCH_HUDROW_BUTTONS) _fOpacity = 1.0f;
   else return;
@@ -1332,11 +1348,12 @@ static void IOSTouch_HudResetAll(void)
   _iHudSize = 1;
   _iHudBarSize = 1;
   _bHudFace = 1;
+  _bHudGuns = 0;
   _fHudOpacity = 1.0f;
   _fOpacity = 1.0f;
   IOSTouch_SaveHudPrefs();
   _ctHudResets++;
-  IOSTouch_ShowMessage("HUD back to the defaults: split, medium, face on, both opacities 100%", 2.0);
+  IOSTouch_ShowMessage("HUD back to the defaults: split, medium, face on, guns off, both opacities 100%", 2.0);
 }
 static float _fFpsRing = 0.0f;
 static int _ctMaxFpsChanges = 0;
@@ -4194,6 +4211,7 @@ void IOSTouch_TakeGyro(float *pfYaw, float *pfPitch)
 // HUD slider) and its sizes (the pills' 0-2, the classic bars' 0-1)
 #define IOSTOUCH_HUD_DEFAULTS_KEY @"iosTouchHud"
 #define IOSTOUCH_HUDFACE_DEFAULTS_KEY @"iosTouchHudFace"
+#define IOSTOUCH_HUDGUNS_DEFAULTS_KEY @"iosTouchHudGuns"
 #define IOSTOUCH_HUDOPACITY_DEFAULTS_KEY @"iosTouchHudOpacity"
 #define IOSTOUCH_HUDSIZE_DEFAULTS_KEY @"iosTouchHudSize"
 #define IOSTOUCH_HUDBARSIZE_DEFAULTS_KEY @"iosTouchHudBarSize"
@@ -4203,6 +4221,7 @@ static void IOSTouch_LoadHudPrefs(void)
   NSUserDefaults *d = [NSUserDefaults standardUserDefaults];
   if ([d objectForKey:IOSTOUCH_HUD_DEFAULTS_KEY]) _iHudStyle = (int)[d integerForKey:IOSTOUCH_HUD_DEFAULTS_KEY];
   if ([d objectForKey:IOSTOUCH_HUDFACE_DEFAULTS_KEY]) _bHudFace = [d boolForKey:IOSTOUCH_HUDFACE_DEFAULTS_KEY] ? 1 : 0;
+  _bHudGuns = [d boolForKey:IOSTOUCH_HUDGUNS_DEFAULTS_KEY] ? 1 : 0;
   if ([d objectForKey:IOSTOUCH_HUDOPACITY_DEFAULTS_KEY]) _fHudOpacity = IOSTouch_OpacityStep([d floatForKey:IOSTOUCH_HUDOPACITY_DEFAULTS_KEY]);
   if ([d objectForKey:IOSTOUCH_HUDSIZE_DEFAULTS_KEY]) _iHudSize = (int)[d integerForKey:IOSTOUCH_HUDSIZE_DEFAULTS_KEY];
   if ([d objectForKey:IOSTOUCH_HUDBARSIZE_DEFAULTS_KEY]) _iHudBarSize = (int)[d integerForKey:IOSTOUCH_HUDBARSIZE_DEFAULTS_KEY];
@@ -4213,6 +4232,7 @@ static void IOSTouch_SaveHudPrefs(void)
   NSUserDefaults *d = [NSUserDefaults standardUserDefaults];
   [d setInteger:_iHudStyle forKey:IOSTOUCH_HUD_DEFAULTS_KEY];
   [d setBool:(_bHudFace ? YES : NO) forKey:IOSTOUCH_HUDFACE_DEFAULTS_KEY];
+  [d setBool:(_bHudGuns ? YES : NO) forKey:IOSTOUCH_HUDGUNS_DEFAULTS_KEY];
   [d setFloat:_fHudOpacity forKey:IOSTOUCH_HUDOPACITY_DEFAULTS_KEY];
   [d setInteger:_iHudSize forKey:IOSTOUCH_HUDSIZE_DEFAULTS_KEY];
   [d setInteger:_iHudBarSize forKey:IOSTOUCH_HUDBARSIZE_DEFAULTS_KEY];
@@ -4445,7 +4465,7 @@ typedef struct {
   int iOpacityValues;
   int iHudLabels;            // what the tray's HUD says: the look (-1: not yet set)
   UIButton *hudRowName[IOSTOUCH_HUDROWS]; // the HUD panel's rows' names (a tap: that row's default)
-  UIButton *hudChip[3][6];   // ...LOOK's, SIZE's and FACE's choices
+  UIButton *hudChip[4][6];   // ...LOOK's, SIZE's, FACE's and GUNS' choices
   int iHudPanelKey;          // (what the rows were laid out for: -1 not yet)
   UIView *gfxBack;           // GRAPHICS' panel under the tray...
   UIButton *gfxRowName[IOSTOUCH_GFXROWS]; // ...its rows' names (a tap: that row's default)...
@@ -4662,7 +4682,7 @@ static CAShapeLayer *IOSTouch_MakeHoldRing(CGFloat r)
     opacityBack.layer.borderWidth = 1.5;
     opacityBack.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:0.4].CGColor;
     opacityBack.hidden = YES;
-    static NSString *const astrRows[IOSTOUCH_HUDROWS] = { @"LOOK", @"SIZE", @"FACE", @"HUD", @"BUTTONS" };
+    static NSString *const astrRows[IOSTOUCH_HUDROWS] = { @"LOOK", @"SIZE", @"FACE", @"GUNS", @"HUD", @"BUTTONS" };
     static NSString *const astrLooks[6] = { @"SPLIT", @"STRIP", @"CLASSIC\nSPLIT", @"CLASSIC\nSTRIP", @"CLASSIC", @"NONE" };
     for (int row = 0; row < IOSTOUCH_HUDROWS; row++) {
       UIButton *name = [UIButton buttonWithType:UIButtonTypeCustom];
@@ -4676,10 +4696,10 @@ static CAShapeLayer *IOSTouch_MakeHoldRing(CGFloat r)
       [name addTarget:self action:@selector(hudRowNameTapped:) forControlEvents:UIControlEventTouchUpInside];
       [opacityBack addSubview:name];
       hudRowName[row] = name;
-      if (row <= IOSTOUCH_HUDROW_FACE) {
+      if (row <= IOSTOUCH_HUDROW_GUNS) {
         for (int j = 0; j < 6; j++) {
           UIButton *chip = [UIButton buttonWithType:UIButtonTypeCustom];
-          NSString *t = row == IOSTOUCH_HUDROW_LOOK ? astrLooks[j] : row == IOSTOUCH_HUDROW_FACE ? (j ? @"OFF" : @"ON") : @"";
+          NSString *t = row == IOSTOUCH_HUDROW_LOOK ? astrLooks[j] : (row == IOSTOUCH_HUDROW_FACE || row == IOSTOUCH_HUDROW_GUNS) ? (j ? @"OFF" : @"ON") : @"";
           [chip setTitle:t forState:UIControlStateNormal];
           [chip setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
           chip.titleLabel.font = IOSTouch_TrayFont(row == IOSTOUCH_HUDROW_LOOK ? 10 : 11);
@@ -5201,7 +5221,8 @@ static UIBezierPath *IOSTouch_AnkhPath(CGFloat cx, CGFloat cy, CGFloat r)
   const CGFloat w = opacityBack.bounds.size.width;
   const int bPills = IOSTouch_HudIsPills(_iHudStyle);
   const int key = (int)w * 8192 + _iHudStyle * 512 + _iHudSize * 64 + _iHudBarSize * 16 + _bHudFace * 2
-                  + (IOSTouch_HudRowShown(IOSTOUCH_HUDROW_FACE) ? 1 : 0);
+                  + (IOSTouch_HudRowShown(IOSTOUCH_HUDROW_FACE) ? 1 : 0) + _bHudGuns * 4
+                  + (IOSTouch_HudRowShown(IOSTOUCH_HUDROW_GUNS) ? 8 : 0);
   if (key == iHudPanelKey) return;
   iHudPanelKey = key;
   const CGFloat rowH = IOSTOUCH_OPACITY_ROW_H, x0 = IOSTOUCH_OPACITY_LABEL_W, avail = w - x0 - 10;
@@ -5213,9 +5234,10 @@ static UIBezierPath *IOSTouch_AnkhPath(CGFloat cx, CGFloat cy, CGFloat r)
     const int bShown = IOSTouch_HudRowShown(row);
     hudRowName[row].hidden = !bShown;
     hudRowName[row].frame = CGRectMake(14, y, x0 - 18, rowH);
-    if (row <= IOSTOUCH_HUDROW_FACE) {
-      const int n = row == IOSTOUCH_HUDROW_LOOK ? 6 : row == IOSTOUCH_HUDROW_FACE ? 2 : 3;
+    if (row <= IOSTOUCH_HUDROW_GUNS) {
+      const int n = row == IOSTOUCH_HUDROW_LOOK ? 6 : (row == IOSTOUCH_HUDROW_FACE || row == IOSTOUCH_HUDROW_GUNS) ? 2 : 3;
       const int sel = row == IOSTOUCH_HUDROW_LOOK ? iLook : row == IOSTOUCH_HUDROW_FACE ? (_bHudFace ? 0 : 1)
+                    : row == IOSTOUCH_HUDROW_GUNS ? (_bHudGuns ? 0 : 1)
                     : (bPills ? _iHudSize : _iHudBarSize);
       const CGFloat cw = row == IOSTOUCH_HUDROW_LOOK ? avail / 6.0 : fmin(avail / 3.0, 120.0);
       for (int j = 0; j < 6; j++) {

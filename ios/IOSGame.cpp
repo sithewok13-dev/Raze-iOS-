@@ -574,6 +574,13 @@ void IOSGame_Frame()
 		}
 	}
 
+	// the HUD panel's GUNS: the other players' guns above their heads in a
+	// network game (the games' own cl_showweapon; off unless chosen)
+	{
+		const int guns = IOSTouch_ShowGuns() ? 1 : 0;
+		if (cl_showweapon != guns) cl_showweapon = guns;
+	}
+
 	// a level started, restarted or loaded: the world changed
 	if (levelStarts != levelStartsSeen)
 	{

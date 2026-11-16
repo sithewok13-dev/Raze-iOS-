@@ -18,8 +18,8 @@
                        with SPLIT or STRIP, the classic bars' (small, normal) with
                        CLASSIC SPLIT or STRIP
      hudopacity <0.2-1>, opacity <0.2-1>          HUD's panel's sliders
-     hudpick <row 0-2> <choice>   a choice in HUD's panel (LOOK, SIZE, FACE)
-     hudreset <row 0-4>           a row's name tapped in HUD's panel (back to its default)
+     hudpick <row 0-3> <choice>   a choice in HUD's panel (LOOK, SIZE, FACE, GUNS)
+     hudreset <row 0-5>           a row's name tapped in HUD's panel (back to its default)
      items             the item buttons (useitem, kind, charge, count, on, dim, place)
      dump <name>       the overlay's state (buttons shown, places, the
                        items) appended to TOUCHRIG_DUMP as one JSON line
