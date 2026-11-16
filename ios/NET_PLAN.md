@@ -41,6 +41,12 @@ the wait for players as the phone's Cancel does.
   weapon's picture on the player's sprite and left the player's on the
   weapon's (animatesprites_d/r.cpp); now each on its own.
 
+- Duke / Redneck: "Press Use to restart" showed on the killer's screen,
+  and the killer's USE was what respawned the dead (owner's report, build
+  115): each player's script ran for the nearest other player
+  (actors.cpp `TickActor`, `findotherplayer`); now for itself, the other
+  giving only the distance, as the original game's moveplayers.
+
 ## Not done / not tested
 
 - Exhumed / PowerSlave: two players spawn, but the second doesn't move and

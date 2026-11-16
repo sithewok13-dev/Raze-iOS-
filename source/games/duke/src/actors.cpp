@@ -103,7 +103,14 @@ void TickActor(DDukeActor* self)
 		else
 		{
 			if (ud.multimode > 1)
-				pnum = findotherplayer(self->PlayerIndex(), &pdist);
+			{
+				// Added (LAN games): a player's script runs for that player, the
+				// other one only giving the distance (as the original game's
+				// moveplayers did); run for the other, "Press Use to restart"
+				// showed on the killer's screen and the killer's USE respawned
+				findotherplayer(self->PlayerIndex(), &pdist);
+				pnum = self->PlayerIndex();
+			}
 			else
 			{
 				pnum = self->PlayerIndex();
