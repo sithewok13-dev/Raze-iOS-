@@ -194,6 +194,7 @@ static bool ChooseHost(const NetMode* modes, int ctModes)
 
 	IOSNet_TouchNetwork();	// (iOS asks for the Local Network permission now)
 	// (the engine reads these after the game's settings: netgame.cpp)
+	Args->AppendArg("+set"); Args->AppendArg("net_checksums"); Args->AppendArg("1"); // (the log's checksums, as a guest's)
 	Args->AppendArg("-host");
 	Args->AppendArg(FStringf("%d", p + 2).GetChars());
 	Args->AppendArg("+set"); Args->AppendArg("net_mode"); Args->AppendArg(FStringf("%d", modes[m].mode).GetChars());
@@ -279,6 +280,9 @@ static bool ChooseJoin(char* strGame = nullptr, int ctGame = 0)
 		[NSUserDefaults.standardUserDefaults setObject:address forKey:@"RazeLanLastAddress"];
 		Args->AppendArg("-join");
 		Args->AppendArg(address.UTF8String);
+		// (the log gets a checksum of the game once a second, to compare the
+		// two phones' logs: the same numbers mean the games stay in step)
+		Args->AppendArg("+set"); Args->AppendArg("net_checksums"); Args->AppendArg("1");
 		printf("LAN game: joining %s\n", address.UTF8String);
 		return true;
 	}
