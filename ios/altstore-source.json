@@ -50,21 +50,22 @@
       ],
       "versions": [
         {
-          "version": "0.1.112",
-          "buildVersion": "112",
-          "marketingVersion": "ios-latest",
-          "date": "2026-11-16T00:46:33Z",
-          "localizedDescription": "The newest test build (build 112, Nov 16), before the first numbered release. It may not have been tried yet.\n\nNotes: https://github.com/sithewok13-dev/Raze-iOS-/releases/tag/ios-latest",
-          "downloadURL": "https://github.com/sithewok13-dev/Raze-iOS-/releases/download/ios-latest/Raze.ipa",
-          "size": 21421343,
+          "version": "0.1.125",
+          "buildVersion": "125",
+          "marketingVersion": "ios-v0.1",
+          "date": "2026-11-17T03:24:29Z",
+          "localizedDescription": "The first numbered release. Everything here is new:\n- Five games in one app\n- An app icon of its own\n- Touch controls made for these games\n- A weapon wheel\n- A button for every item you carry\n- Duke's jetpack flies where you look\n- Six HUD looks\n- Quick save and quick load\n\nFull notes: https://github.com/sithewok13-dev/Raze-iOS-/releases/tag/ios-v0.1",
+          "downloadURL": "https://github.com/sithewok13-dev/Raze-iOS-/releases/download/ios-v0.1/Raze.ipa",
+          "size": 21474473,
+          "sha256": "cc3ba40710d920ee7b409dc0b62231a131529e6eb689bca0cb14807a0a870dea",
           "minOSVersion": "15.0"
         }
       ],
-      "version": "0.1.112",
-      "versionDate": "2026-11-16T00:46:33Z",
-      "versionDescription": "The newest test build (build 112, Nov 16), before the first numbered release. It may not have been tried yet.\n\nNotes: https://github.com/sithewok13-dev/Raze-iOS-/releases/tag/ios-latest",
-      "downloadURL": "https://github.com/sithewok13-dev/Raze-iOS-/releases/download/ios-latest/Raze.ipa",
-      "size": 21421343,
+      "version": "0.1.125",
+      "versionDate": "2026-11-17T03:24:29Z",
+      "versionDescription": "The first numbered release. Everything here is new:\n- Five games in one app\n- An app icon of its own\n- Touch controls made for these games\n- A weapon wheel\n- A button for every item you carry\n- Duke's jetpack flies where you look\n- Six HUD looks\n- Quick save and quick load\n\nFull notes: https://github.com/sithewok13-dev/Raze-iOS-/releases/tag/ios-v0.1",
+      "downloadURL": "https://github.com/sithewok13-dev/Raze-iOS-/releases/download/ios-v0.1/Raze.ipa",
+      "size": 21474473,
       "appPermissions": {
         "entitlements": [],
         "privacy": {
