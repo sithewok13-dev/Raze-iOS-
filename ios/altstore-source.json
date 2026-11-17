@@ -1,0 +1,79 @@
+{
+  "name": "Raze for iPhone (unofficial)",
+  "identifier": "io.github.sithewok13.raze.source",
+  "subtitle": "Duke Nukem 3D, Blood, Shadow Warrior, Redneck Rampage and PowerSlave on iPhone",
+  "description": "An unofficial port of Raze, the source port for the classic Build engine shooters, to iPhone and iPad, with touch controls. One app plays Duke Nukem 3D, Blood, Shadow Warrior, Redneck Rampage and PowerSlave (Exhumed).\n\nYou need your own copies of the games (GOG or Steam). No game files are included.\n\nIt's a beta. Guide and bug reports: https://github.com/sithewok13-dev/Raze-iOS-/tree/ios\n\nNot affiliated with or endorsed by the games' makers or rights holders, or by the Raze developers.",
+  "iconURL": "https://raw.githubusercontent.com/sithewok13-dev/Raze-iOS-/ios/docs/ios/icon-1024.png",
+  "website": "https://github.com/sithewok13-dev/Raze-iOS-/tree/ios",
+  "tintColor": "#e8641e",
+  "apps": [
+    {
+      "name": "Raze",
+      "bundleIdentifier": "io.github.sithewok13.raze",
+      "developerName": "sithewok13-dev",
+      "subtitle": "Duke 3D, Blood, Shadow Warrior and more, with touch controls",
+      "localizedDescription": "Play the classic Build engine shooters on iPhone and iPad: Duke Nukem 3D (Atomic Edition, World Tour and the add-ons), Blood (with Cryptic Passage), Shadow Warrior (with its add-ons), Redneck Rampage (with Rides Again) and PowerSlave (Exhumed). It's an unofficial port of Raze, by Christoph Oelckers and the Raze team.\n\n- One app, every game: a picker shows a card for each game you copied in.\n- Touch controls: a move stick under your left thumb, drag to look, FIRE with JUMP, USE and CROUCH round it, and a weapon wheel with each weapon's own picture.\n- A button for every item you carry (medkit, jetpack, night vision...), with the item's own picture.\n- Six HUD looks, among them the game's own status bar split into two corners.\n- 60 or 120 frames a second, tilt aiming, sharp or smooth pixels, game controllers.\n- CAMERA: photos, bursts, selfies with the enemies posing, Action Freeze and a cinematic burst.\n- A cheat (sithewok): god mode, all weapons, full ammo, walk through walls, jump to any level.\n- LAN multiplayer on Wi-Fi (Duke, Redneck, Blood, Shadow Warrior): not yet tried between real phones.\n\nYou need your own copies of the games (GOG or Steam); no game files are included. Open the app once, then copy each game's folder into Files > On My iPhone > Raze.\n\nIt's a beta: expect bugs, and back up your saves.\n\nGuide: https://github.com/sithewok13-dev/Raze-iOS-/tree/ios\n\nNot affiliated with or endorsed by the games' makers or rights holders, or by the Raze developers. Free software under the GNU GPL v2 and the BUILD licence.",
+      "iconURL": "https://raw.githubusercontent.com/sithewok13-dev/Raze-iOS-/ios/docs/ios/icon-1024.png",
+      "tintColor": "#e8641e",
+      "category": "games",
+      "screenshots": [
+        {
+          "imageURL": "https://raw.githubusercontent.com/sithewok13-dev/Raze-iOS-/ios/docs/ios/screenshots/duke-classic-hud.jpg",
+          "width": 1600,
+          "height": 737
+        },
+        {
+          "imageURL": "https://raw.githubusercontent.com/sithewok13-dev/Raze-iOS-/ios/docs/ios/screenshots/blood-tommygun.jpg",
+          "width": 1600,
+          "height": 737
+        },
+        {
+          "imageURL": "https://raw.githubusercontent.com/sithewok13-dev/Raze-iOS-/ios/docs/ios/screenshots/sw-katana.jpg",
+          "width": 1600,
+          "height": 737
+        },
+        {
+          "imageURL": "https://raw.githubusercontent.com/sithewok13-dev/Raze-iOS-/ios/docs/ios/screenshots/redneck-shotgun.jpg",
+          "width": 1600,
+          "height": 737
+        },
+        {
+          "imageURL": "https://raw.githubusercontent.com/sithewok13-dev/Raze-iOS-/ios/docs/ios/screenshots/powerslave-mummy.jpg",
+          "width": 1600,
+          "height": 737
+        },
+        {
+          "imageURL": "https://raw.githubusercontent.com/sithewok13-dev/Raze-iOS-/ios/docs/ios/screenshots/duke-pipebomb.jpg",
+          "width": 1600,
+          "height": 737
+        }
+      ],
+      "versions": [
+        {
+          "version": "0.1.112",
+          "buildVersion": "112",
+          "marketingVersion": "ios-latest",
+          "date": "2026-11-16T00:46:33Z",
+          "localizedDescription": "The newest test build (build 112, Nov 16), before the first numbered release. It may not have been tried yet.\n\nNotes: https://github.com/sithewok13-dev/Raze-iOS-/releases/tag/ios-latest",
+          "downloadURL": "https://github.com/sithewok13-dev/Raze-iOS-/releases/download/ios-latest/Raze.ipa",
+          "size": 21421343,
+          "minOSVersion": "15.0"
+        }
+      ],
+      "version": "0.1.112",
+      "versionDate": "2026-11-16T00:46:33Z",
+      "versionDescription": "The newest test build (build 112, Nov 16), before the first numbered release. It may not have been tried yet.\n\nNotes: https://github.com/sithewok13-dev/Raze-iOS-/releases/tag/ios-latest",
+      "downloadURL": "https://github.com/sithewok13-dev/Raze-iOS-/releases/download/ios-latest/Raze.ipa",
+      "size": 21421343,
+      "appPermissions": {
+        "entitlements": [],
+        "privacy": {
+          "NSPhotoLibraryAddUsageDescription": "The CAMERA button saves your photos, bursts and selfies of the game to Photos.",
+          "NSLocalNetworkUsageDescription": "LAN games: Raze finds and joins games of other players on this Wi-Fi."
+        }
+      }
+    }
+  ],
+  "news": [],
+  "headerURL": "https://raw.githubusercontent.com/sithewok13-dev/Raze-iOS-/ios/docs/ios/screenshots/duke-classic-hud.jpg"
+}

@@ -317,6 +317,18 @@ workflow run ios.yml --ref <branch>`) builds without publishing: use one to
 compile-check Objective-C. The build stamp ("build 80 · Nov 9") shows under
 the open MENU tray.
 
+Numbered releases: a manual run of `ios` with `release=<tag>` (`gh workflow
+run ios.yml --ref ios -f release=ios-v0.1`), modelled on Serious Sam's: it
+stops unless the run is on `ios`, the tag is `ios-v*` and not on another
+commit, and `ios/RELEASE_NOTES.md` has the exact line `### What's in <tag>`;
+it creates the tag at the built commit with the notes as its text and only
+the files in `RELEASE_IPAS` (`Raze.ipa`), then adds the release to the
+AltStore / SideStore source `ios/altstore-source.json`
+(`ios/update_altstore_source.py`, committed to `ios` by GITHUB_TOKEN, which
+starts no run). Every run fails if game files end up in the app. The README's
+top section, `docs/ios/screenshots/` and the source's icon
+(`docs/ios/icon-1024.png`) are for people finding the port.
+
 ## Rules
 
 - **Game data:** never commit, upload, bundle or publish game files (GRP,
@@ -331,7 +343,7 @@ the open MENU tray.
   - No PRs unless asked. Never stash, reset or check out over a working tree
     that another job may be editing. Push with `git push -u origin ios`
     (pull first); never force-push, never push tags.
-- **Releases:** no versioned release yet; each push to `ios` updates the
+- **Releases:** none numbered yet (`ios-v0.1` is next); each push to `ios` updates the
   public `ios-latest` prerelease (the owner's go). Before any other public
   release or public text, build a preview and wait for the owner's explicit
   go.
